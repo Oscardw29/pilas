@@ -1,0 +1,555 @@
+import React, { useState } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Flame,
+  Trophy,
+  CheckCircle2,
+  Clock,
+  Edit,
+  Trash2,
+  AlarmClock,
+  Pause,
+  Play,
+  Hourglass,
+} from 'lucide-react';
+import { useStore, useData } from '@/store/useStore';
+import { useToast } from '@/components/ui/ToastContext';
+import {
+  currentStreak,
+  bestStreak,
+  consistency,
+  recoveryStats,
+  isScheduled,
+  getLog,
+  getDayStreakStatus,
+  calculateGlobalStreak,
+  isDoneLog,
+  isHabitPausedOnDate,
+  pointsFor,
+} from '@/lib/metrics';
+import {
+  addDaysKey,
+  formatRange,
+  fromKey,
+  startOfWeek,
+  todayKey,
+  toKey,
+  weekDays,
+  DAY_SHORT,
+  weekdayIndex,
+} from '@/lib/dates';
+import { HabitModal } from '@/components/modals/HabitModal';
+import { FailReasonModal } from '@/components/modals/FailReasonModal';
+import { HabitProgressModal } from '@/components/modals/HabitProgressModal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { fireHabitPop } from '@/lib/confetti';
+import { celebrateStreakChange, streakSnapshot } from '@/lib/streakCelebration';
+import { playSound } from '@/lib/sound';
+import { StatusIcon, StatusLabel } from '@/components/ui/icons';
+import type { Habit, HabitLog } from '@/types';
+
+export const WeekView: React.FC = () => {
+  const data = useData();
+  const logHabit = useStore((s) => s.logHabit);
+  const clearLog = useStore((s) => s.clearLog);
+  const deleteHabit = useStore((s) => s.deleteHabit);
+  const setHabitStatus = useStore((s) => s.setHabitStatus);
+  const { toast } = useToast();
+
+  const T = todayKey();
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date()));
+  const [editingHabit, setEditingHabit] = useState<Habit | undefined>();
+  const [showHabitModal, setShowHabitModal] = useState(false);
+  const [failModalInfo, setFailModalInfo] = useState<{ habit: Habit; date: string } | null>(null);
+  const [progressModalInfo, setProgressModalInfo] = useState<{ habit: Habit; date: string } | null>(null);
+  const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
+
+  const days = weekDays(currentWeekStart);
+  const isCurrentWeek = toKey(currentWeekStart) === toKey(startOfWeek(new Date()));
+  const visibleHabits = data.habits.filter((h) => h.status === 'active' || h.status === 'paused');
+  const activeHabits = data.habits.filter((h) => h.status === 'active');
+
+  const handleCellClick = (h: Habit, dateKey: string, e?: React.MouseEvent) => {
+    // Si la fecha es en el futuro respecto a hoy, no permitir
+    if (dateKey > T) return;
+
+    if (h.kind === 'time' || h.kind === 'quantity') {
+      setProgressModalInfo({ habit: h, date: dateKey });
+      return;
+    }
+
+    const existing = getLog(data, h.id, dateKey);
+
+    // Ciclo de clics en la celda:
+    // Sin registro -> Completo -> Mínimo -> Fallo (Preguntar) -> Limpiar
+    if (!existing) {
+      const before = streakSnapshot();
+      logHabit(h.id, dateKey, 'full');
+      playSound.complete();
+      toast(`+${h.points} pts · «${h.name}» completado`, 'success');
+      if (e) {
+        fireHabitPop(e.clientX, e.clientY);
+      }
+
+      // Celebración si este registro activó la racha o la súper racha de hoy
+      celebrateStreakChange(before, dateKey);
+    } else if (existing.status === 'full') {
+      logHabit(h.id, dateKey, 'minimum');
+      playSound.pop();
+      toast(`«${h.name}» marcado como versión mínima (+${pointsFor(h, 'minimum', data.settings.minimumRatio)} pts)`, 'success');
+    } else if (existing.status === 'minimum') {
+      if (data.settings.askFailReason) {
+        setFailModalInfo({ habit: h, date: dateKey });
+      } else {
+        logHabit(h.id, dateKey, 'missed');
+        playSound.click();
+        toast(`«${h.name}» marcado como no realizado`, 'warning');
+      }
+    } else {
+      clearLog(h.id, dateKey);
+      playSound.click();
+      toast(`Registro removido para «${h.name}»`, 'info');
+    }
+  };
+
+  const handleDeleteHabit = (h: Habit) => {
+    setHabitToDelete(h);
+  };
+
+  return (
+    <div className="stack fade-up">
+      {/* Cabecera */}
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Matriz semanal interactiva</p>
+          <h1>Mi semana</h1>
+        </div>
+        <div className="actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setEditingHabit(undefined);
+              setShowHabitModal(true);
+            }}
+          >
+            <Plus size={16} /> Nuevo hábito
+          </button>
+        </div>
+      </div>
+
+      {/* Barra de navegación de semanas */}
+      <div className="card flush">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="icon-btn sm"
+              onClick={() => setCurrentWeekStart((prev) => fromKey(addDaysKey(toKey(prev), -7)))}
+              title="Semana anterior"
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <span style={{ fontWeight: 600, fontSize: 15 }}>
+              {formatRange(currentWeekStart)}
+            </span>
+
+            <button
+              className="icon-btn sm"
+              onClick={() => setCurrentWeekStart((prev) => fromKey(addDaysKey(toKey(prev), 7)))}
+              title="Semana siguiente"
+              aria-label="Semana siguiente"
+            >
+              <ChevronRight size={16} />
+            </button>
+
+            {!isCurrentWeek && (
+              <button
+                className="btn btn-secondary sm"
+                onClick={() => setCurrentWeekStart(startOfWeek(new Date()))}
+                style={{ marginLeft: 8 }}
+              >
+                Esta semana
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--muted)' }}>
+            <span className="icon-label" style={{ gap: 6, flexWrap: 'wrap' }}>
+              <strong>Tip:</strong> clic en la celda alterna
+              <StatusLabel status="full">Completo</StatusLabel>→
+              <StatusLabel status="minimum">Mínimo</StatusLabel>→
+              <StatusLabel status="missed">No hecho</StatusLabel>
+            </span>
+          </div>
+        </div>
+
+        {/* Tabla matriz de hábitos o Estado Vacío */}
+        {visibleHabits.length > 0 ? (
+          <>
+            <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 220 }}>Hábito</th>
+                  {days.map((d) => {
+                    const dk = toKey(d);
+                    const isToday = dk === T;
+                    return (
+                      <th key={dk} style={{ textAlign: 'center', width: 56, background: isToday ? 'rgba(139, 92, 246, 0.08)' : 'transparent' }}>
+                        <div style={{ fontSize: 11, color: isToday ? 'var(--accent-2)' : 'var(--muted)' }}>
+                          {DAY_SHORT[weekdayIndex(d)]}
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: isToday ? 800 : 600, color: isToday ? '#fff' : 'inherit' }}>
+                          {d.getDate()}
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th style={{ textAlign: 'center', minWidth: 100 }}>
+                    <Flame size={14} style={{ display: 'inline', marginRight: 4, color: 'var(--warning)' }} />
+                    Racha
+                  </th>
+                  <th style={{ textAlign: 'center', minWidth: 100 }}>
+                    <CheckCircle2 size={14} style={{ display: 'inline', marginRight: 4, color: 'var(--success)' }} />
+                    Consistencia
+                  </th>
+                  <th style={{ textAlign: 'center', minWidth: 120 }}>
+                    <Clock size={14} style={{ display: 'inline', marginRight: 4, color: 'var(--info)' }} />
+                    Recuperación
+                  </th>
+                  <th style={{ width: 80, textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleHabits.map((h) => {
+                  const isPaused = h.status === 'paused';
+                  const streakCur = isPaused ? 0 : currentStreak(data, h, T);
+                  const streakTop = bestStreak(data, h, T);
+                  const cons = consistency(data, h, 30, T);
+                  const rec = recoveryStats(data, h, T);
+
+                  return (
+                    <tr key={h.id} style={{ opacity: isPaused ? 0.78 : 1 }}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 22 }}>{h.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {h.name}
+                              {isPaused && (
+                                <span className="badge paused-badge">
+                                  <Pause size={10} strokeWidth={3} aria-hidden="true" /> Pausado
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              +{h.points} pts
+                              {h.kind === 'time' && (h.targetMinutes ? ` · ${h.targetMinutes} min` : '')}
+                              {h.kind === 'quantity' && (h.targetQuantity ? ` · ${h.targetQuantity} ${h.quantityUnit || 'reps'}` : '')}
+                              {!h.kind && h.targetMinutes ? ` · ${h.targetMinutes} min` : ''}
+                              {h.minimumMinutes && <span style={{ color: 'var(--minimum)' }}> (mín: {h.minimumMinutes}m)</span>}
+                              {h.reminderTime && (
+                                <span className="icon-label" style={{ color: 'var(--accent-2)', fontWeight: 600, marginLeft: 4 }}>
+                                  · <AlarmClock size={11} aria-hidden="true" /> {h.reminderTime}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Celdas de los días */}
+                      {days.map((d) => {
+                        const dk = toKey(d);
+                        const isToday = dk === T;
+                        const isFuture = dk > T;
+                        const isPausedOnDate = isHabitPausedOnDate(h, dk);
+
+                        // Si el hábito estuvo o está en pausa en esta fecha
+                        if (isPausedOnDate) {
+                          if (isToday) {
+                            // Hoy: celda con el mismo formato que las demás; muestra «pausa» y al pasar el ratón «reanudar»
+                            return (
+                              <td
+                                key={dk}
+                                style={{
+                                  textAlign: 'center',
+                                  padding: 6,
+                                  background: 'rgba(234, 179, 8, 0.06)',
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    clearLog(h.id, dk);
+                                    setHabitStatus(h.id, 'active');
+                                    toast(`Hábito «${h.name}» reactivado`, 'success');
+                                  }}
+                                  className="matrix-cell-btn resume-cell"
+                                  title="Hábito en pausa. Haz clic para reanudarlo hoy"
+                                  aria-label="Hábito en pausa. Haz clic para reanudarlo hoy"
+                                >
+                                  <Pause className="resume-cell-idle" size={15} strokeWidth={2.6} aria-hidden="true" />
+                                  <Play className="resume-cell-hover" size={15} strokeWidth={2.6} aria-hidden="true" />
+                                </button>
+                              </td>
+                            );
+                          }
+
+                          // Días pasados o futuros en pausa: guión '-'
+                          return (
+                            <td
+                              key={dk}
+                              style={{
+                                textAlign: 'center',
+                                padding: 6,
+                                background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
+                              }}
+                            >
+                              <span style={{ color: '#eab308', opacity: 0.5, fontSize: 14, userSelect: 'none' }} title="Hábito pausado en esta fecha">
+                                —
+                              </span>
+                            </td>
+                          );
+                        }
+
+                        const scheduled = isScheduled(h, dk);
+                        const log = getLog(data, h.id, dk);
+
+                        // Si el hábito NO está programado para este día de la semana, no mostrar botón de completado
+                        if (!scheduled) {
+                          return (
+                            <td
+                              key={dk}
+                              style={{
+                                textAlign: 'center',
+                                padding: 6,
+                                background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
+                              }}
+                            >
+                              <span style={{ color: 'var(--muted)', opacity: 0.3, fontSize: 14, userSelect: 'none' }}>
+                                —
+                              </span>
+                            </td>
+                          );
+                        }
+
+                        let bg = 'var(--surface-2)';
+                        let border = 'var(--border-2)';
+                        const status: HabitLog['status'] | undefined = log?.status;
+                        let color = 'inherit';
+
+                        if (status === 'full') {
+                          bg = h.color;
+                          border = h.color;
+                          color = '#fff';
+                        } else if (status === 'minimum') {
+                          bg = 'var(--minimum)';
+                          border = 'var(--minimum)';
+                          color = '#06201c';
+                        } else if (status === 'missed') {
+                          bg = 'rgba(248, 113, 113, 0.2)';
+                          border = 'var(--danger)';
+                          color = 'var(--danger)';
+                        } else if (status === 'partial') {
+                          // Avance registrado que aún no alcanza el mínimo
+                          bg = 'rgba(45, 212, 191, 0.08)';
+                          border = 'var(--minimum)';
+                          color = 'var(--minimum)';
+                        }
+
+                        return (
+                          <td
+                            key={dk}
+                            style={{
+                              textAlign: 'center',
+                              padding: 6,
+                              background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              disabled={isFuture}
+                              onClick={(e) => handleCellClick(h, dk, e)}
+                              className={`matrix-cell-btn ${log?.status ? 'filled' : ''}`}
+                              style={{
+                                background: bg,
+                                border: `1.5px solid ${border}`,
+                                color,
+                                opacity: isFuture ? 0.3 : 1,
+                                cursor: isFuture ? 'not-allowed' : 'pointer',
+                              }}
+                              title={
+                                isFuture
+                                  ? 'Día futuro'
+                                  : log?.status === 'full'
+                                  ? 'Objetivo completo'
+                                  : log?.status === 'minimum'
+                                  ? 'Versión mínima'
+                                  : log?.status === 'missed'
+                                  ? `No realizado: ${log.failReason ?? ''}`
+                                  : log?.status === 'partial'
+                                  ? `Avance parcial: ${log.minutes ? `${log.minutes} min` : `${log.quantity ?? 0}`} (aún sin mínimo)`
+                                  : 'Programado hoy - clic para completar'
+                              }
+                            >
+                              {status && <StatusIcon status={status} size={16} strokeWidth={status === 'full' ? 3 : 2.6} />}
+                            </button>
+                          </td>
+                        );
+                      })}
+
+                    {/* Racha actual / mejor */}
+                    <td style={{ textAlign: 'center', fontSize: 13 }}>
+                      <strong>{streakCur}d</strong>{' '}
+                      <small style={{ color: 'var(--muted)' }}>({streakTop}d)</small>
+                    </td>
+
+                    {/* Consistencia 30d */}
+                    <td style={{ textAlign: 'center', fontWeight: 600, fontSize: 13 }}>
+                      {cons != null ? `${Math.round(cons * 100)}%` : '—'}
+                    </td>
+
+                    {/* Métricas de Recuperación */}
+                    <td style={{ textAlign: 'center', fontSize: 12 }}>
+                      {rec.average != null ? (
+                        <div>
+                          <div className="icon-label" style={{ justifyContent: 'center' }}>
+                            <Hourglass size={12} color="var(--info)" aria-hidden="true" /> <strong>{rec.average.toFixed(1)}d</strong> prom.
+                          </div>
+                          <div style={{ color: 'var(--muted)', fontSize: 11 }}>
+                            Mejor: {rec.best}d
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--muted)' }}>Sin fallas</span>
+                      )}
+                    </td>
+
+                    {/* Acciones */}
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 4 }}>
+                        <button
+                          className="icon-btn sm"
+                          onClick={() => {
+                            setEditingHabit(h);
+                            setShowHabitModal(true);
+                          }}
+                          title="Editar hábito"
+                          aria-label="Editar hábito"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          className="icon-btn sm danger"
+                          onClick={() => handleDeleteHabit(h)}
+                          title="Eliminar hábito"
+                          aria-label="Eliminar hábito"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Leyenda de la tabla */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '14px 20px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--muted)', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="legend-cell" style={{ background: 'var(--accent)', color: '#fff' }}><StatusIcon status="full" size={10} strokeWidth={3.2} /></span> Objetivo completo (+100%)
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="legend-cell" style={{ background: 'var(--minimum)', color: '#06201c' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'rgba(248, 113, 113, 0.2)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="legend-cell" style={{ border: '1.5px solid rgba(251, 191, 36, 0.45)', background: 'var(--warning-soft)', color: 'var(--warning)' }}><StatusIcon status="paused" size={9} strokeWidth={3} /></span> En pausa
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: 'var(--muted)', opacity: 0.5, fontWeight: 700 }}>—</span> No programado hoy
+          </span>
+          <span style={{ marginLeft: 'auto' }}>
+            <Trophy size={14} style={{ display: 'inline', marginRight: 4, color: 'var(--warning)' }} /> Volver tras una falla cuenta como victoria en <strong>Recuperación</strong>.
+          </span>
+        </div>
+        </>
+      ) : (
+        <div className="card empty" style={{ padding: '60px 24px', textAlign: 'center' }}>
+          <div className="empty-icon" style={{ margin: '0 auto 16px' }}>
+            <CheckCircle2 size={38} style={{ color: 'var(--accent-2)' }} />
+          </div>
+          <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No hay hábitos activos todavía</h3>
+          <p style={{ color: 'var(--text-2)', maxWidth: 460, margin: '0 auto 20px', fontSize: 14 }}>
+            Establece tu primer hábito para comenzar tu semana y organizar tus días con consistencia.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setEditingHabit(undefined);
+              setShowHabitModal(true);
+            }}
+          >
+            <Plus size={16} /> Establecer mi primer hábito
+          </button>
+        </div>
+      )}
+      </div>
+
+      {showHabitModal && (
+        <HabitModal
+          isOpen={showHabitModal}
+          onClose={() => setShowHabitModal(false)}
+          habitToEdit={editingHabit}
+        />
+      )}
+
+      {failModalInfo && (
+        <FailReasonModal
+          isOpen={!!failModalInfo}
+          onClose={() => setFailModalInfo(null)}
+          habit={failModalInfo.habit}
+          date={failModalInfo.date}
+        />
+      )}
+
+      {progressModalInfo && (
+        <HabitProgressModal
+          isOpen={!!progressModalInfo}
+          onClose={() => setProgressModalInfo(null)}
+          habit={progressModalInfo.habit}
+          dateKey={progressModalInfo.date}
+        />
+      )}
+
+      {/* Modal de confirmación para eliminar hábito */}
+      <ConfirmModal
+        isOpen={Boolean(habitToDelete)}
+        onClose={() => setHabitToDelete(null)}
+        onConfirm={() => {
+          if (habitToDelete) {
+            deleteHabit(habitToDelete.id);
+            toast(`Hábito «${habitToDelete.name}» eliminado`, 'info');
+            setHabitToDelete(null);
+          }
+        }}
+        title="Eliminar hábito"
+        message={
+          habitToDelete
+            ? `¿Estás seguro de que deseas eliminar «${habitToDelete.name}»? Los puntos y estadísticas ya obtenidos se mantendrán.`
+            : ''
+        }
+        confirmLabel="Eliminar hábito"
+        danger
+      />
+    </div>
+  );
+};
