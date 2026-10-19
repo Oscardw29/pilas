@@ -2163,7 +2163,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 42%); mask-image: radial-gradient(circle, #000 0%, transparent 42%);
   opacity: 0; animation: raysIn .8s ease .5s both, raysSpin 18s linear .5s infinite;
 }
-.celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(250, 204, 21, 0.11) 0deg 8deg, transparent 8deg 24deg); animation: raysIn .8s ease .85s both, raysSpin 24s linear .85s infinite; }
+.celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(250, 204, 21, 0.11) 0deg 8deg, transparent 8deg 24deg); animation: raysIn .8s ease 2.6s both, raysSpin 24s linear 2.6s infinite; }
 .is-freeze .celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(56, 189, 248, 0.13) 0deg 8deg, transparent 8deg 24deg); }
 @keyframes raysIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes raysSpin { to { transform: rotate(360deg); } }
@@ -2205,7 +2205,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   color: #fbbf24; animation: copyUp .5s cubic-bezier(.16, 1, .3, 1) .9s both;
 }
 .is-super .celebrate-kicker { color: #d8b4fe; animation-delay: 1.05s; }
-.is-reward .celebrate-kicker { color: #facc15; animation-delay: 1.15s; }
+.is-reward .celebrate-kicker { color: #facc15; animation-delay: 2.95s; }
 .is-freeze .celebrate-kicker { color: #38bdf8; }
 .celebrate-title {
   margin: 0; font-size: clamp(26px, 6vw, 34px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.1;
@@ -2217,12 +2217,12 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   background-size: 250% 100%; -webkit-background-clip: text; background-clip: text;
   animation: copyUp .55s cubic-bezier(.16, 1, .3, 1) 1.15s both, titleShimmer 2.4s linear 1.4s infinite;
 }
-.is-reward .celebrate-title { background: linear-gradient(100deg, #fff 30%, #fde68a 70%, #f59e0b 100%); -webkit-background-clip: text; background-clip: text; animation-delay: 1.25s; }
+.is-reward .celebrate-title { background: linear-gradient(100deg, #fff 30%, #fde68a 70%, #f59e0b 100%); -webkit-background-clip: text; background-clip: text; animation-delay: 3.05s; }
 .is-freeze .celebrate-title { background: linear-gradient(100deg, #fff 30%, #bae6fd 70%, #38bdf8 100%); -webkit-background-clip: text; background-clip: text; }
 @keyframes titleShimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
 .celebrate-sub { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.45; max-width: 360px; animation: copyUp .55s cubic-bezier(.16, 1, .3, 1) 1.12s both; }
 .is-super .celebrate-sub { animation-delay: 1.25s; }
-.is-reward .celebrate-sub { animation-delay: 1.35s; }
+.is-reward .celebrate-sub { animation-delay: 3.15s; }
 .celebrate-hint { font-size: 11px; color: var(--muted); margin-top: 6px; animation: copyUp .5s ease 1.6s both; }
 @keyframes copyUp { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
 
@@ -2240,49 +2240,202 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   100% { opacity: 0; transform: translate(var(--drift, 0), -105vh) scale(1.1); }
 }
 
-/* ---------- Cofre de recompensa ---------- */
-.reward-chest { position: relative; width: 200px; height: 200px; animation: chestDrop .6s cubic-bezier(.34, 1.56, .64, 1) both; }
+/* ---------- Cofre de recompensa ----------
+   Secuencia (s): cae y rebota 0–0.7 · sacudidas 0.9 / 1.42 / 2.0 · se abre 2.56 · premio visible ~3.2.
+   Los momentos deben coincidir con LAND_MS, SHAKE_MS y OPEN_MS de RewardCelebrationOverlay.tsx. */
+.reward-chest {
+  --wood-hi: #8b5cf6; --wood-1: #6d28d9; --wood-2: #4c1d95; --wood-3: #2e1065; --wood-edge: #1a0933;
+  --metal-1: #fef3c7; --metal-2: #f59e0b; --metal-3: #92400e;
+  --gem-1: #fff7ed; --gem-2: #fbbf24; --gem-3: #9a3412;
+  --glow: #fde68a; --glow-soft: rgba(251, 191, 36, 0.7);
+  position: relative; width: 240px; height: 210px; margin-top: 46px;
+  transform-origin: 50% 88%;
+  animation: chestDrop .7s both;
+}
+.is-freeze .reward-chest {
+  --wood-hi: #38bdf8; --wood-1: #0369a1; --wood-2: #0c4a6e; --wood-3: #082f49; --wood-edge: #04131f;
+  --metal-1: #f0f9ff; --metal-2: #7dd3fc; --metal-3: #0e7490;
+  --gem-1: #ecfeff; --gem-2: #22d3ee; --gem-3: #155e75;
+  --glow: #a5f3fc; --glow-soft: rgba(56, 189, 248, 0.7);
+}
+.reward-chest-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @keyframes chestDrop {
-  0% { opacity: 0; transform: translateY(-120px) scale(.7); }
-  55% { opacity: 1; transform: translateY(8px) scale(1.04, .94); }
-  75% { transform: translateY(-4px) scale(.98, 1.03); }
+  0% { opacity: 0; transform: translateY(-150px) scale(.92, 1.08); animation-timing-function: cubic-bezier(.55, 0, 1, .45); }
+  12% { opacity: 1; }
+  50% { transform: translateY(0) scale(1); animation-timing-function: ease-out; }
+  58% { transform: translateY(0) scale(1.1, .88); animation-timing-function: ease-out; }
+  73% { transform: translateY(-16px) scale(.96, 1.05); animation-timing-function: ease-in; }
+  87% { transform: translateY(0) scale(1.03, .97); }
   100% { opacity: 1; transform: none; }
 }
-.reward-chest-body, .reward-chest-lid {
-  position: absolute; left: 30px; right: 30px;
-  background: linear-gradient(180deg, #facc15 0%, #f59e0b 55%, #b45309 100%);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), inset 0 -6px 12px rgba(120, 53, 15, 0.45), 0 18px 30px -10px rgba(0, 0, 0, 0.7);
+
+/* Sombra en el suelo: se encoge cuando el cofre está en el aire */
+.reward-chest-shadow {
+  position: absolute; left: 50%; bottom: 12px; width: 196px; height: 28px; margin-left: -98px; border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 70%);
+  animation: shadowDrop .7s both, shadowHop2 .36s ease-in-out 1.42s, shadowHop3 .44s ease-in-out 2s;
 }
-.reward-chest-body { bottom: 22px; height: 82px; border-radius: 6px 6px 16px 16px; z-index: 3; }
-.reward-chest-lid { bottom: 104px; height: 34px; border-radius: 16px 16px 6px 6px; z-index: 4; transform-origin: 0% 100%; animation: lidOpen .6s cubic-bezier(.34, 1.4, .64, 1) .62s both; }
-@keyframes lidOpen { 0% { transform: rotate(0); } 30% { transform: rotate(5deg) translateY(-4px); } 100% { transform: translate(-10px, 2px) rotate(-100deg); } }
-.reward-chest-ribbon { position: absolute; left: 50%; top: 0; bottom: 0; width: 22px; margin-left: -11px; background: linear-gradient(180deg, #a78bfa, #7c3aed); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18); }
-.is-freeze .reward-chest-body, .is-freeze .reward-chest-lid { background: linear-gradient(180deg, #bae6fd 0%, #38bdf8 55%, #0369a1 100%); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), inset 0 -6px 12px rgba(7, 89, 133, 0.5), 0 18px 30px -10px rgba(0, 0, 0, 0.7); }
-.is-freeze .reward-chest-ribbon { background: linear-gradient(180deg, #e0f2fe, #7dd3fc); }
+@keyframes shadowDrop {
+  0% { opacity: 0; transform: scale(.35); }
+  50% { opacity: 1; transform: scale(1.08, 1); }
+  73% { transform: scale(.88); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes shadowHop2 { 0%, 100% { transform: none; } 30% { transform: scale(.93); } }
+@keyframes shadowHop3 { 0%, 100% { transform: none; } 25%, 40% { transform: scale(.85); opacity: .75; } }
+
+/* Aparejo: todo lo que se sacude junto (tapa, cuerpo, luz y premio) */
+.reward-chest-rig {
+  position: absolute; inset: 0; transform-origin: 50% 88%;
+  perspective: 700px; perspective-origin: 50% 30%;
+  animation: chestShake1 .3s ease-in-out .9s, chestShake2 .36s ease-in-out 1.42s, chestShake3 .44s ease-in-out 2s, chestBurst .5s ease-out 2.46s;
+}
+/* Tres movimientos leves, cada uno más intenso que el anterior */
+@keyframes chestShake1 {
+  0%, 100% { transform: none; }
+  20% { transform: rotate(-2.5deg); }
+  45% { transform: rotate(2.5deg); }
+  70% { transform: rotate(-1.4deg); }
+  86% { transform: rotate(.6deg); }
+}
+@keyframes chestShake2 {
+  0%, 100% { transform: none; }
+  18% { transform: translateY(-6px) rotate(-4deg); }
+  40% { transform: translateY(-7px) rotate(4deg); }
+  62% { transform: translateY(0) rotate(-2deg) scale(1.03, .96); }
+  82% { transform: rotate(1deg); }
+}
+@keyframes chestShake3 {
+  0%, 100% { transform: none; }
+  15% { transform: translateY(-13px) rotate(-6.5deg); }
+  35% { transform: translateY(-15px) rotate(6.5deg); }
+  55% { transform: translateY(-4px) rotate(-3.5deg); }
+  70% { transform: translateY(0) scale(1.06, .92); }
+  86% { transform: rotate(1.4deg) scale(.98, 1.03); }
+}
+/* Se agacha y se estira justo cuando salta la tapa */
+@keyframes chestBurst {
+  0%, 100% { transform: none; }
+  20% { transform: scale(1.07, .9); }
+  50% { transform: translateY(-5px) scale(.96, 1.06); }
+}
+
+.reward-chest-body { position: absolute; left: 32px; bottom: 26px; width: 176px; height: 96px; z-index: 4; overflow: visible; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.45)); }
+
+/* Tapa: dos caras (exterior e interior) que giran en 3D sobre la bisagra */
+.reward-chest-lid {
+  position: absolute; left: 32px; bottom: 120px; width: 176px; height: 58px; z-index: 2;
+  transform-origin: 50% 0%; transform-style: preserve-3d;
+  animation: lidPeek1 .3s ease-in-out .9s, lidPeek2 .36s ease-in-out 1.42s, lidPeek3 .44s ease-in-out 2s, lidOpen .8s cubic-bezier(.2, .9, .3, 1.12) 2.56s forwards;
+}
+.reward-lid-face { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.reward-lid-face.lid-inner { transform: rotateX(180deg); }
+/* La tapa se levanta un poco más con cada sacudida y deja ver la luz */
+@keyframes lidPeek1 { 0%, 100% { transform: none; } 35% { transform: translateY(-3px) rotate(-1deg); } 65% { transform: translateY(-1px) rotate(.6deg); } }
+@keyframes lidPeek2 { 0%, 100% { transform: none; } 25% { transform: translateY(-6px) rotate(1.5deg); } 55% { transform: translateY(-4px) rotate(-1.2deg); } 80% { transform: translateY(-1px); } }
+@keyframes lidPeek3 { 0%, 100% { transform: none; } 20% { transform: translateY(-10px) rotate(-2.2deg); } 45% { transform: translateY(-9px) rotate(2deg); } 70% { transform: translateY(-3px) rotate(-1deg); } }
+/* Salta, gira sobre la bisagra y queda apoyada detrás del cofre mostrando su cara interior */
+@keyframes lidOpen {
+  0% { transform: translateY(0) rotateX(0); }
+  30% { transform: translateY(-30px) rotateX(70deg); }
+  100% { transform: translateY(55px) rotateX(165deg); }
+}
+
+/* Brillo que recorre los bordes al aterrizar */
+.chest-sheen { animation: sheenSweep .9s ease-in-out .45s both; }
+@keyframes sheenSweep { from { transform: translateX(0); } to { transform: translateX(290px); } }
+
+/* Luz que se escapa por la rendija: crece con cada sacudida y estalla al abrir */
+.reward-crack {
+  position: absolute; left: 50%; bottom: 118px; width: 156px; height: 6px; margin-left: -78px; z-index: 5; border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--glow) 14%, #fff 35%, #fff 65%, var(--glow) 86%, transparent);
+  box-shadow: 0 0 10px 3px var(--glow-soft), 0 0 28px 8px var(--glow-soft); filter: blur(.6px); pointer-events: none;
+  animation: crackGlow 1.66s ease-in-out .9s both, crackBurst .6s ease-out 2.56s forwards;
+}
+.reward-crack-halo {
+  position: absolute; left: 50%; bottom: 84px; width: 280px; height: 76px; margin-left: -140px; z-index: 5; border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--glow-soft) 0%, rgba(0, 0, 0, 0) 70%);
+  mix-blend-mode: screen; pointer-events: none;
+  animation: haloGlow 1.66s ease-in-out .9s both, haloBurst .7s ease-out 2.56s forwards;
+}
+/* Rayos finos que suben desde la rendija */
+.reward-crack-halo::before {
+  content: ''; position: absolute; left: 18%; right: 18%; bottom: 50%; height: 70px;
+  background: repeating-linear-gradient(90deg, var(--glow-soft) 0 2px, transparent 2px 13px);
+  clip-path: polygon(32% 100%, 68% 100%, 100% 0, 0 0);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent); mask-image: linear-gradient(to top, #000, transparent);
+}
+.chest-keyhole-glow { animation: keyholeGlow 1.66s ease-in-out .9s both; }
+@keyframes crackGlow {
+  0% { opacity: .15; transform: scaleX(.55); }
+  6% { opacity: .55; transform: scaleX(.7); }
+  21% { opacity: .3; transform: scaleX(.62); }
+  37% { opacity: .8; transform: scaleX(.82); }
+  57% { opacity: .5; transform: scaleX(.75); }
+  72% { opacity: 1; transform: scaleX(.95); }
+  93% { opacity: .8; transform: scaleX(.9); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes haloGlow {
+  0% { opacity: .1; transform: scale(.55); }
+  6% { opacity: .4; transform: scale(.65); }
+  21% { opacity: .22; transform: scale(.6); }
+  37% { opacity: .62; transform: scale(.78); }
+  57% { opacity: .42; transform: scale(.72); }
+  72% { opacity: .9; transform: scale(.92); }
+  93% { opacity: .7; transform: scale(.88); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes keyholeGlow {
+  0% { opacity: .2; } 6% { opacity: .6; } 21% { opacity: .35; } 37% { opacity: .8; } 57% { opacity: .55; } 72%, 100% { opacity: 1; }
+}
+@keyframes crackBurst {
+  0% { opacity: 1; transform: scale(1); }
+  30% { opacity: 1; transform: scale(1.15, 4); }
+  100% { opacity: 0; transform: scale(1.2, 7); }
+}
+@keyframes haloBurst {
+  0% { opacity: 1; transform: scale(1); }
+  35% { opacity: 1; transform: scale(1.7); }
+  100% { opacity: .55; transform: scale(1.45); }
+}
+
+/* Motas de luz que escapan con cada sacudida */
+.reward-motes { position: absolute; left: 50%; bottom: 120px; z-index: 5; pointer-events: none; }
+.reward-motes span {
+  position: absolute; left: 0; top: 0; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, var(--glow) 45%, rgba(0, 0, 0, 0) 75%);
+  opacity: 0; animation: moteRise .9s ease-out both;
+}
+@keyframes moteRise {
+  0% { opacity: 0; transform: translate(var(--x), 0) scale(.5); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--x) + var(--drift)), var(--rise)) scale(1.1); }
+}
 
 /* Haz de luz que sale al abrir */
 .reward-beam {
-  position: absolute; left: 50%; bottom: 96px; width: 150px; height: 230px; margin-left: -75px; z-index: 1;
+  position: absolute; left: 50%; bottom: 118px; width: 170px; height: 250px; margin-left: -85px; z-index: 1;
   background: linear-gradient(to top, rgba(253, 224, 71, 0.85), rgba(253, 224, 71, 0) 85%);
   clip-path: polygon(30% 100%, 70% 100%, 100% 0, 0 0); filter: blur(4px);
-  transform-origin: 50% 100%; opacity: 0; animation: beamUp .7s ease-out .8s both;
+  transform-origin: 50% 100%; opacity: 0; animation: beamUp .7s ease-out 2.6s both;
 }
 .is-freeze .reward-beam { background: linear-gradient(to top, rgba(125, 211, 252, 0.9), rgba(125, 211, 252, 0) 85%); }
 @keyframes beamUp { from { opacity: 0; transform: scaleY(.1); } to { opacity: 1; transform: none; } }
 
 /* El premio sube desde el cofre */
 .reward-prize {
-  position: absolute; left: 50%; bottom: 70px; z-index: 2; width: 110px; height: 110px; margin-left: -55px;
+  position: absolute; left: 50%; bottom: 40px; z-index: 3; width: 110px; height: 110px; margin-left: -55px;
   display: grid; place-items: center; color: #fff;
-  opacity: 0; animation: prizeRise .8s cubic-bezier(.34, 1.56, .64, 1) .82s both, prizeFloat 2.2s ease-in-out 1.7s infinite;
+  opacity: 0; animation: prizeRise .8s cubic-bezier(.34, 1.56, .64, 1) 2.66s both, prizeFloat 2.2s ease-in-out 3.46s infinite;
 }
 .reward-prize-emoji { font-size: 80px; line-height: 1; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55)); }
 .reward-prize svg { filter: drop-shadow(0 0 18px rgba(56, 189, 248, 0.9)); color: #e0f2fe; }
-@keyframes prizeRise { 0% { opacity: 0; transform: translateY(40px) scale(.3); } 100% { opacity: 1; transform: translateY(-96px) scale(1); } }
-@keyframes prizeFloat { 0%, 100% { transform: translateY(-96px); } 50% { transform: translateY(-106px); } }
+@keyframes prizeRise { 0% { opacity: 0; transform: translateY(30px) scale(.3); } 100% { opacity: 1; transform: translateY(-118px) scale(1); } }
+@keyframes prizeFloat { 0%, 100% { transform: translateY(-118px); } 50% { transform: translateY(-128px); } }
 
 /* Monedas / cristales en abanico */
-.reward-burst { position: absolute; left: 50%; bottom: 120px; z-index: 5; pointer-events: none; }
+.reward-burst { position: absolute; left: 50%; bottom: 130px; z-index: 6; pointer-events: none; }
 .reward-burst span {
   position: absolute; left: -8px; top: -8px; color: #fde047; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
   opacity: 0; animation: coinFly 1.1s cubic-bezier(.2, .7, .4, 1) both;
@@ -2295,18 +2448,32 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 90px)) scale(1) rotate(var(--rot)); }
 }
 
+/* La pista espera a que se abra el cofre */
+.is-reward .celebrate-hint { animation-delay: 3.4s; }
+
 .reward-cost {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
   background: rgba(234, 179, 8, 0.16); border: 1px solid rgba(234, 179, 8, 0.4); color: #fef08a; font-variant-numeric: tabular-nums;
-  animation: badgePop .45s cubic-bezier(.34, 1.56, .64, 1) 1.05s both;
+  animation: badgePop .45s cubic-bezier(.34, 1.56, .64, 1) 2.9s both;
 }
 .is-freeze .reward-cost { background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; }
 
 /* Movimiento reducido: sin chispas, rayos ni partículas; solo el contenido final */
 @media (prefers-reduced-motion: reduce) {
-  .celebrate-particles, .celebrate-rays, .celebrate-flash, .celebrate-spark, .celebrate-ring, .reward-burst, .reward-beam { display: none; }
+  .celebrate-particles, .celebrate-rays, .celebrate-flash, .celebrate-spark, .celebrate-ring, .reward-burst, .reward-beam, .reward-motes, .reward-crack { display: none; }
   .coach-fab::after { display: none; }
+  /* Cofre: sin caída ni sacudidas; aparece ya abierto con un fundido (gana a la regla global por especificidad) */
+  .celebrate-overlay.is-reward .reward-chest { animation: rewardFadeIn .5s ease both !important; }
+  .celebrate-overlay.is-reward .reward-chest-rig,
+  .celebrate-overlay.is-reward .reward-chest-shadow,
+  .celebrate-overlay.is-reward .chest-sheen { animation: none !important; }
+  .celebrate-overlay.is-reward .reward-chest-lid { animation: none !important; transform: translateY(55px) rotateX(165deg); }
+  .celebrate-overlay.is-reward .reward-crack-halo { animation: none !important; opacity: .7; transform: scale(1.3); }
+  .celebrate-overlay.is-reward .chest-keyhole-glow { animation: none !important; opacity: 1; }
+  .celebrate-overlay.is-reward .reward-prize { animation: none !important; opacity: 1; transform: translateY(-118px); }
+  .celebrate-overlay.is-reward .celebrate-copy > * { animation: rewardFadeIn .5s ease .15s both !important; }
 }
+@keyframes rewardFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 639.98px) {
   .celebrate-emblem { width: 210px; height: 210px; }
   .celebrate-emblem .celebrate-flame > div { transform: scale(.88); }

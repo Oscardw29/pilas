@@ -3,8 +3,6 @@ import { Clapperboard, Flame, Gift, Snowflake } from 'lucide-react';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
 import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
-import { fireRewardCelebration, fireIceFreezeCelebration } from '@/lib/confetti';
-import { playSound } from '@/lib/sound';
 
 const MIN_DAYS = 1;
 const MAX_DAYS = 365;
@@ -33,15 +31,12 @@ export const AnimationTestCard: React.FC = () => {
     triggerStreakCelebration({ days, isSuper });
   };
 
+  // El overlay del cofre reproduce los sonidos y el confeti sincronizados con la secuencia
   const handleReward = () => {
-    playSound.redeemReward();
-    fireRewardCelebration();
     triggerRewardCelebration({ name: 'Noche de película', icon: '🍿', cost: 200, isFreeze: false });
   };
 
   const handleFreeze = () => {
-    playSound.freeze();
-    fireIceFreezeCelebration();
     triggerRewardCelebration({ name: 'Protector de Racha', icon: '❄️', cost: 150, isFreeze: true });
   };
 
