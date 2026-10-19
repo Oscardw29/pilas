@@ -20,6 +20,8 @@
   -webkit-user-select: none;
   cursor: grab;
 }
+/* En pantalla completa la burbuja del coach taparía la leyenda */
+body:has(.hm-card.is-full) .coach-fab { display: none; }
 .hm-card.is-full .hm-canvas { flex: 1; height: auto; }
 .hm-canvas.is-dragging { cursor: grabbing; }
 .hm-svg { display: block; position: absolute; inset: 0; }
@@ -59,7 +61,7 @@
 
 /* Aviso de que hay más mapa abajo (móvil) */
 .hm-more {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 0 10px;
+  position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; padding: 28px 0 10px;
   text-align: center; font-size: 12px; font-weight: 600; color: var(--text-2);
   background: linear-gradient(to bottom, transparent, var(--bg-2) 70%);
   pointer-events: none;
@@ -67,7 +69,8 @@
 
 /* Controles de zoom */
 .hm-controls {
-  position: absolute; top: 12px; left: 12px;
+  /* Siempre por delante del degradado «Desliza para ver más»; el panel de detalle va encima de todo */
+  position: absolute; z-index: 3; top: 12px; left: 12px;
   display: flex; flex-direction: column; gap: 2px; padding: 3px;
   background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px;
   box-shadow: var(--shadow);
@@ -78,7 +81,7 @@
 
 /* Aviso del modo «conectar» */
 .hm-banner {
-  position: absolute; top: 12px; left: 60px; right: 12px;
+  position: absolute; z-index: 4; top: 12px; left: 60px; right: 12px;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: 12px;
   background: var(--surface); border: 1px solid rgba(139, 92, 246, .5);
@@ -87,7 +90,7 @@
 
 /* Panel de detalle: lateral en escritorio, hoja inferior en móvil */
 .hm-detail {
-  position: absolute; top: 12px; right: 12px; bottom: 12px;
+  position: absolute; z-index: 5; top: 12px; right: 12px; bottom: 12px;
   width: 320px; overflow-y: auto; overscroll-behavior: contain;
   background: var(--surface); border: 1px solid var(--border-2); border-radius: 16px;
   box-shadow: var(--shadow); padding: 16px;
@@ -177,9 +180,9 @@
     top: auto; left: 0; right: 0; bottom: 0; width: auto;
     max-height: 55%; border-radius: 18px 18px 0 0; border-bottom: 0;
   }
-  .hm-banner { left: 8px; right: 8px; top: 8px; flex-wrap: wrap; }
-  /* En el móvil los controles van abajo a la derecha, como en las apps de mapas */
-  .hm-controls { top: auto; left: auto; right: 8px; bottom: 12px; }
+  .hm-banner { left: 8px; right: 56px; top: 8px; flex-wrap: wrap; }
+  /* En el móvil los controles van arriba a la derecha: abajo los taparían la burbuja del coach y el degradado */
+  .hm-controls { left: auto; right: 8px; top: 8px; }
   .hm-legend { padding: 10px 12px; }
   .hm-legend-hint { margin-left: 0; width: 100%; }
   .hm-pair { grid-template-columns: minmax(0, 1fr); }

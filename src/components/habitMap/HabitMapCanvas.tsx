@@ -93,9 +93,10 @@ export const HabitMapCanvas: React.FC<Props> = ({
   const computeFit = useCallback((mode: 'all' | 'width'): View | null => {
     if (!size.w || !size.h) return null;
     const { minX, minY, maxX, maxY } = layout.bounds;
-    // A la izquierda quedan los botones de zoom (en escritorio): el mapa se centra en el resto.
+    // Los botones de zoom van a la izquierda en escritorio y a la derecha en móvil: el mapa se centra en el resto.
     const left = size.w >= 520 ? CONTROLS_W : 0;
-    const w = size.w - left;
+    const right = size.w >= 520 ? 0 : CONTROLS_W - 4;
+    const w = size.w - left - right;
     const bw = Math.max(1, maxX - minX + PAD * 2);
     const bh = Math.max(1, maxY - minY + PAD * 2);
     const k = clampK(mode === 'width' ? Math.min(w / bw, 1) : Math.min(w / bw, size.h / bh, 1.15));
@@ -127,7 +128,7 @@ export const HabitMapCanvas: React.FC<Props> = ({
     });
     if (!Number.isFinite(b.minX)) return v;
     const left = size.w >= 520 ? CONTROLS_W : 8;
-    const right = size.w - rightInset - 8;
+    const right = size.w - rightInset - (size.w >= 520 ? 8 : CONTROLS_W - 4);
     const bottom = size.h * (1 - bottomInsetRatio) - 8;
     const inside = b.minX * v.k + v.x >= left && b.maxX * v.k + v.x <= right && b.minY * v.k + v.y >= 8 && b.maxY * v.k + v.y <= bottom;
     if (inside) return v;
@@ -160,7 +161,7 @@ export const HabitMapCanvas: React.FC<Props> = ({
     const { minX, minY, maxX, maxY } = layout.bounds;
     const bw = Math.max(1, maxX - minX + PAD * 2);
     const bh = Math.max(1, maxY - minY + PAD * 2);
-    const k = Math.min(size.w / bw, 1);
+    const k = Math.min((size.w - CONTROLS_W + 4) / bw, 1);
     return Math.round(Math.min(maxH, Math.max(300, bh * k)));
   }, [fitMode, fullscreen, size.w, layout, selectedId, connectFromId]);
 
