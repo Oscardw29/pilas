@@ -1,0 +1,194 @@
+/* ===== Mapa de hábitos (usa los tokens de global.css) ===== */
+
+.hm-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.hm-card.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  border-radius: 0;
+  border: 0;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--bg);
+}
+
+.hm-canvas {
+  position: relative;
+  height: clamp(440px, 64vh, 680px);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.hm-card.is-full .hm-canvas { flex: 1; height: auto; }
+.hm-canvas.is-dragging { cursor: grabbing; }
+.hm-svg { display: block; position: absolute; inset: 0; }
+.hm-bg { fill: var(--bg-2); }
+.hm-dot { fill: var(--border-2); }
+
+/* Nodos */
+.hm-node { cursor: pointer; outline: none; transition: opacity .2s; }
+.hm-node-base { fill: var(--surface-2); }
+.hm-node.is-habit .hm-node-box { fill: var(--surface-2); stroke: var(--border-2); stroke-width: 1.2; }
+.hm-node.is-goal .hm-node-box { fill-opacity: .16; stroke-width: 2; }
+.hm-node-icon-bg { fill-opacity: .22; }
+.hm-node-icon { font-size: 16px; pointer-events: none; }
+.hm-node.is-goal .hm-node-icon { font-size: 19px; }
+.hm-node-label { font: 600 13px Inter, system-ui, sans-serif; fill: var(--text); pointer-events: none; }
+.hm-node.is-goal .hm-node-label { font: 700 14px Inter, system-ui, sans-serif; }
+.hm-node:hover .hm-node-box { stroke: var(--accent-2); }
+.hm-node.is-goal:hover .hm-node-box { stroke-width: 2.6; }
+.hm-node.is-selected .hm-node-box { stroke: var(--accent-2); stroke-width: 2.6; filter: drop-shadow(0 0 10px rgba(139, 92, 246, .55)); }
+.hm-node:focus-visible .hm-node-box { stroke: var(--accent-2); stroke-width: 3; }
+.hm-node.is-inactive .hm-node-box { stroke-dasharray: 5 4; }
+.hm-node.is-inactive .hm-node-label, .hm-node.is-inactive .hm-node-icon { opacity: .6; }
+.hm-node-paused circle { fill: var(--warning); stroke: var(--surface); stroke-width: 2; }
+.hm-node-paused svg { color: #000; }
+.hm-canvas.is-connecting .hm-node.is-target .hm-node-box { stroke: var(--accent-2); stroke-width: 2; animation: hmPulse 1.4s ease-in-out infinite; }
+@keyframes hmPulse { 50% { stroke-opacity: .35; } }
+
+/* Etiqueta del tipo sobre una línea resaltada */
+.hm-edge-tag rect { fill: var(--surface); stroke-width: 1.2; }
+.hm-edge-tag text { font: 600 11px Inter, system-ui, sans-serif; pointer-events: none; }
+
+/* Regiones (un objetivo y sus hábitos) */
+.hm-region { transition: opacity .2s; }
+.hm-region rect { fill-opacity: .055; stroke-opacity: .28; stroke-width: 1.2; }
+.hm-region.is-inactive rect { stroke-dasharray: 6 5; fill-opacity: .03; }
+.hm-region text { font: 600 12px Inter, system-ui, sans-serif; fill: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+/* Aviso de que hay más mapa abajo (móvil) */
+.hm-more {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 0 10px;
+  text-align: center; font-size: 12px; font-weight: 600; color: var(--text-2);
+  background: linear-gradient(to bottom, transparent, var(--bg-2) 70%);
+  pointer-events: none;
+}
+
+/* Controles de zoom */
+.hm-controls {
+  position: absolute; top: 12px; left: 12px;
+  display: flex; flex-direction: column; gap: 2px; padding: 3px;
+  background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.hm-ctrl { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: var(--text-2); }
+.hm-ctrl:hover { background: var(--surface-3); color: var(--text); }
+.hm-ctrl svg { width: 17px; height: 17px; }
+
+/* Aviso del modo «conectar» */
+.hm-banner {
+  position: absolute; top: 12px; left: 60px; right: 12px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px;
+  background: var(--surface); border: 1px solid rgba(139, 92, 246, .5);
+  box-shadow: var(--shadow); font-size: 13px;
+}
+
+/* Panel de detalle: lateral en escritorio, hoja inferior en móvil */
+.hm-detail {
+  position: absolute; top: 12px; right: 12px; bottom: 12px;
+  width: 320px; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--border-2); border-radius: 16px;
+  box-shadow: var(--shadow); padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  cursor: default; user-select: text; -webkit-user-select: text; touch-action: pan-y;
+  animation: hmIn .2s ease both;
+}
+@keyframes hmIn { from { transform: translateY(8px); } }
+.hm-detail-head { display: flex; align-items: center; gap: 10px; }
+.hm-detail-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+.hm-detail-kind { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.hm-detail-title { font-size: 15.5px; font-weight: 700; line-height: 1.25; }
+.hm-detail-sec { display: flex; flex-direction: column; gap: 8px; }
+.hm-detail-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.hm-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.hm-paused-note {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--warning);
+  background: var(--warning-soft); border-radius: 10px; padding: 8px 10px;
+}
+.hm-paused-note .btn { margin-left: auto; }
+
+.hm-rel-list { display: flex; flex-direction: column; gap: 8px; }
+.hm-rel-list li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 13px; line-height: 1.4;
+}
+.hm-rel-list li.hm-pattern { flex-wrap: wrap; }
+.hm-swatch { flex-shrink: 0; }
+.hm-link { font-weight: 600; color: var(--text); text-align: left; padding: 0; border-radius: 4px; }
+.hm-link:hover { color: var(--accent-2); text-decoration: underline; }
+.hm-self { color: var(--accent-2); font-weight: 600; }
+
+/* Leyenda */
+.hm-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 12px 14px; border-top: 1px solid var(--border);
+}
+.hm-legend-item {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  font-size: 12.5px; font-weight: 500; color: var(--text-2);
+  transition: opacity .15s, border-color .15s;
+}
+.hm-legend-item:hover { border-color: var(--accent); }
+.hm-legend-item.is-zero { opacity: .6; }
+.hm-legend-item.off { opacity: .4; text-decoration: line-through; }
+.hm-legend-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hm-legend-hint { margin-left: auto; }
+
+/* Guía de primer uso */
+.hm-guide { align-items: flex-start; }
+.hm-guide-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; padding-left: 16px; list-style: disc; color: var(--text-2); font-size: 13px; }
+
+/* Modal de conexión */
+.hm-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: end; }
+.hm-swap { margin-bottom: 4px; }
+.hm-types { border: 0; gap: 6px; }
+.hm-types legend { margin-bottom: 7px; }
+.hm-type {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.hm-type input { position: absolute; opacity: 0; pointer-events: none; }
+.hm-type:hover { border-color: var(--accent); }
+.hm-type.active { border-color: var(--accent); background: var(--accent-soft); }
+.hm-type:has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.hm-type-title { display: block; font-weight: 600; font-size: 13.5px; }
+.hm-type-example { display: block; font-size: 12px; color: var(--muted); }
+.hm-preview { padding: 10px 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border-2); font-size: 13.5px; }
+
+/* Lista completa */
+.hm-all summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; }
+.hm-all summary::-webkit-details-marker { display: none; }
+.hm-all-chevron { margin-left: auto; color: var(--muted); transition: transform .2s; }
+.hm-all[open] .hm-all-chevron { transform: rotate(180deg); }
+.hm-all[open] summary { margin-bottom: 14px; }
+
+@media (max-width: 639.98px) {
+  .hm-canvas { height: min(66vh, 560px); }
+  .hm-detail {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto;
+    max-height: 55%; border-radius: 18px 18px 0 0; border-bottom: 0;
+  }
+  .hm-banner { left: 8px; right: 8px; top: 8px; flex-wrap: wrap; }
+  /* En el móvil los controles van abajo a la derecha, como en las apps de mapas */
+  .hm-controls { top: auto; left: auto; right: 8px; bottom: 12px; }
+  .hm-legend { padding: 10px 12px; }
+  .hm-legend-hint { margin-left: 0; width: 100%; }
+  .hm-pair { grid-template-columns: minmax(0, 1fr); }
+  .hm-swap { justify-self: center; margin: 0; }
+  .hm-guide { flex-wrap: wrap; }
+  .hm-guide > .btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-detail { animation: none; }
+  .hm-canvas.is-connecting .hm-node.is-target .hm-node-box { animation: none; }
+}
