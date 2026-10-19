@@ -1913,6 +1913,11 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 @media (max-width: 639.98px) {
   .coach-fab { width: 52px; height: 52px; right: 14px; bottom: calc(var(--bottom-nav-h) + 14px + var(--safe-bottom)); }
   .app-shell:has(.timer-bar) .coach-fab { bottom: calc(var(--bottom-nav-h) + 86px + var(--safe-bottom)); }
+  /* Al bajar por la página la burbuja se encoge y deja libres los botones de debajo (scale no choca con la animación de entrada) */
+  .coach-fab { transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s, scale .2s ease; }
+  .coach-fab.tucked { scale: 0; pointer-events: none; }
+  /* Margen extra al final para que el último botón de cada página pueda quedar por encima de la burbuja */
+  body:has(.coach-fab) .page-container { padding-bottom: calc(var(--bottom-nav-h) + 92px + var(--safe-bottom)); }
   .coach-float-panel {
     left: 8px; right: 8px; width: auto; top: calc(8px + var(--safe-top));
     bottom: calc(var(--bottom-nav-h) + 76px + var(--safe-bottom)); height: auto; border-radius: 18px;

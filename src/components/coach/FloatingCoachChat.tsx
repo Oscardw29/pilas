@@ -83,6 +83,27 @@ export const FloatingCoachChat: React.FC = () => {
     };
   }, [open]);
 
+  // Móvil: la burbuja se esconde al bajar por la página (para no tapar botones) y vuelve al subir.
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    if (open) { setTucked(false); return; }
+    const last = new WeakMap<object, number>();
+    if (document.scrollingElement) last.set(document.scrollingElement, document.scrollingElement.scrollTop);
+    const onScroll = (e: Event) => {
+      const t = e.target;
+      const el = t === document || t === window ? document.scrollingElement : (t as HTMLElement);
+      // Solo cuenta el scroll de la página, no el de listas o paneles internos.
+      if (!el || el.clientHeight < window.innerHeight * 0.6) return;
+      const y = el.scrollTop;
+      const prev = last.get(el) ?? 0;
+      last.set(el, y);
+      if (Math.abs(y - prev) < 4) return;
+      setTucked(y > prev && y > 80);
+    };
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', onScroll, { capture: true });
+  }, [open]);
+
   // Al entrar a Coach IA el chat flotante se cierra (la vista completa toma el relevo)
   useEffect(() => {
     if (hidden) setOpen(false);
@@ -299,7 +320,7 @@ export const FloatingCoachChat: React.FC = () => {
 
       <button
         type="button"
-        className={`coach-fab ${open ? 'open' : ''}`}
+        className={`coach-fab ${open ? 'open' : ''}${tucked ? ' tucked' : ''}`}
         onClick={toggle}
         aria-label={open ? 'Cerrar chat del coach' : 'Abrir chat del coach'}
         aria-expanded={open}
