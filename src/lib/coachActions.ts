@@ -1,6 +1,6 @@
 import type { ExperimentType, ExperimentVariant, Habit, HabitKind, Priority, RelationType, TimeOfDay } from '@/types';
 import { useStore } from '@/store/useStore';
-import { todayKey } from './dates';
+import { DAY_SHORT, todayKey } from './dates';
 
 /**
  * ACCIONES PROPUESTAS POR EL COACH IA
@@ -124,6 +124,114 @@ function experimentVariants(raw: unknown, durationDays: number): ExperimentVaria
     list.push({ id: `v${i + 1}`, label, startDay, endDay, description: str(o.description, 200) });
   });
   return list.length >= 2 ? list : fallback;
+}
+
+const TIME_LABELS: Record<TimeOfDay, string> = { morning: 'Mañana', afternoon: 'Tarde', evening: 'Noche', any: 'Cualquier momento' };
+const RELATION_LABELS: Record<RelationType, string> = {
+  before: 'va antes de',
+  after: 'va después de',
+  facilitates: 'facilita',
+  depends_on: 'depende de',
+  blocks: 'bloquea',
+};
+const EXPERIMENT_LABELS: Record<ExperimentType, string> = {
+  schedule: 'Horario',
+  duration: 'Duración',
+  frequency: 'Frecuencia',
+  version: 'Versión',
+  order: 'Orden',
+  routine: 'Rutina',
+  method: 'Método',
+  breaks: 'Descansos',
+};
+
+function daysLabel(list: number[]): string {
+  if (list.length === 7) return 'Todos los días';
+  if (list.join() === '0,1,2,3,4') return 'Lunes a viernes';
+  if (list.join() === '5,6') return 'Fines de semana';
+  return list.map((d) => DAY_SHORT[d]).join(', ');
+}
+
+export interface CoachActionSummary {
+  /** Título corto de la tarjeta («Crear hábito») */
+  title: string;
+  /** Nombre del elemento afectado */
+  subject: string;
+  tone: 'create' | 'update' | 'delete';
+  /** Detalles legibles, nunca JSON */
+  details: { label: string; value: string }[];
+}
+
+/** Resumen legible de una acción propuesta, con los mismos datos validados que se aplicarían */
+export function describeCoachAction(action: ParsedAction): CoachActionSummary {
+  const d = action.data;
+  const habitDetails = (p: Partial<Habit>) => {
+    const out: { label: string; value: string }[] = [];
+    if (p.name) out.push({ label: 'Nombre', value: p.name });
+    if (p.targetMinutes) out.push({ label: 'Meta diaria', value: `${p.targetMinutes} min` });
+    if (p.minimumMinutes) out.push({ label: 'Mínimo', value: `${p.minimumMinutes} min` });
+    if (p.preferredTime) out.push({ label: 'Horario', value: TIME_LABELS[p.preferredTime] });
+    if (p.days) out.push({ label: 'Días', value: daysLabel(p.days) });
+    if (p.reminderTime) out.push({ label: 'Recordatorio', value: p.reminderTime });
+    if (p.points) out.push({ label: 'Puntos', value: String(p.points) });
+    if (p.priority) out.push({ label: 'Prioridad', value: p.priority === 3 ? 'Alta' : p.priority === 2 ? 'Media' : 'Baja' });
+    return out;
+  };
+
+  switch (action.action) {
+    case 'create_habit': {
+      const patch = habitPatch(d);
+      const name = str(d.name) ?? 'Hábito nuevo';
+      return {
+        title: 'Crear hábito',
+        subject: `${patch.icon ?? '🎯'} ${name}`,
+        tone: 'create',
+        details: habitDetails({ ...patch, name: undefined }),
+      };
+    }
+    case 'update_habit': {
+      const patch = habitPatch(d.patch);
+      const details = habitDetails(patch);
+      return {
+        title: 'Modificar hábito',
+        subject: str(d.habitName) ?? 'Hábito',
+        tone: 'update',
+        details: details.length ? details : [{ label: 'Cambios', value: 'Sin cambios reconocibles' }],
+      };
+    }
+    case 'delete_habit':
+      return {
+        title: 'Eliminar hábito',
+        subject: str(d.habitName) ?? 'Hábito',
+        tone: 'delete',
+        details: [{ label: 'Efecto', value: 'Se quita de tu lista de hábitos' }],
+      };
+    case 'create_experiment': {
+      const durationDays = int(d.durationDays, 2, 90) ?? 14;
+      const type = oneOf(EXPERIMENT_TYPES, d.type) ?? 'schedule';
+      const details = [
+        { label: 'Duración', value: `${durationDays} días` },
+        { label: 'Tipo', value: EXPERIMENT_LABELS[type] },
+      ];
+      const hypothesis = str(d.hypothesis, 300);
+      if (hypothesis) details.push({ label: 'Hipótesis', value: hypothesis });
+      return { title: 'Iniciar experimento', subject: str(d.name, 100) ?? 'Experimento', tone: 'create', details };
+    }
+    case 'create_connection': {
+      const type = oneOf(RELATION_TYPES, d.type) ?? 'before';
+      const details = [{ label: 'Relación', value: `${str(d.fromHabitName) ?? '?'} ${RELATION_LABELS[type]} ${str(d.toHabitName) ?? '?'}` }];
+      const note = str(d.note, 200);
+      if (note) details.push({ label: 'Nota', value: note });
+      return { title: 'Conectar hábitos', subject: `${str(d.fromHabitName) ?? '?'} → ${str(d.toHabitName) ?? '?'}`, tone: 'create', details };
+    }
+    case 'create_reward':
+      return {
+        title: 'Crear recompensa',
+        subject: `${str(d.icon, 8) ?? '🎁'} ${str(d.name) ?? 'Recompensa'}`,
+        tone: 'create',
+        details: [{ label: 'Costo', value: `${int(d.cost, 10, 100_000) ?? 100} puntos` }],
+      };
+  }
 }
 
 /** Aplica una acción validada sobre el store. Devuelve el mensaje para el usuario. */

@@ -3,6 +3,7 @@
  * Integra Deepgram (STT) y Fish Audio (TTS) con fallback a las Web APIs nativas del navegador.
  */
 import { getSecrets } from '@/store/useSecrets';
+import { toSpeechText } from './voiceText';
 
 /** Tiempo máximo de espera para síntesis/transcripción externas */
 const VOICE_TIMEOUT_MS = 30_000;
@@ -312,7 +313,7 @@ export async function speakWithFishAudio(
   onEnd?: () => void
 ): Promise<{ stop: () => void }> {
   const trimmed = cleanApiKey(apiKey);
-  const cleanText = text.replace(/[*_#`~[\]()>]/g, '').trim();
+  const cleanText = toSpeechText(text);
   // Voz por defecto: Chico Joven en español (alta fidelidad y naturalidad)
   const DEFAULT_SPANISH_MALE_VOICE = '1fb9a295ef7047eb9ae334b779567f9d';
   const sanitizedVoice = cleanVoiceId('fish_audio', voiceId) || DEFAULT_SPANISH_MALE_VOICE;
@@ -367,7 +368,7 @@ export async function speakWithElevenLabs(
   onEnd?: () => void
 ): Promise<{ stop: () => void }> {
   const trimmedKey = cleanApiKey(apiKey);
-  const cleanText = text.replace(/[*_#`~[\]()>]/g, '').trim();
+  const cleanText = toSpeechText(text);
   const sanitizedVoice = cleanVoiceId('elevenlabs', voiceId);
   const targetVoice = sanitizedVoice || '21m00Tcm4TlvDq8ikWAM'; // Rachel/Default
 
@@ -419,7 +420,7 @@ export async function speakWithOpenAiTts(
   onEnd?: () => void
 ): Promise<{ stop: () => void }> {
   const trimmedKey = cleanApiKey(apiKey);
-  const cleanText = text.replace(/[*_#`~[\]()>]/g, '').trim();
+  const cleanText = toSpeechText(text);
 
   const res = await relayFetch('openai-tts', '/v1/audio/speech', 'https://api.openai.com/v1/audio/speech', {
     method: 'POST',
@@ -461,7 +462,9 @@ export function speakNative(
   text: string,
   onStart?: () => void,
   onEnd?: () => void,
-  customVoiceIdOrName?: string
+  customVoiceIdOrName?: string,
+  /** Se llama en cada palabra pronunciada (sirve para animar el visualizador, la voz nativa no da audio analizable) */
+  onBoundary?: () => void
 ): { stop: () => void } {
   if (!('speechSynthesis' in window)) {
     console.warn('SpeechSynthesis no soportado en este navegador.');
@@ -469,6 +472,8 @@ export function speakNative(
     return { stop: () => {} };
   }
 
+  // Chrome descarta a veces un speak() lanzado justo después de cancel(): si había algo sonando se espera un instante
+  const wasBusy = window.speechSynthesis.speaking || window.speechSynthesis.pending;
   try {
     window.speechSynthesis.cancel();
   } catch {}
@@ -479,11 +484,7 @@ export function speakNative(
     } catch {}
   }
 
-  const cleanText = text
-    .replace(/```action[\s\S]*?```/gi, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/[*_#`~[\]()>]/g, '')
-    .trim();
+  const cleanText = toSpeechText(text);
 
   if (!cleanText) {
     onEnd?.();
@@ -581,9 +582,15 @@ export function speakNative(
   };
 
   utterance.onerror = (e) => {
-    console.warn('[SpeechSynthesis] Evento error en voz nativa:', e);
+    if (e.error !== 'interrupted' && e.error !== 'canceled') console.warn('[SpeechSynthesis] Evento error en voz nativa:', e.error);
     finish();
   };
+
+  if (onBoundary) {
+    utterance.onboundary = (e) => {
+      if (e.name === 'word') onBoundary();
+    };
+  }
 
   // Keep-alive timer para evitar que Chromium pause la síntesis a los 15s
   const keepAliveTimer = setInterval(() => {
@@ -616,16 +623,23 @@ export function speakNative(
   };
   armSafety();
 
-  try {
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('[SpeechSynthesis] Error al llamar speak():', err);
-    finish();
-  }
+  let speakTimer: ReturnType<typeof setTimeout> | undefined;
+  const doSpeak = () => {
+    if (hasEnded) return;
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('[SpeechSynthesis] Error al llamar speak():', err);
+      finish();
+    }
+  };
+  if (wasBusy) speakTimer = setTimeout(doSpeak, 80);
+  else doSpeak();
 
   return {
     stop: () => {
       hasEnded = true;
+      clearTimeout(speakTimer);
       clearInterval(keepAliveTimer);
       clearTimeout(safetyTimeout);
       activeUtterances.delete(utterance);
@@ -653,7 +667,8 @@ export async function speakWithTts(
   },
   onAudioCreated?: (audio: HTMLAudioElement) => void,
   onStart?: () => void,
-  onEnd?: () => void
+  onEnd?: () => void,
+  onBoundary?: () => void
 ): Promise<{ stop: () => void }> {
   // Las claves vienen del almacén de secretos salvo que se pasen explícitamente (p. ej. al probar en Ajustes)
   const secrets = getSecrets();
@@ -670,7 +685,7 @@ export async function speakWithTts(
     const key = (settings.fishAudioApiKey || settings.ttsApiKey || '').trim();
     if (!key) {
       // Sin clave configurada: utilizar inmediatamente la voz nativa en español
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
     const DEFAULT_SPANISH_MALE_VOICE = '1fb9a295ef7047eb9ae334b779567f9d';
     const effectiveVoice = settings.ttsVoiceId?.trim() || DEFAULT_SPANISH_MALE_VOICE;
@@ -686,14 +701,14 @@ export async function speakWithTts(
       );
     } catch (err) {
       console.warn('[Fish Audio] Falló síntesis externa, conmutando a voz nativa:', err);
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
   }
 
   if (platform === 'elevenlabs') {
     const key = (settings.elevenLabsApiKey || settings.ttsApiKey || '').trim();
     if (!key) {
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
     const defaultElevenMale = 'ErXwobaYiN019PkySvjV'; // Antoni (joven en español)
     const effectiveVoice = settings.ttsVoiceId?.trim() || defaultElevenMale;
@@ -709,14 +724,14 @@ export async function speakWithTts(
       );
     } catch (err) {
       console.warn('[ElevenLabs] Falló síntesis externa, conmutando a voz nativa:', err);
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
   }
 
   if (platform === 'openai') {
     const key = (settings.openaiTtsApiKey || settings.ttsApiKey || '').trim();
     if (!key) {
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
     const defaultOpenAiMale = 'echo'; // Voz conversacional joven
     const effectiveVoice = settings.ttsVoiceId?.trim() || defaultOpenAiMale;
@@ -732,10 +747,10 @@ export async function speakWithTts(
       );
     } catch (err) {
       console.warn('[OpenAI TTS] Falló síntesis externa, conmutando a voz nativa:', err);
-      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+      return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
     }
   }
 
   // Plataforma nativa del navegador ('native')
-  return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim());
+  return speakNative(text, onStart, onEnd, settings.ttsVoiceId?.trim(), onBoundary);
 }

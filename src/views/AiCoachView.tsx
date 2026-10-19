@@ -32,7 +32,7 @@ import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Modal } from '../components/ui/Modal';
 import { VoiceAssistantModal } from '../components/modals/VoiceAssistantModal';
-import { startSpeechRecognition } from '../lib/voice';
+import { useDictation } from '../components/coach/useDictation';
 import { playSound } from '../lib/sound';
 import { AiConversation } from '../types';
 
@@ -101,7 +101,6 @@ export const AiCoachView: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   // Estados de gestión de conversaciones
@@ -119,8 +118,6 @@ export const AiCoachView: React.FC = () => {
   // Confirmación simple y directa para eliminar conversación
   const [deletingConv, setDeletingConv] = useState<AiConversation | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  const baseDictationTextRef = useRef('');
 
   // Estados para edición y confirmación de sobreescritura de mensaje
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -144,7 +141,6 @@ export const AiCoachView: React.FC = () => {
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   /** Animación de escritura en curso: el texto completo ya está guardado, esto es solo visual */
   const streamRef = useRef<{ timer: ReturnType<typeof setInterval>; botId: string; fullText: string; onDone?: () => void } | null>(null);
 
@@ -223,7 +219,6 @@ export const AiCoachView: React.FC = () => {
     return () => {
       if (streamRef.current) clearInterval(streamRef.current.timer);
       streamRef.current = null;
-      if (recognitionRef.current) recognitionRef.current.stop();
     };
   }, []);
 
@@ -279,11 +274,7 @@ export const AiCoachView: React.FC = () => {
     finishStream();
     const convId = activeConversationId;
 
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-      setIsRecording(false);
-    }
+    if (dictation.active) dictation.cancel();
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -354,42 +345,20 @@ export const AiCoachView: React.FC = () => {
     }
   };
 
-  // Micrófono: Iniciar/detener reconocimiento de voz (STT para input sin duplicaciones)
+  // Dictado: pide permiso de micrófono y escribe en el campo lo que dices
+  const dictation = useDictation({
+    onText: setInput,
+    onError: (message) => toast(message, 'warning'),
+  });
+  const isRecording = dictation.active;
+
   const toggleRecording = () => {
-    if (isRecording) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      setIsRecording(false);
+    if (dictation.active) {
+      void dictation.stop();
       playSound.click();
     } else {
       playSound.pop();
-      const initialInput = input.trim();
-      baseDictationTextRef.current = initialInput;
-
-      const rec = startSpeechRecognition(
-        (transcriptText) => {
-          const cleanText = transcriptText.trim();
-          if (!cleanText) return;
-          const base = baseDictationTextRef.current;
-          const fullText = base ? `${base} ${cleanText}` : cleanText;
-          setInput(fullText);
-        },
-        (err) => {
-          toast(`Micrófono: ${err}`, 'warning');
-          setIsRecording(false);
-        },
-        () => {
-          setIsRecording(false);
-        }
-      );
-
-      if (rec) {
-        recognitionRef.current = rec;
-        setIsRecording(true);
-        toast('Escuchando… habla y se escribirá tu mensaje', 'info');
-      }
+      void dictation.start(input);
     }
   };
 
@@ -1163,7 +1132,11 @@ export const AiCoachView: React.FC = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
-                isRecording
+                dictation.state === 'starting'
+                  ? 'Activando micrófono…'
+                  : dictation.state === 'processing'
+                  ? 'Transcribiendo…'
+                  : isRecording
                   ? 'Escuchando… habla y tu voz se escribirá aquí'
                   : 'Pregunta sobre tus hábitos, energía o consistencia...'
               }
