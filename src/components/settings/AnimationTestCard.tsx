@@ -1,0 +1,138 @@
+import React, { useState } from 'react';
+import { Clapperboard, Flame, Gift, Snowflake } from 'lucide-react';
+import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
+import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
+import { getFlameTier } from '@/components/ui/StreakFlame';
+import { fireRewardCelebration, fireIceFreezeCelebration } from '@/lib/confetti';
+import { playSound } from '@/lib/sound';
+
+const MIN_DAYS = 1;
+const MAX_DAYS = 365;
+
+/** Hitos donde la llama cambia de nivel (ver getFlameTier) */
+const MILESTONES = [1, 3, 7, 15, 30, 50, 100, 365];
+
+const TIER_LABEL: Record<ReturnType<typeof getFlameTier>, string> = {
+  dormant: 'Apagada',
+  tier_1: 'Nivel 1 (1 día)',
+  tier_2: 'Nivel 2 (2 días)',
+  tier_3: 'Nivel 3 (3+ días)',
+  tier_5: 'Nivel 4 (5+ días)',
+  tier_7: 'Nivel 5 (7+ días)',
+  tier_10: 'Nivel 6 (10+ días)',
+  tier_15: 'Nivel 7 (15+ días)',
+  tier_20: 'Nivel 8 (20+ días)',
+  tier_30: 'Nivel 9 (30+ días)',
+  tier_50: 'Nivel 10 (50+ días)',
+  tier_100: 'Nivel máximo (100+ días)',
+};
+
+const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(n)));
+
+/**
+ * Lanza a voluntad las celebraciones de racha y de canje para verlas.
+ * Solo dispara lo visual y sonoro: no toca el store (ni registros, ni puntos, ni rachas).
+ */
+export const AnimationTestCard: React.FC = () => {
+  const [daysInput, setDaysInput] = useState('7');
+  const [isSuper, setIsSuper] = useState(false);
+
+  const parsed = Number(daysInput);
+  const days = Number.isFinite(parsed) && daysInput.trim() !== '' ? clampDays(parsed) : MIN_DAYS;
+
+  const handleStreak = () => {
+    setDaysInput(String(days));
+    // El overlay reproduce el sonido y las partículas
+    triggerStreakCelebration({ days, isSuper });
+  };
+
+  const handleReward = () => {
+    playSound.redeemReward();
+    fireRewardCelebration();
+    triggerRewardCelebration({ name: 'Noche de película', icon: '🍿', cost: 200, isFreeze: false });
+  };
+
+  const handleFreeze = () => {
+    playSound.freeze();
+    fireIceFreezeCelebration();
+    triggerRewardCelebration({ name: 'Protector de Racha', icon: '❄️', cost: 150, isFreeze: true });
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="row">
+          <Clapperboard size={18} style={{ color: 'var(--accent-2)' }} />
+          <div>
+            <div className="card-title">Probar animaciones</div>
+            <div className="card-sub">Mira las celebraciones sin cambiar tus rachas, puntos ni registros</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="form">
+        {/* Racha */}
+        <div className="field">
+          <span className="label">Animación de racha</span>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <input
+              type="number"
+              className="input"
+              min={MIN_DAYS}
+              max={MAX_DAYS}
+              step={1}
+              value={daysInput}
+              onChange={(e) => setDaysInput(e.target.value)}
+              onBlur={() => setDaysInput(String(days))}
+              aria-label="Días de racha"
+              style={{ width: 110 }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{days === 1 ? 'día' : 'días'}</span>
+            <label className="custom-switch" style={{ marginLeft: 'auto' }}>
+              <input type="checkbox" checked={isSuper} onChange={(e) => setIsSuper(e.target.checked)} />
+              <span className="custom-switch-track">
+                <span className="custom-switch-thumb" />
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-1)' }}>Súper racha</span>
+            </label>
+          </div>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+            {MILESTONES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`chip ${days === m ? 'active' : ''}`}
+                onClick={() => setDaysInput(String(m))}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <span className="hint">
+            Llama: {TIER_LABEL[getFlameTier(days)]}. La llama cambia de color y brillo en cada hito; la súper racha usa la variante «supernova».
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={handleStreak} style={{ alignSelf: 'flex-start' }}>
+            <Flame size={16} style={{ color: 'var(--accent-2)' }} />
+            Probar racha de {days} {days === 1 ? 'día' : 'días'}
+          </button>
+        </div>
+
+        {/* Recompensa */}
+        <div className="field">
+          <span className="label">Apertura de recompensa</span>
+          <div className="grid-2">
+            <button type="button" className="btn btn-secondary" onClick={handleReward} style={{ padding: 14 }}>
+              <Gift size={16} style={{ color: 'var(--accent-2)' }} />
+              Abrir recompensa de ejemplo
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={handleFreeze} style={{ padding: 14 }}>
+              <Snowflake size={16} style={{ color: 'var(--accent-2)' }} />
+              Probar protector de racha
+            </button>
+          </div>
+          <span className="hint">Es solo una vista previa: no se gastan puntos ni se crea ningún canje.</span>
+        </div>
+      </div>
+    </div>
+  );
+};

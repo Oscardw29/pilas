@@ -33,6 +33,7 @@ import {
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
 import { BackupCard } from '../components/settings/BackupCard';
+import { AnimationTestCard } from '../components/settings/AnimationTestCard';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
@@ -1603,6 +1604,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       </form>
 
       <BackupCard onDataReplaced={onDataReplaced} />
+
+      <AnimationTestCard />
 
       <ApiKeySecurityCard
         onKeysForgotten={() => {
