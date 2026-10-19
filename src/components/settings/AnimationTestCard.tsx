@@ -2,28 +2,13 @@ import React, { useState } from 'react';
 import { Clapperboard, Flame, Gift, Snowflake } from 'lucide-react';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
-import { getFlameTier } from '@/components/ui/StreakFlame';
+import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
 
 const MIN_DAYS = 1;
 const MAX_DAYS = 365;
 
-/** Hitos donde la llama cambia de nivel (ver getFlameTier) */
-const MILESTONES = [1, 3, 7, 15, 30, 50, 100, 365];
-
-const TIER_LABEL: Record<ReturnType<typeof getFlameTier>, string> = {
-  dormant: 'Apagada',
-  tier_1: 'Nivel 1 (1 día)',
-  tier_2: 'Nivel 2 (2 días)',
-  tier_3: 'Nivel 3 (3+ días)',
-  tier_5: 'Nivel 4 (5+ días)',
-  tier_7: 'Nivel 5 (7+ días)',
-  tier_10: 'Nivel 6 (10+ días)',
-  tier_15: 'Nivel 7 (15+ días)',
-  tier_20: 'Nivel 8 (20+ días)',
-  tier_30: 'Nivel 9 (30+ días)',
-  tier_50: 'Nivel 10 (50+ días)',
-  tier_100: 'Nivel máximo (100+ días)',
-};
+/** Hitos donde la llama cambia de nivel (ver FLAME_LEVELS) */
+const MILESTONES = FLAME_LEVELS.filter((l) => l.minDays > 0).map((l) => l.minDays);
 
 const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(n)));
 
@@ -37,6 +22,8 @@ export const AnimationTestCard: React.FC = () => {
 
   const parsed = Number(daysInput);
   const days = Number.isFinite(parsed) && daysInput.trim() !== '' ? clampDays(parsed) : MIN_DAYS;
+  const level = getFlameLevel(days);
+  const levelIndex = FLAME_LEVELS.indexOf(level);
 
   const handleStreak = () => {
     setDaysInput(String(days));
@@ -98,14 +85,20 @@ export const AnimationTestCard: React.FC = () => {
                 type="button"
                 className={`chip ${days === m ? 'active' : ''}`}
                 onClick={() => setDaysInput(String(m))}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
+                <StreakFlame days={m} size={16} isSuperStreak={isSuper} />
                 {m}
               </button>
             ))}
           </div>
-          <span className="hint">
-            Llama: {TIER_LABEL[getFlameTier(days)]}. La llama cambia de color y brillo en cada hito; la súper racha usa la variante «supernova».
-          </span>
+          <div className="row" style={{ gap: 12 }}>
+            <StreakFlame days={days} size={56} isSuperStreak={isSuper} />
+            <span className="hint">
+              Llama: {level.name} (nivel {levelIndex} de {FLAME_LEVELS.length - 1}). Cambia de forma, color y efectos en cada
+              hito; la súper racha usa la variante violeta.
+            </span>
+          </div>
           <button type="button" className="btn btn-secondary" onClick={handleStreak} style={{ alignSelf: 'flex-start' }}>
             <Flame size={16} style={{ color: 'var(--accent-2)' }} />
             Probar racha de {days} {days === 1 ? 'día' : 'días'}
