@@ -189,8 +189,7 @@ export const WeekView: React.FC = () => {
       {/* Barra de navegación de semanas */}
       <div className="card flush">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', flexWrap: 'wrap', gap: 12 }}>
-          {/* minHeight = alto de «Esta semana» (btn sm): la fila no salta cuando el botón aparece o se va */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 33 }}>
+          <div className="week-nav">
             <button
               className="icon-btn sm"
               onClick={() => goToWeek(fromKey(addDaysKey(toKey(targetWeekStart), -7)))}
@@ -200,7 +199,7 @@ export const WeekView: React.FC = () => {
               <ChevronLeft size={16} />
             </button>
 
-            <span style={{ fontWeight: 600, fontSize: 15 }}>
+            <span className="week-nav-label">
               {formatRange(targetWeekStart)}
             </span>
 
@@ -213,15 +212,18 @@ export const WeekView: React.FC = () => {
               <ChevronRight size={16} />
             </button>
 
-            {!isCurrentWeek && (
-              <button
-                className="btn btn-secondary sm"
-                onClick={() => goToWeek(startOfWeek(new Date()))}
-                style={{ marginLeft: 8 }}
-              >
-                Esta semana
-              </button>
-            )}
+            {/* Siempre ocupa su lugar (solo se oculta) para que la barra no cambie de tamaño */}
+            <button
+              className="btn btn-secondary sm week-nav-today"
+              onClick={() => goToWeek(startOfWeek(new Date()))}
+              disabled={isCurrentWeek}
+              aria-hidden={isCurrentWeek}
+              tabIndex={isCurrentWeek ? -1 : undefined}
+              title="Volver a esta semana"
+            >
+              <span className="long">Esta semana</span>
+              <span className="short">Hoy</span>
+            </button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--muted)' }}>

@@ -469,6 +469,21 @@ ul, ol { list-style: none; }
 .week-slide.is-out-prev { animation: weekOutPrev 110ms cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; will-change: transform, opacity; }
 .week-slide.is-in-next { animation: weekInNext 200ms cubic-bezier(.16, 1, .3, 1) both; will-change: transform, opacity; }
 .week-slide.is-in-prev { animation: weekInPrev 200ms cubic-bezier(.16, 1, .3, 1) both; will-change: transform, opacity; }
+/* Barra de semanas con medidas fijas: ni la fecha ni «Esta semana» cambian su tamaño al navegar */
+.week-nav { display: flex; align-items: center; gap: 8px; }
+.week-nav-label { min-width: 10.5em; text-align: center; white-space: nowrap; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.week-nav-today { margin-left: 4px; transition: opacity .18s ease, visibility 0s; }
+.week-nav-today:disabled { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .18s ease, visibility 0s .18s; }
+.week-nav-today .short { display: none; }
+/* Móvil: la fecha ocupa el espacio libre y tiene alto fijo de dos líneas (menos que los botones),
+   así en pantallas muy estrechas puede partirse sin que la fila crezca */
+@media (max-width: 639.98px) {
+  .week-nav { flex: 1 1 100%; min-width: 0; min-height: 36px; gap: 4px; }
+  .week-nav-label { flex: 1 1 auto; min-width: 0; height: 2.5em; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1.25; white-space: normal; text-wrap: balance; }
+  .week-nav-today { margin-left: 0; }
+  .week-nav-today .long { display: none; }
+  .week-nav-today .short { display: inline; }
+}
 /* Movimiento reducido: sin desplazamiento, solo un fundido corto (gana a la regla global por especificidad) */
 @media (prefers-reduced-motion: reduce) {
   .week-slide.is-out-next, .week-slide.is-out-prev { animation: weekFadeOut 70ms linear both !important; }
