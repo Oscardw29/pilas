@@ -15,7 +15,7 @@ export type FlameTier =
   | 'small'
   | 'lively'
   | 'intense'
-  | 'blue'
+  | 'searing'
   | 'blaze'
   | 'legendary'
   | 'mythic';
@@ -34,7 +34,7 @@ export const FLAME_LEVELS: readonly FlameLevel[] = [
   { tier: 'small', minDays: 3, name: 'Llama pequeña' },
   { tier: 'lively', minDays: 7, name: 'Llama viva' },
   { tier: 'intense', minDays: 14, name: 'Fuego intenso' },
-  { tier: 'blue', minDays: 30, name: 'Fuego azul' },
+  { tier: 'searing', minDays: 30, name: 'Fuego abrasador' },
   { tier: 'blaze', minDays: 50, name: 'Llamarada' },
   { tier: 'legendary', minDays: 100, name: 'Fuego legendario' },
   { tier: 'mythic', minDays: 365, name: 'Fénix mítico' },
@@ -68,48 +68,49 @@ interface Palette {
   accent: string;
 }
 
+/** Racha normal: siempre en gama cálida (ámbar → naranja → rojo → oro al blanco vivo) */
 const WARM: Record<FlameTier, Palette> = {
   dormant: { o1: '#52525b', o2: '#3f3f46', i1: '#71717a', i2: '#52525b', core: '#a1a1aa', glow: '113, 113, 122', ember: '#f97316', accent: '#71717a' },
   spark: { o1: '#fbbf24', o2: '#f59e0b', i1: '#fef3c7', i2: '#fcd34d', core: '#ffffff', glow: '251, 191, 36', ember: '#fde68a', accent: '#fde68a' },
   small: { o1: '#f59e0b', o2: '#ea580c', i1: '#fde68a', i2: '#fbbf24', core: '#fffbeb', glow: '245, 158, 11', ember: '#fcd34d', accent: '#fcd34d' },
   lively: { o1: '#f97316', o2: '#dc2626', i1: '#fcd34d', i2: '#fb923c', core: '#fffbeb', glow: '249, 115, 22', ember: '#fdba74', accent: '#fdba74' },
   intense: { o1: '#ef4444', o2: '#991b1b', i1: '#fde047', i2: '#f97316', core: '#fefce8', glow: '239, 68, 68', ember: '#fcd34d', accent: '#fca5a5' },
-  blue: { o1: '#3b82f6', o2: '#1e3a8a', i1: '#e0f2fe', i2: '#38bdf8', core: '#ffffff', glow: '59, 130, 246', ember: '#93c5fd', accent: '#93c5fd' },
-  blaze: { o1: '#8b5cf6', o2: '#4c1d95', i1: '#ede9fe', i2: '#a78bfa', core: '#ffffff', glow: '139, 92, 246', ember: '#c4b5fd', accent: '#a78bfa' },
-  legendary: { o1: '#fbbf24', o2: '#c2410c', i1: '#ffffff', i2: '#fde68a', core: '#ffffff', glow: '167, 139, 250', ember: '#fde68a', accent: '#fbbf24' },
-  mythic: { o1: '#ede9fe', o2: '#8b5cf6', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '139, 92, 246', ember: '#fde68a', accent: '#fbbf24' },
+  searing: { o1: '#dc2626', o2: '#7f1d1d', i1: '#fff7ed', i2: '#fb923c', core: '#ffffff', glow: '249, 115, 22', ember: '#fed7aa', accent: '#fdba74' },
+  blaze: { o1: '#f97316', o2: '#b91c1c', i1: '#ffffff', i2: '#fde047', core: '#ffffff', glow: '251, 146, 60', ember: '#fde68a', accent: '#fbbf24' },
+  legendary: { o1: '#fbbf24', o2: '#c2410c', i1: '#ffffff', i2: '#fde68a', core: '#ffffff', glow: '251, 191, 36', ember: '#fde68a', accent: '#fcd34d' },
+  mythic: { o1: '#fde68a', o2: '#ea580c', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '249, 115, 22', ember: '#fde68a', accent: '#fbbf24' },
 };
 
-/** Súper racha: la misma forma del nivel en la gama violeta/fucsia de la app */
+/** Súper racha: la misma forma del nivel, de violeta a azul eléctrico */
 const SUPER: Record<FlameTier, Palette> = {
   ...WARM,
-  spark: { o1: '#c084fc', o2: '#a855f7', i1: '#f3e8ff', i2: '#d8b4fe', core: '#ffffff', glow: '192, 132, 252', ember: '#f0abfc', accent: '#f0abfc' },
-  small: { o1: '#a855f7', o2: '#7e22ce', i1: '#f3e8ff', i2: '#c084fc', core: '#ffffff', glow: '168, 85, 247', ember: '#f0abfc', accent: '#f0abfc' },
-  lively: { o1: '#a855f7', o2: '#6b21a8', i1: '#fae8ff', i2: '#e879f9', core: '#ffffff', glow: '168, 85, 247', ember: '#f0abfc', accent: '#f0abfc' },
-  intense: { o1: '#d946ef', o2: '#6b21a8', i1: '#fdf4ff', i2: '#f0abfc', core: '#ffffff', glow: '217, 70, 239', ember: '#f5d0fe', accent: '#f5d0fe' },
-  blue: { o1: '#818cf8', o2: '#3730a3', i1: '#fdf4ff', i2: '#e879f9', core: '#ffffff', glow: '129, 140, 248', ember: '#f0abfc', accent: '#f0abfc' },
-  blaze: { o1: '#e879f9', o2: '#86198f', i1: '#ffffff', i2: '#f5d0fe', core: '#ffffff', glow: '217, 70, 239', ember: '#f5d0fe', accent: '#f0abfc' },
-  legendary: { ...WARM.legendary, glow: '217, 70, 239', accent: '#f0abfc' },
-  mythic: { ...WARM.mythic, glow: '217, 70, 239', accent: '#f0abfc' },
+  spark: { o1: '#c084fc', o2: '#a855f7', i1: '#f3e8ff', i2: '#d8b4fe', core: '#ffffff', glow: '192, 132, 252', ember: '#e9d5ff', accent: '#e9d5ff' },
+  small: { o1: '#a855f7', o2: '#7e22ce', i1: '#f3e8ff', i2: '#c084fc', core: '#ffffff', glow: '168, 85, 247', ember: '#e9d5ff', accent: '#e9d5ff' },
+  lively: { o1: '#8b5cf6', o2: '#5b21b6', i1: '#f5f3ff', i2: '#c4b5fd', core: '#ffffff', glow: '139, 92, 246', ember: '#ddd6fe', accent: '#ddd6fe' },
+  intense: { o1: '#7c3aed', o2: '#3b0764', i1: '#e0e7ff', i2: '#a78bfa', core: '#ffffff', glow: '124, 58, 237', ember: '#c7d2fe', accent: '#c7d2fe' },
+  searing: { o1: '#6366f1', o2: '#312e81', i1: '#e0f2fe', i2: '#818cf8', core: '#ffffff', glow: '99, 102, 241', ember: '#bae6fd', accent: '#a5b4fc' },
+  blaze: { o1: '#3b82f6', o2: '#1e3a8a', i1: '#ffffff', i2: '#93c5fd', core: '#ffffff', glow: '59, 130, 246', ember: '#bfdbfe', accent: '#c4b5fd' },
+  legendary: { o1: '#a78bfa', o2: '#4338ca', i1: '#ffffff', i2: '#c7d2fe', core: '#ffffff', glow: '139, 92, 246', ember: '#a5f3fc', accent: '#67e8f9' },
+  mythic: { o1: '#e0e7ff', o2: '#6366f1', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '99, 102, 241', ember: '#a5f3fc', accent: '#67e8f9' },
 };
 
 /** Racha protegida: llama congelada (no parpadea) */
 const ICE: Palette = { o1: '#38bdf8', o2: '#0369a1', i1: '#f0f9ff', i2: '#7dd3fc', core: '#ffffff', glow: '56, 189, 248', ember: '#e0f2fe', accent: '#bae6fd' };
 
-/* ---------- Formas (viewBox 48 × 48, base de la llama en y ≈ 44) ---------- */
-
-/** Una lengua */
-const DROP = {
-  outer: 'M24 22C26.5 26.5 31 29.5 31 35.5C31 39.6 27.9 42.5 24 42.5C20.1 42.5 17 39.6 17 35.5C17 30 21.8 27 24 22Z',
-  inner: 'M24 29C25.5 31.5 28 33 28 36.5C28 38.8 26.2 40.5 24 40.5C21.8 40.5 20 38.8 20 36.5C20 33.5 22.8 32 24 29Z',
-  core: 'M24 33.5C24.8 35 26 35.8 26 37.4C26 38.5 25.1 39.3 24 39.3C22.9 39.3 22 38.5 22 37.4C22 35.9 23.3 35 24 33.5Z',
+/** Alas del fénix: base, centro y puntas */
+const WING_COLORS = {
+  warm: ['#991b1b', '#f97316', '#fde68a'],
+  super: ['#3730a3', '#8b5cf6', '#67e8f9'],
+  ice: ['#075985', '#38bdf8', '#e0f2fe'],
 };
 
-/** Una lengua alta, algo inclinada */
-const SINGLE = {
-  outer: 'M24.5 12C26 18 33 22 33 31.5C33 38.5 29 43 24 43C19 43 15 38.5 15 32C15 25 22 21 24.5 12Z',
-  inner: 'M24.5 23C25.5 27 29.5 29.5 29.5 34.5C29.5 38.5 27.2 41 24 41C20.8 41 18.5 38.5 18.5 35C18.5 30.5 23 28.5 24.5 23Z',
-  core: 'M24 32C25 34 26.6 35.3 26.6 37.5C26.6 39.1 25.4 40.2 24 40.2C22.6 40.2 21.4 39.1 21.4 37.5C21.4 35.5 23.2 34.3 24 32Z',
+/* ---------- Formas (viewBox 48 × 48, base de la llama en y ≈ 44) ---------- */
+
+/** Llama pequeña de dos crestas */
+const MINI = {
+  outer: 'M25.5 21C27.5 25.5 31.5 28.5 31.5 34.5C31.5 39 28.2 42.5 24 42.5C19.8 42.5 16.5 39 16.5 35C16.5 32 17.4 29.6 18.5 27.5C19.3 29.6 20.4 30.8 21.7 31.3C21.8 27.3 23.3 24 25.5 21Z',
+  inner: 'M25 29C26.2 31.5 29 33.3 29 36.8C29 39.2 26.8 41 24 41C21.2 41 19 39.2 19 36.8C19 35.2 19.6 34 20.3 33C20.9 34.2 21.7 34.9 22.6 35.1C22.7 32.8 23.6 30.8 25 29Z',
+  core: 'M24 35C24.8 36.3 26.2 37.1 26.2 38.6C26.2 39.7 25.2 40.5 24 40.5C22.8 40.5 21.8 39.7 21.8 38.6C21.8 37.3 23.3 36.4 24 35Z',
 };
 
 /** Lengua principal + lengua lateral */
@@ -124,6 +125,13 @@ const TRIPLE = {
   outer: 'M24 5C26 10 28.5 13.5 29.5 18C31 16.5 32.8 14.5 34 12.5C35.8 17 37 22 37 29C37 38 31.5 44 24 44C16.5 44 11 38 11 30C11 24.5 12.8 19.5 14.5 15C15.5 18.5 17 21 18.8 22.3C19 15.5 21.5 10 24 5Z',
   inner: 'M24 15C25.5 19.5 27 22 27.8 25C28.8 24 29.8 22.8 30.6 21.5C32 24.5 33 28 33 32C33 38 29 42 24 42C19 42 15 38 15 32.5C15 29.5 16 27 17.3 25C18 27 19.2 28.4 20.5 29C20.6 24 22.2 19 24 15Z',
   core: 'M24 27C25.6 30 28.5 32.5 28.5 36C28.5 38.6 26.5 40.5 24 40.5C21.5 40.5 19.5 38.6 19.5 36C19.5 32.5 22.4 30 24 27Z',
+};
+
+/** Cuatro lenguas */
+const FOUR = {
+  outer: 'M26 4C27.8 8.5 29.6 12 30.2 16C31.6 14.4 33.2 12.6 34.5 10.5C36.5 15 37.5 20.5 37.5 28C37.5 37.5 31.5 44 24 44C16.5 44 10.5 38 10.5 30C10.5 25 11.3 20.8 12.6 17C13.8 19.2 15 20.6 16.5 21.4C16.5 17 17.4 12.8 19 9C20.2 12.4 21.2 14.6 22.4 16C22.6 11.5 24 7.5 26 4Z',
+  inner: TRIPLE.inner,
+  core: 'M24 25.5C25.8 29 29 31.5 29 35.5C29 38.5 26.8 40.8 24 40.8C21.2 40.8 19 38.5 19 35.5C19 31.5 22.2 29 24 25.5Z',
 };
 
 /** Cinco lenguas */
@@ -162,12 +170,12 @@ interface Shape {
 }
 
 const SHAPES: Record<Exclude<FlameTier, 'dormant'>, Shape> = {
-  spark: { ...DROP, scale: 1.08, dur: 1.6, amp: 0.05, halo: { r: 13, cy: 35, a: 0.4 }, embers: 0, spark: true },
-  small: { ...SINGLE, scale: 1, dur: 1.4, amp: 0.06, halo: { r: 16, cy: 32, a: 0.38 }, embers: 1 },
-  lively: { ...TWIN, scale: 1, dur: 1.2, amp: 0.07, halo: { r: 19, cy: 30, a: 0.42 }, embers: 2 },
-  intense: { ...TRIPLE, scale: 1, dur: 1, amp: 0.08, halo: { r: 21, cy: 28, a: 0.48 }, embers: 3 },
-  blue: { ...TRIPLE, scale: 1.06, dur: 0.95, amp: 0.085, halo: { r: 24, cy: 27, a: 0.7 }, embers: 4 },
-  blaze: { ...CROWN, scale: 1, dur: 0.85, amp: 0.09, halo: { r: 24, cy: 26, a: 0.72 }, embers: 5, ring: true },
+  spark: { ...MINI, scale: 1.12, dur: 1.6, amp: 0.05, halo: { r: 13, cy: 35, a: 0.4 }, embers: 0, spark: true },
+  small: { ...TWIN, scale: 0.84, dur: 1.4, amp: 0.06, halo: { r: 16, cy: 32, a: 0.38 }, embers: 1 },
+  lively: { ...TRIPLE, scale: 0.92, dur: 1.2, amp: 0.07, halo: { r: 19, cy: 30, a: 0.42 }, embers: 2 },
+  intense: { ...FOUR, scale: 1, dur: 1, amp: 0.08, halo: { r: 21, cy: 28, a: 0.5 }, embers: 3 },
+  searing: { ...FOUR, scale: 1.06, dur: 0.95, amp: 0.085, halo: { r: 24, cy: 27, a: 0.72 }, embers: 4 },
+  blaze: { ...CROWN, scale: 1, dur: 0.85, amp: 0.09, halo: { r: 24, cy: 26, a: 0.75 }, embers: 5, ring: true },
   legendary: { ...CROWN, scale: 1, dur: 0.8, amp: 0.095, halo: { r: 24, cy: 25, a: 0.85 }, embers: 6, ring: true, rays: true, wisps: true },
   mythic: { ...CROWN, scale: 0.84, dur: 0.8, amp: 0.1, halo: { r: 24, cy: 26, a: 0.9 }, embers: 7, ring: true, rays: true, wings: true },
 };
@@ -218,6 +226,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
   const frozen = isFrozen && lit;
   const isSuper = isSuperStreak && lit && !frozen;
   const pal = frozen ? ICE : isSuper ? SUPER[tier] : WARM[tier];
+  const wing = frozen ? WING_COLORS.ice : isSuper ? WING_COLORS.super : WING_COLORS.warm;
   const moving = animated && !frozen;
   // A tamaño de icono, partículas y trazos más gruesos para que se lean (y menos nodos animados)
   const small = size < 32;
@@ -313,9 +322,9 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
           </radialGradient>
           {shape.wings && (
             <linearGradient id={ids.w} x1="22" y1="42" x2="7" y2="12" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor={frozen ? '#075985' : isSuper ? '#86198f' : '#5b21b6'} />
-              <stop offset="0.5" stopColor={frozen ? '#38bdf8' : isSuper ? '#e879f9' : '#a78bfa'} />
-              <stop offset="1" stopColor={frozen ? '#e0f2fe' : '#fbbf24'} />
+              <stop offset="0" stopColor={wing[0]} />
+              <stop offset="0.5" stopColor={wing[1]} />
+              <stop offset="1" stopColor={wing[2]} />
             </linearGradient>
           )}
         </defs>
@@ -359,7 +368,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
           <path className="sf-outer" d={shape.outer} fill={`url(#${ids.o})`} />
           <path className="sf-inner" d={shape.inner} fill={`url(#${ids.i})`} />
           <path className="sf-core" d={shape.core} fill={pal.core} />
-          {shape.wings && <path d={BOLT} fill={pal.accent} stroke="#fff7ed" strokeWidth="0.6" strokeLinejoin="round" />}
+          {shape.wings && <path d={BOLT} fill={frozen ? pal.accent : '#f59e0b'} stroke="#fff7ed" strokeWidth="0.6" strokeLinejoin="round" />}
         </g>
 
         {/* Lenguas sueltas */}
