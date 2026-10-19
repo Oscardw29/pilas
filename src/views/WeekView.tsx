@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -50,6 +50,9 @@ import { playSound } from '@/lib/sound';
 import { StatusIcon, StatusLabel } from '@/components/ui/icons';
 import type { Habit, HabitLog } from '@/types';
 
+/** Fase de la animación al cambiar de semana: sale la semana mostrada y luego entra la nueva. */
+type WeekSlide = { phase: 'idle' | 'out' | 'in'; dir: 'next' | 'prev' };
+
 export const WeekView: React.FC = () => {
   const data = useData();
   const logHabit = useStore((s) => s.logHabit);
@@ -59,7 +62,11 @@ export const WeekView: React.FC = () => {
   const { toast } = useToast();
 
   const T = todayKey();
+  // Semana que pinta la tabla; durante la animación de salida sigue siendo la anterior
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date()));
+  // Semana elegida (cabecera y navegación); la tabla la alcanza al terminar la salida
+  const [targetWeekStart, setTargetWeekStart] = useState<Date>(currentWeekStart);
+  const [slide, setSlide] = useState<WeekSlide>({ phase: 'idle', dir: 'next' });
   const [editingHabit, setEditingHabit] = useState<Habit | undefined>();
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [failModalInfo, setFailModalInfo] = useState<{ habit: Habit; date: string } | null>(null);
@@ -67,9 +74,49 @@ export const WeekView: React.FC = () => {
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
 
   const days = weekDays(currentWeekStart);
-  const isCurrentWeek = toKey(currentWeekStart) === toKey(startOfWeek(new Date()));
+  const isCurrentWeek = toKey(targetWeekStart) === toKey(startOfWeek(new Date()));
   const visibleHabits = data.habits.filter((h) => h.status === 'active' || h.status === 'paused');
   const activeHabits = data.habits.filter((h) => h.status === 'active');
+
+  // Toda forma de cambiar de semana pasa por aquí. La dirección sale de comparar con la semana
+  // que se ve: posterior → «next» (sale a la izquierda), anterior → «prev» (sale a la derecha).
+  // Clics seguidos: durante la salida solo se actualiza el destino; durante la entrada se vuelve a salir.
+  const goToWeek = (next: Date) => {
+    const nextKey = toKey(next);
+    const shownKey = toKey(currentWeekStart);
+    setTargetWeekStart(next);
+    if (visibleHabits.length === 0) {
+      setCurrentWeekStart(next);
+      setSlide({ phase: 'idle', dir: 'next' });
+      return;
+    }
+    if (nextKey === shownKey) {
+      // Se volvió a la semana que aún se está yendo: regresa por el mismo lado
+      if (slide.phase === 'out') setSlide({ phase: 'in', dir: slide.dir === 'next' ? 'prev' : 'next' });
+      return;
+    }
+    setSlide({ phase: 'out', dir: nextKey > shownKey ? 'next' : 'prev' });
+  };
+
+  const handleSlideEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return; // animaciones de las celdas (checkPop, etc.)
+    if (slide.phase === 'out') {
+      setCurrentWeekStart(targetWeekStart);
+      setSlide((s) => ({ ...s, phase: 'in' }));
+    } else if (slide.phase === 'in') {
+      setSlide((s) => ({ ...s, phase: 'idle' }));
+    }
+  };
+
+  // Red de seguridad: si no llega animationend (tabla desmontada, pestaña oculta…), se completa el cambio
+  useEffect(() => {
+    if (slide.phase === 'idle') return;
+    const t = window.setTimeout(() => {
+      setCurrentWeekStart(targetWeekStart);
+      setSlide((s) => ({ ...s, phase: 'idle' }));
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [slide, targetWeekStart]);
 
   const handleCellClick = (h: Habit, dateKey: string, e?: React.MouseEvent) => {
     // Si la fecha es en el futuro respecto a hoy, no permitir
@@ -142,10 +189,11 @@ export const WeekView: React.FC = () => {
       {/* Barra de navegación de semanas */}
       <div className="card flush">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* minHeight = alto de «Esta semana» (btn sm): la fila no salta cuando el botón aparece o se va */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 33 }}>
             <button
               className="icon-btn sm"
-              onClick={() => setCurrentWeekStart((prev) => fromKey(addDaysKey(toKey(prev), -7)))}
+              onClick={() => goToWeek(fromKey(addDaysKey(toKey(targetWeekStart), -7)))}
               title="Semana anterior"
               aria-label="Semana anterior"
             >
@@ -153,12 +201,12 @@ export const WeekView: React.FC = () => {
             </button>
 
             <span style={{ fontWeight: 600, fontSize: 15 }}>
-              {formatRange(currentWeekStart)}
+              {formatRange(targetWeekStart)}
             </span>
 
             <button
               className="icon-btn sm"
-              onClick={() => setCurrentWeekStart((prev) => fromKey(addDaysKey(toKey(prev), 7)))}
+              onClick={() => goToWeek(fromKey(addDaysKey(toKey(targetWeekStart), 7)))}
               title="Semana siguiente"
               aria-label="Semana siguiente"
             >
@@ -168,7 +216,7 @@ export const WeekView: React.FC = () => {
             {!isCurrentWeek && (
               <button
                 className="btn btn-secondary sm"
-                onClick={() => setCurrentWeekStart(startOfWeek(new Date()))}
+                onClick={() => goToWeek(startOfWeek(new Date()))}
                 style={{ marginLeft: 8 }}
               >
                 Esta semana
@@ -189,7 +237,10 @@ export const WeekView: React.FC = () => {
         {/* Tabla matriz de hábitos o Estado Vacío */}
         {visibleHabits.length > 0 ? (
           <>
-            <div className="table-wrap">
+            <div
+              className={`table-wrap week-slide${slide.phase === 'idle' ? '' : ` is-${slide.phase}-${slide.dir}`}`}
+              onAnimationEnd={handleSlideEnd}
+            >
             <table className="table">
               <thead>
                 <tr>

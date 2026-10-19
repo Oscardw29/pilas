@@ -458,6 +458,23 @@ ul, ol { list-style: none; }
 .fade-up { animation: fadeUp .35s ease both; }
 .pop { animation: pop .35s ease; }
 
+/* Mi semana: al cambiar de semana sale la actual y entra la nueva (≈310 ms en total).
+   «next» = semana posterior (sale a la izquierda, entra por la derecha); «prev» al revés. */
+@keyframes weekOutNext { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-28px); } }
+@keyframes weekOutPrev { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(28px); } }
+@keyframes weekInNext { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes weekInPrev { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+@keyframes weekFadeOut { from { opacity: 1; } to { opacity: 0; } }
+.week-slide.is-out-next { animation: weekOutNext 110ms cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; will-change: transform, opacity; }
+.week-slide.is-out-prev { animation: weekOutPrev 110ms cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; will-change: transform, opacity; }
+.week-slide.is-in-next { animation: weekInNext 200ms cubic-bezier(.16, 1, .3, 1) both; will-change: transform, opacity; }
+.week-slide.is-in-prev { animation: weekInPrev 200ms cubic-bezier(.16, 1, .3, 1) both; will-change: transform, opacity; }
+/* Movimiento reducido: sin desplazamiento, solo un fundido corto (gana a la regla global por especificidad) */
+@media (prefers-reduced-motion: reduce) {
+  .week-slide.is-out-next, .week-slide.is-out-prev { animation: weekFadeOut 70ms linear both !important; }
+  .week-slide.is-in-next, .week-slide.is-in-prev { animation: fadeIn 120ms ease-out both !important; }
+}
+
 /* ===== Componentes específicos para vistas ===== */
 
 /* Tarjetas de métrica y estadística rápida */
