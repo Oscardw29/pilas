@@ -399,8 +399,8 @@ class SoundEngine {
     });
   }
 
-  /** Cofre de recompensa que aterriza: golpe sordo y suave de madera */
-  public chestLand() {
+  /** Regalo que aterriza: golpe sordo y suave de caja de cartón */
+  public giftLand() {
     this.play(() => {
       this.tone({ type: 'triangle', freq: 150, to: 72, dur: 0.2, gain: 0.2, attack: 0.004, filter: { type: 'lowpass', freq: 650 } });
       this.noise({ dur: 0.06, gain: 0.06, attack: 0.002, filter: { type: 'lowpass', freq: 900 } });
@@ -408,10 +408,10 @@ class SoundEngine {
   }
 
   /**
-   * Sacudida del cofre antes de abrirse (1, 2 y 3, cada una más intensa): traqueteo de madera,
-   * tintineo de la cerradura y una nota que sube (Mi5 → Sol5 → Si5) y resuelve en el Do de la apertura.
+   * Saltito del regalo antes de abrirse (1, 2 y 3, cada uno más intenso): toc de cartón, roce de
+   * papel y una nota que sube (Mi5 → Sol5 → Si5) y resuelve en el Do de la apertura.
    */
-  public chestShake(step: 1 | 2 | 3) {
+  public giftShake(step: 1 | 2 | 3) {
     this.play(() => {
       const k = 0.55 + step * 0.22;
       const knocks = step === 3 ? [0, 0.07, 0.15] : [0, 0.08];
@@ -427,19 +427,19 @@ class SoundEngine {
           filter: { type: 'lowpass', freq: 1100 },
         }),
       );
-      // Tintineo metálico de la cerradura
-      this.tone({ freq: 2200 + step * 240, at: 0.03, dur: 0.05, gain: 0.025 * k, attack: 0.002, reverb: 0.12 });
+      // Roce del papel de regalo
+      this.noise({ at: 0.02, dur: 0.07, gain: 0.04 * k, attack: 0.01, filter: { type: 'bandpass', freq: 3200, q: 0.8 } });
       // Nota de expectativa
       this.tone({ freq: [659.25, 783.99, 987.77][step - 1], at: 0.05, dur: 0.28, gain: 0.03 + step * 0.012, attack: 0.02, reverb: 0.3 });
     });
   }
 
-  /** Canje de recompensa: el cofre se abre (broche, soplo de aire, arpegio mágico y monedas) */
+  /** Canje de recompensa: el regalo se abre (pop de la tapa, soplo de aire, arpegio mágico y monedas) */
   public redeemReward() {
     this.play(() => {
-      // Broche que salta
+      // Pop de la tapa
       this.tone({ type: 'square', freq: 1800, to: 900, glide: 0.02, dur: 0.025, gain: 0.05, attack: 0.002, filter: { type: 'lowpass', freq: 4000 } });
-      // Cofre: barrido de aire ascendente
+      // Barrido de aire ascendente
       this.noise({ at: 0.02, dur: 0.35, gain: 0.1, attack: 0.18, filter: { type: 'bandpass', freq: 600, to: 5000, q: 1.5 }, reverb: 0.3 });
       // Monedas (Si5 → Mi6, onda cuadrada filtrada) mientras salen disparadas
       this.tone({ type: 'square', freq: 987.77, at: 0.12, dur: 0.08, gain: 0.05, attack: 0.002, filter: { type: 'lowpass', freq: 3500 } });

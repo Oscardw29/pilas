@@ -20,183 +20,109 @@ export function triggerRewardCelebration(data: RewardCelebrationData) {
 
 /**
  * Momentos de la secuencia (ms desde que aparece). Deben coincidir con los retrasos de los
- * keyframes del cofre en global.css (chestDrop, chestShake1-3, lidOpen, prizeRise…).
+ * keyframes del regalo en global.css (giftDrop, giftShake1-3, lidPop, prizeRise…).
  */
-const LAND_MS = 380;
+const LAND_MS = 350;
 const SHAKE_MS = [900, 1420, 2000] as const;
 const OPEN_MS = 2560;
 const COST_COUNT_MS = 2900;
+/** Todo quieto: el premio ya salió y los textos terminaron de entrar */
+const REVEAL_MS = 3900;
 const VISIBLE_MS = 6000;
+/** Tras saltar con un toque, el premio se queda un momento antes de cerrarse solo */
+const SKIP_LINGER_MS = 2200;
 const REDUCED_VISIBLE_MS = 4200;
+const COUNT_MS = 600;
 const EXIT_MS = 380;
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
-/** Degradados compartidos por la tapa y el cuerpo. Los colores salen de variables CSS (violeta/oro o hielo). */
-const ChestDefs: React.FC = () => (
-  <svg className="reward-chest-defs" width="0" height="0" aria-hidden="true" focusable="false">
+/** Caja del regalo: cara plana con «labio» inferior más oscuro, cinta y brillos */
+const GiftBox: React.FC = () => (
+  <svg className="reward-gift-box" viewBox="0 0 150 104" aria-hidden="true" focusable="false">
     <defs>
-      <linearGradient id="rc-wood" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--wood-1)' }} />
-        <stop offset=".55" style={{ stopColor: 'var(--wood-2)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--wood-3)' }} />
-      </linearGradient>
-      <linearGradient id="rc-lid" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--wood-hi)' }} />
-        <stop offset=".5" style={{ stopColor: 'var(--wood-1)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--wood-2)' }} />
-      </linearGradient>
-      <linearGradient id="rc-inner" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--wood-3)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--wood-2)' }} />
-      </linearGradient>
-      {/* Metal: bandas verticales con brillo cilíndrico y molduras horizontales */}
-      <linearGradient id="rc-metal" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" style={{ stopColor: 'var(--metal-3)' }} />
-        <stop offset=".35" style={{ stopColor: 'var(--metal-1)' }} />
-        <stop offset=".7" style={{ stopColor: 'var(--metal-2)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--metal-3)' }} />
-      </linearGradient>
-      <linearGradient id="rc-metal-h" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--metal-1)' }} />
-        <stop offset=".45" style={{ stopColor: 'var(--metal-2)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--metal-3)' }} />
-      </linearGradient>
-      <radialGradient id="rc-plate" cx=".38" cy=".3" r=".8">
-        <stop offset="0" style={{ stopColor: 'var(--metal-1)' }} />
-        <stop offset=".55" style={{ stopColor: 'var(--metal-2)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--metal-3)' }} />
-      </radialGradient>
-      <linearGradient id="rc-gem" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--gem-1)' }} />
-        <stop offset=".45" style={{ stopColor: 'var(--gem-2)' }} />
-        <stop offset="1" style={{ stopColor: 'var(--gem-3)' }} />
-      </linearGradient>
-      <linearGradient id="rc-rim" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style={{ stopColor: 'var(--metal-1)', stopOpacity: 0.85 }} />
-        <stop offset=".6" style={{ stopColor: 'var(--metal-2)', stopOpacity: 0.25 }} />
-        <stop offset="1" style={{ stopColor: 'var(--metal-2)', stopOpacity: 0 }} />
-      </linearGradient>
-      <linearGradient id="rc-shade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#000" stopOpacity="0" />
-        <stop offset="1" stopColor="#000" stopOpacity=".45" />
-      </linearGradient>
-      <linearGradient id="rc-sheen" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stopColor="#fff" stopOpacity="0" />
-        <stop offset=".5" stopColor="#fff" stopOpacity=".38" />
-        <stop offset="1" stopColor="#fff" stopOpacity="0" />
-      </linearGradient>
-      <radialGradient id="rc-inner-glow" cx=".5" cy="1" r=".9">
-        <stop offset="0" style={{ stopColor: 'var(--glow)', stopOpacity: 0.75 }} />
-        <stop offset="1" style={{ stopColor: 'var(--glow)', stopOpacity: 0 }} />
-      </radialGradient>
-      <clipPath id="rc-body-clip">
-        <path d="M2 2H174V82Q174 94 162 94H14Q2 94 2 82Z" />
-      </clipPath>
-      <clipPath id="rc-lid-clip">
-        <path d="M2 58V30C2 12 18 3 40 3H136C158 3 174 12 174 30V58Z" />
+      <clipPath id="rg-box-clip">
+        <path d="M0 0H150V88Q150 104 134 104H16Q0 104 0 88Z" />
       </clipPath>
     </defs>
-  </svg>
-);
-
-/** Cuerpo del cofre: tablas, bandas con remaches, molduras y la cerradura con su ojo */
-const ChestBody: React.FC = () => (
-  <svg className="reward-chest-body" viewBox="0 0 176 96" aria-hidden="true" focusable="false">
-    <path d="M2 2H174V82Q174 94 162 94H14Q2 94 2 82Z" fill="url(#rc-wood)" />
-    <g clipPath="url(#rc-body-clip)">
-      {/* Juntas de las tablas */}
-      <path d="M2 34H174M2 62H174" stroke="#000" strokeOpacity=".32" strokeWidth="1.6" />
-      <path d="M2 36H174M2 64H174" stroke="#fff" strokeOpacity=".07" strokeWidth="1" />
-      <rect x="0" y="60" width="176" height="36" fill="url(#rc-shade)" />
-      {/* Bandas de metal */}
-      <rect x="18" y="0" width="16" height="96" fill="url(#rc-metal)" />
-      <rect x="142" y="0" width="16" height="96" fill="url(#rc-metal)" />
-      {[18, 48, 76].map((y) => (
-        <React.Fragment key={y}>
-          <circle cx="26" cy={y} r="2.3" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth=".8" />
-          <circle cx="150" cy={y} r="2.3" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth=".8" />
-        </React.Fragment>
-      ))}
-      {/* Brillo que barre el cofre al aterrizar */}
-      <path className="chest-sheen" d="M-50 0H-6L-36 96H-80Z" fill="url(#rc-sheen)" />
+    <g clipPath="url(#rg-box-clip)">
+      <rect width="150" height="104" fill="var(--box-lip)" />
+      <path d="M0 0H150V76Q150 92 134 92H16Q0 92 0 76Z" fill="var(--box-face)" />
+      {/* Cinta vertical */}
+      <rect x="59" width="32" height="104" fill="var(--rib-lip)" />
+      <rect x="59" width="32" height="92" fill="var(--rib-face)" />
+      <rect x="64" y="14" width="6" height="66" rx="3" fill="#fff" opacity=".35" />
+      {/* Sombra de la tapa */}
+      <rect width="150" height="9" fill="#000" opacity=".16" />
     </g>
-    {/* Molduras superior e inferior */}
-    <rect x="0" y="0" width="176" height="7" rx="2" fill="url(#rc-metal-h)" />
-    <rect x="0" y="85" width="176" height="11" rx="5" fill="url(#rc-metal-h)" />
-    {/* Brillo de bordes */}
-    <path d="M3.5 9V80" stroke="#fff" strokeOpacity=".22" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M2 2H174V82Q174 94 162 94H14Q2 94 2 82Z" fill="none" stroke="var(--wood-edge)" strokeWidth="1.5" />
-    {/* Cerradura: placa en escudo con ojo de llave */}
-    <path d="M71 3H105V29Q105 44 88 51Q71 44 71 29Z" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth="1.3" />
-    <path d="M74.5 6.5H101.5V28.5Q101.5 41 88 47Q74.5 41 74.5 28.5Z" fill="none" stroke="#fff" strokeOpacity=".35" strokeWidth=".9" />
-    <circle cx="77.5" cy="10" r="1.6" fill="var(--metal-3)" />
-    <circle cx="98.5" cy="10" r="1.6" fill="var(--metal-3)" />
-    <circle cx="88" cy="23" r="4.4" fill="#12061f" />
-    <path d="M86 25L84.4 35.5H91.6L90 25Z" fill="#12061f" />
-    <path className="chest-keyhole-glow" d="M86.6 25.5L85.4 34.5H90.6L89.4 25.5Z" fill="var(--glow)" />
+    {/* Brillos */}
+    <rect x="13" y="20" width="10" height="40" rx="5" fill="#fff" opacity=".28" />
+    <rect x="13" y="66" width="10" height="10" rx="5" fill="#fff" opacity=".28" />
   </svg>
 );
 
-/** Cara exterior de la tapa (abombada) con bandas, medallón con gema y la aldaba */
-const ChestLidFront: React.FC = () => (
-  <svg className="reward-lid-face lid-front" viewBox="0 0 176 58" aria-hidden="true" focusable="false">
-    <path d="M2 58V30C2 12 18 3 40 3H136C158 3 174 12 174 30V58Z" fill="url(#rc-lid)" />
-    <g clipPath="url(#rc-lid-clip)">
-      <ellipse cx="62" cy="14" rx="52" ry="10" fill="#fff" opacity=".12" />
-      <path d="M2 30H174" stroke="#000" strokeOpacity=".22" strokeWidth="1.3" />
-      <rect x="18" y="0" width="16" height="58" fill="url(#rc-metal)" />
-      <rect x="142" y="0" width="16" height="58" fill="url(#rc-metal)" />
-      <circle cx="26" cy="22" r="2.3" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth=".8" />
-      <circle cx="150" cy="22" r="2.3" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth=".8" />
-      <path className="chest-sheen" d="M-40 0H4L-14 58H-58Z" fill="url(#rc-sheen)" />
-    </g>
-    <rect x="0" y="50" width="176" height="8" rx="2" fill="url(#rc-metal-h)" />
-    {/* Brillo de bordes del domo */}
-    <path d="M2 58V30C2 12 18 3 40 3H136C158 3 174 12 174 30V58" fill="none" stroke="url(#rc-rim)" strokeWidth="2" />
-    <path d="M30 6.5Q88 1 146 6.5" fill="none" stroke="#fff" strokeOpacity=".45" strokeWidth="1.2" strokeLinecap="round" />
-    {/* Medallón con gema */}
-    <circle cx="88" cy="24" r="13" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth="1.2" />
-    <path d="M88 14.5L97 24L88 33.5L79 24Z" fill="url(#rc-gem)" stroke="var(--gem-3)" strokeWidth=".8" />
-    <path d="M88 14.5L92 24L88 33.5" fill="#fff" opacity=".18" />
-    <circle cx="85.3" cy="20.2" r="1.5" fill="#fff" opacity=".85" />
-    {/* Aldaba que baja hasta la cerradura */}
-    <path d="M81 40H95V58H81Z" fill="url(#rc-plate)" stroke="var(--metal-3)" strokeWidth="1.1" />
-    <circle cx="88" cy="47" r="1.8" fill="var(--metal-3)" />
-  </svg>
-);
-
-/** Cara interior de la tapa: se ve cuando la tapa gira y queda abierta, iluminada desde el cofre */
-const ChestLidInner: React.FC = () => (
-  <svg className="reward-lid-face lid-inner" viewBox="0 0 176 58" aria-hidden="true" focusable="false">
-    <path d="M2 0V28C2 46 18 55 40 55H136C158 55 174 46 174 28V0Z" fill="url(#rc-inner)" />
-    <path d="M2 0V28C2 46 18 55 40 55H136C158 55 174 46 174 28V0Z" fill="url(#rc-inner-glow)" />
-    <rect x="0" y="0" width="176" height="7" rx="2" fill="url(#rc-metal-h)" />
-    <path d="M2 0V28C2 46 18 55 40 55H136C158 55 174 46 174 28V0" fill="none" stroke="var(--metal-2)" strokeOpacity=".6" strokeWidth="1.6" />
+/** Tapa con el lazo encima */
+const GiftLid: React.FC = () => (
+  <svg className="reward-gift-lid" viewBox="0 0 170 90" aria-hidden="true" focusable="false">
+    {/* Lazo: dos lazadas con su sombra interior y el nudo */}
+    <path d="M85 50C66 14 26 10 30 38C33 54 68 56 85 50Z" fill="var(--rib-face)" />
+    <path d="M85 50C104 14 144 10 140 38C137 54 102 56 85 50Z" fill="var(--rib-face)" />
+    <path d="M84 49C70 32 48 26 46 37C46 46 68 50 84 49Z" fill="var(--rib-lip)" />
+    <path d="M86 49C100 32 122 26 124 37C124 46 102 50 86 49Z" fill="var(--rib-lip)" />
+    <ellipse cx="42" cy="27" rx="7" ry="3.8" transform="rotate(-30 42 27)" fill="#fff" opacity=".45" />
+    {/* Tapa */}
+    <rect y="48" width="170" height="42" rx="12" fill="var(--lid-lip)" />
+    <rect y="48" width="170" height="33" rx="12" fill="var(--lid-face)" />
+    <rect x="69" y="48" width="32" height="42" fill="var(--rib-lip)" />
+    <rect x="69" y="48" width="32" height="33" fill="var(--rib-face)" />
+    <rect x="12" y="55" width="36" height="7" rx="3.5" fill="#fff" opacity=".32" />
+    <rect x="74" y="55" width="6" height="18" rx="3" fill="#fff" opacity=".35" />
+    {/* Nudo */}
+    <rect x="73" y="38" width="24" height="20" rx="8" fill="var(--rib-lip)" />
+    <rect x="73" y="38" width="24" height="15" rx="7.5" fill="var(--rib-face)" />
+    <rect x="78" y="41" width="7" height="4" rx="2" fill="#fff" opacity=".5" />
   </svg>
 );
 
 /**
- * CANJE DE RECOMPENSA: «cofre que se abre». El cofre cae y rebota, hace tres sacudidas cada vez
- * más fuertes mientras crece la luz que se escapa por la rendija, la tapa salta con un haz de luz,
- * el premio sube desde dentro, estallan monedas (o cristales de hielo para el protector) y el
- * costo se descuenta con un contador. El overlay reproduce los sonidos y el confeti sincronizados.
+ * CANJE DE RECOMPENSA: «regalo que se abre». La caja cae y rebota, da tres saltitos cada vez más
+ * fuertes mientras se escapa luz por la rendija, la tapa sale volando, el premio sube desde dentro,
+ * estallan monedas (o cristales de hielo para el protector) y el costo se descuenta con un contador.
+ * El overlay reproduce los sonidos y el confeti sincronizados.
+ *
+ * Primer toque durante la animación: salta a la recompensa ya afuera y la deja un momento.
+ * Toque con la recompensa ya visible: cierra.
  */
 export const RewardCelebrationOverlay: React.FC = () => {
   const [active, setActive] = useState<(RewardCelebrationData & { key: number }) | null>(null);
   const [closing, setClosing] = useState(false);
   const [shownCost, setShownCost] = useState(0);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seqTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shownAt = useRef(0);
+  const revealed = useRef(false);
+  const opened = useRef(false);
+  const countStart = useRef(0);
+  const openEffects = useRef<() => void>(() => {});
+  const closingRef = useRef(false);
 
   const clearSequence = () => {
     seqTimers.current.forEach(clearTimeout);
     seqTimers.current = [];
   };
 
+  const scheduleClose = (ms: number) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(close, ms);
+  };
+
   useEffect(() => {
     const handler = (data: RewardCelebrationData) => {
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+      closingRef.current = false;
       setClosing(false);
       setActive({ ...data, key: Date.now() });
     };
@@ -207,24 +133,53 @@ export const RewardCelebrationOverlay: React.FC = () => {
   }, []);
 
   const close = () => {
-    // Al saltar la animación no deben sonar sacudidas ni aperturas pendientes
+    if (closingRef.current) return;
+    closingRef.current = true;
     clearSequence();
+    if (closeTimer.current) clearTimeout(closeTimer.current);
     setClosing(true);
     if (exitTimer.current) clearTimeout(exitTimer.current);
     exitTimer.current = setTimeout(() => {
       setActive(null);
       setClosing(false);
+      closingRef.current = false;
     }, EXIT_MS);
+  };
+
+  /** Lleva todas las animaciones al instante en que el premio ya está afuera */
+  const skipToReveal = () => {
+    revealed.current = true;
+    clearSequence();
+    if (!opened.current) openEffects.current();
+    overlayRef.current?.getAnimations({ subtree: true }).forEach((a) => {
+      const t = Number(a.currentTime ?? 0);
+      if (t < REVEAL_MS) a.currentTime = REVEAL_MS;
+    });
+    // El contador termina de inmediato
+    countStart.current = performance.now() - COUNT_MS;
+    scheduleClose(SKIP_LINGER_MS);
+  };
+
+  const handleTap = () => {
+    if (closingRef.current) return;
+    const isOut = revealed.current || performance.now() - shownAt.current >= REVEAL_MS;
+    if (isOut) close();
+    else skipToReveal();
   };
 
   useEffect(() => {
     if (!active) return;
     const reduced = prefersReducedMotion();
+    shownAt.current = performance.now();
+    revealed.current = reduced;
+    opened.current = false;
+
     const at = (ms: number, fn: () => void) => {
       seqTimers.current.push(setTimeout(fn, ms));
     };
 
-    const openEffects = () => {
+    openEffects.current = () => {
+      opened.current = true;
       if (active.isFreeze) {
         playSound.freeze();
         fireIceFreezeCelebration(0);
@@ -235,17 +190,21 @@ export const RewardCelebrationOverlay: React.FC = () => {
     };
 
     if (reduced) {
-      // Sin caída ni sacudidas: el cofre aparece abierto con un fundido
-      openEffects();
+      // Sin caída ni saltos: el regalo aparece abierto con un fundido
+      openEffects.current();
     } else {
-      at(LAND_MS, () => playSound.chestLand());
-      SHAKE_MS.forEach((ms, i) => at(ms, () => playSound.chestShake((i + 1) as 1 | 2 | 3)));
-      at(OPEN_MS, openEffects);
+      at(LAND_MS, () => playSound.giftLand());
+      SHAKE_MS.forEach((ms, i) => at(ms, () => playSound.giftShake((i + 1) as 1 | 2 | 3)));
+      at(OPEN_MS, () => openEffects.current());
     }
-    at(reduced ? REDUCED_VISIBLE_MS : VISIBLE_MS, close);
+    scheduleClose(reduced ? REDUCED_VISIBLE_MS : VISIBLE_MS);
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Enter') close();
+      if (e.key === 'Escape') close();
+      else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleTap();
+      }
     };
     window.addEventListener('keydown', onKey);
 
@@ -254,9 +213,9 @@ export const RewardCelebrationOverlay: React.FC = () => {
     const cost = active.cost ?? 0;
     setShownCost(0);
     if (cost > 0) {
-      const start = performance.now() + (reduced ? 150 : COST_COUNT_MS);
+      countStart.current = performance.now() + (reduced ? 150 : COST_COUNT_MS);
       const tick = (now: number) => {
-        const p = Math.min(1, Math.max(0, (now - start) / 600));
+        const p = Math.min(1, Math.max(0, (now - countStart.current) / COUNT_MS));
         setShownCost(Math.round(cost * (1 - Math.pow(1 - p, 3))));
         if (p < 1) raf = requestAnimationFrame(tick);
       };
@@ -265,6 +224,7 @@ export const RewardCelebrationOverlay: React.FC = () => {
 
     return () => {
       clearSequence();
+      if (closeTimer.current) clearTimeout(closeTimer.current);
       cancelAnimationFrame(raf);
       window.removeEventListener('keydown', onKey);
     };
@@ -273,10 +233,11 @@ export const RewardCelebrationOverlay: React.FC = () => {
 
   useEffect(() => () => {
     if (exitTimer.current) clearTimeout(exitTimer.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
     clearSequence();
   }, []);
 
-  // Monedas / cristales que salen disparados desde el cofre en abanico al abrirse
+  // Monedas / cristales que salen disparados del regalo en abanico al abrirse
   const burst = useMemo(
     () =>
       Array.from({ length: 16 }, (_, i) => {
@@ -294,16 +255,16 @@ export const RewardCelebrationOverlay: React.FC = () => {
     [active?.key],
   );
 
-  // Motas de luz que escapan por la rendija con cada sacudida (más en cada una)
+  // Chispas que escapan por la rendija con cada salto (más en cada uno)
   const motes = useMemo(
     () =>
       SHAKE_MS.flatMap((ms, step) =>
         Array.from({ length: step + 2 }, (_, i) => ({
           id: `${step}-${i}`,
-          x: (Math.random() - 0.5) * 130,
+          x: (Math.random() - 0.5) * 120,
           drift: (Math.random() - 0.5) * 40,
           rise: 34 + step * 14 + Math.random() * 18,
-          size: 3 + Math.random() * 2.5,
+          size: 5 + Math.random() * 3,
           delay: ms / 1000 + 0.04 + Math.random() * 0.18,
         })),
       ),
@@ -318,8 +279,9 @@ export const RewardCelebrationOverlay: React.FC = () => {
   return createPortal(
     <div
       key={active.key}
+      ref={overlayRef}
       className={`celebrate-overlay is-reward ${isFreeze ? 'is-freeze' : ''} ${closing ? 'is-closing' : ''}`}
-      onClick={close}
+      onClick={handleTap}
       role="alertdialog"
       aria-live="assertive"
       aria-label={isFreeze ? `Protector de racha activado` : `Recompensa canjeada: ${active.name}`}
@@ -327,19 +289,15 @@ export const RewardCelebrationOverlay: React.FC = () => {
       <div className="celebrate-rays reward" aria-hidden="true" />
 
       <div className="celebrate-stage">
-        <div className="reward-chest" aria-hidden="true">
-          <ChestDefs />
-          <span className="reward-chest-shadow" />
-          <div className="reward-chest-rig">
+        <div className="reward-gift" aria-hidden="true">
+          <span className="reward-gift-shadow" />
+          <div className="reward-gift-rig">
             <div className="reward-beam" />
-            <div className="reward-chest-lid">
-              <ChestLidFront />
-              <ChestLidInner />
-            </div>
             <div className="reward-prize">
               {isFreeze ? <Shield size={64} strokeWidth={1.6} /> : <span className="reward-prize-emoji">{active.icon}</span>}
             </div>
-            <ChestBody />
+            <GiftBox />
+            <GiftLid />
             <span className="reward-crack-halo" />
             <span className="reward-crack" />
             <div className="reward-motes">
