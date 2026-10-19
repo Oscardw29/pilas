@@ -96,7 +96,7 @@ export const AnimationTestCard: React.FC = () => {
             <StreakFlame days={days} size={56} isSuperStreak={isSuper} />
             <span className="hint">
               Llama: {level.name} (nivel {levelIndex} de {FLAME_LEVELS.length - 1}). Cambia de forma, color y efectos en cada
-              hito; la súper racha usa la variante violeta.
+              hito; la súper racha usa la variante violeta y azul.
             </span>
           </div>
           <button type="button" className="btn btn-secondary" onClick={handleStreak} style={{ alignSelf: 'flex-start' }}>
