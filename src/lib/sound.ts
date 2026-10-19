@@ -399,20 +399,57 @@ class SoundEngine {
     });
   }
 
-  /** Canje de recompensa: dos monedas y un cofre mágico que se abre con destellos */
+  /** Cofre de recompensa que aterriza: golpe sordo y suave de madera */
+  public chestLand() {
+    this.play(() => {
+      this.tone({ type: 'triangle', freq: 150, to: 72, dur: 0.2, gain: 0.2, attack: 0.004, filter: { type: 'lowpass', freq: 650 } });
+      this.noise({ dur: 0.06, gain: 0.06, attack: 0.002, filter: { type: 'lowpass', freq: 900 } });
+    });
+  }
+
+  /**
+   * Sacudida del cofre antes de abrirse (1, 2 y 3, cada una más intensa): traqueteo de madera,
+   * tintineo de la cerradura y una nota que sube (Mi5 → Sol5 → Si5) y resuelve en el Do de la apertura.
+   */
+  public chestShake(step: 1 | 2 | 3) {
+    this.play(() => {
+      const k = 0.55 + step * 0.22;
+      const knocks = step === 3 ? [0, 0.07, 0.15] : [0, 0.08];
+      knocks.forEach((at, i) =>
+        this.tone({
+          type: 'triangle',
+          freq: 190 + step * 22 - i * 12,
+          to: 120 + step * 14,
+          at,
+          dur: 0.06,
+          gain: 0.11 * k,
+          attack: 0.003,
+          filter: { type: 'lowpass', freq: 1100 },
+        }),
+      );
+      // Tintineo metálico de la cerradura
+      this.tone({ freq: 2200 + step * 240, at: 0.03, dur: 0.05, gain: 0.025 * k, attack: 0.002, reverb: 0.12 });
+      // Nota de expectativa
+      this.tone({ freq: [659.25, 783.99, 987.77][step - 1], at: 0.05, dur: 0.28, gain: 0.03 + step * 0.012, attack: 0.02, reverb: 0.3 });
+    });
+  }
+
+  /** Canje de recompensa: el cofre se abre (broche, soplo de aire, arpegio mágico y monedas) */
   public redeemReward() {
     this.play(() => {
-      // Monedas (Si5 → Mi6, onda cuadrada filtrada)
-      this.tone({ type: 'square', freq: 987.77, at: 0, dur: 0.08, gain: 0.06, attack: 0.002, filter: { type: 'lowpass', freq: 3500 } });
-      this.tone({ type: 'square', freq: 1318.51, at: 0.07, dur: 0.22, gain: 0.06, attack: 0.002, filter: { type: 'lowpass', freq: 3500 }, reverb: 0.2 });
+      // Broche que salta
+      this.tone({ type: 'square', freq: 1800, to: 900, glide: 0.02, dur: 0.025, gain: 0.05, attack: 0.002, filter: { type: 'lowpass', freq: 4000 } });
       // Cofre: barrido de aire ascendente
-      this.noise({ at: 0.2, dur: 0.35, gain: 0.1, attack: 0.2, filter: { type: 'bandpass', freq: 600, to: 5000, q: 1.5 }, reverb: 0.3 });
+      this.noise({ at: 0.02, dur: 0.35, gain: 0.1, attack: 0.18, filter: { type: 'bandpass', freq: 600, to: 5000, q: 1.5 }, reverb: 0.3 });
+      // Monedas (Si5 → Mi6, onda cuadrada filtrada) mientras salen disparadas
+      this.tone({ type: 'square', freq: 987.77, at: 0.12, dur: 0.08, gain: 0.05, attack: 0.002, filter: { type: 'lowpass', freq: 3500 } });
+      this.tone({ type: 'square', freq: 1318.51, at: 0.19, dur: 0.22, gain: 0.05, attack: 0.002, filter: { type: 'lowpass', freq: 3500 }, reverb: 0.2 });
       // Arpegio mágico: Do5 Sol5 Do6 Mi6 Sol6 Do7
       [523.25, 783.99, 1046.5, 1318.51, 1567.98, 2093].forEach((freq, i, arr) =>
         this.tone({
           type: i === arr.length - 1 ? 'triangle' : 'sine',
           freq,
-          at: 0.32 + i * 0.05,
+          at: 0.1 + i * 0.05,
           dur: i === arr.length - 1 ? 0.7 : 0.3,
           gain: 0.12,
           attack: 0.01,

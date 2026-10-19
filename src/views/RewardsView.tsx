@@ -19,7 +19,6 @@ import {
 import { RewardModal } from '../components/modals/RewardModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useToast } from '../components/ui/ToastContext';
-import { fireRewardCelebration, fireIceFreezeCelebration } from '../lib/confetti';
 import { playSound } from '../lib/sound';
 import { triggerRewardCelebration } from '../components/ui/RewardCelebrationOverlay';
 
@@ -41,8 +40,7 @@ export const RewardsView: React.FC = () => {
     if (rewardToRedeem === 'streak_freeze') {
       const ok = buyStreakFreeze(150);
       if (ok) {
-        playSound.freeze();
-        fireIceFreezeCelebration();
+        // El overlay del cofre reproduce el sonido y el confeti sincronizados con la apertura
         triggerRewardCelebration({
           name: 'Protector de Racha',
           icon: '❄️',
@@ -56,8 +54,6 @@ export const RewardsView: React.FC = () => {
     } else {
       const ok = redeem(rewardToRedeem.id);
       if (ok) {
-        playSound.redeemReward();
-        fireRewardCelebration();
         triggerRewardCelebration({
           name: rewardToRedeem.name,
           icon: rewardToRedeem.icon,

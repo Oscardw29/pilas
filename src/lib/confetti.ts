@@ -134,9 +134,10 @@ export function fireSuperStreakBurst() {
 }
 
 /**
- * Explosión festiva al canjear una recompensa: sale del cofre cuando se abre la tapa (~0.9 s).
+ * Explosión festiva al canjear una recompensa: sale del cofre cuando se abre la tapa.
+ * El overlay del cofre la lanza en el momento de la apertura con delayMs = 0.
  */
-export function fireRewardCelebration() {
+export function fireRewardCelebration(delayMs = 900) {
   if (reducedMotion()) return;
   setTimeout(() => {
     confetti({
@@ -147,13 +148,13 @@ export function fireRewardCelebration() {
       startVelocity: 35,
       zIndex: 100000,
     });
-  }, 900);
+  }, delayMs);
 }
 
 /**
  * Explosión de cristales de hielo al adquirir el Protector de Racha.
  */
-export function fireIceFreezeCelebration() {
+export function fireIceFreezeCelebration(delayMs = 900) {
   if (reducedMotion()) return;
   setTimeout(() => {
     confetti({
@@ -165,5 +166,5 @@ export function fireIceFreezeCelebration() {
       scalar: 1.1,
       zIndex: 100000,
     });
-  }, 900);
+  }, delayMs);
 }
