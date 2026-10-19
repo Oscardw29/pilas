@@ -188,7 +188,7 @@ export const WeekView: React.FC = () => {
 
       {/* Barra de navegación de semanas */}
       <div className="card flush">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', flexWrap: 'wrap', gap: 12 }}>
+        <div className="week-toolbar">
           <div className="week-nav">
             <button
               className="icon-btn sm"
@@ -226,7 +226,7 @@ export const WeekView: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--muted)' }}>
+          <div className="week-tip">
             <span className="icon-label" style={{ gap: 6, flexWrap: 'wrap' }}>
               <strong>Tip:</strong> clic en la celda alterna
               <StatusLabel status="full">Completo</StatusLabel>→
@@ -243,15 +243,15 @@ export const WeekView: React.FC = () => {
               className={`table-wrap week-slide${slide.phase === 'idle' ? '' : ` is-${slide.phase}-${slide.dir}`}`}
               onAnimationEnd={handleSlideEnd}
             >
-            <table className="table">
+            <table className="table week-matrix">
               <thead>
                 <tr>
-                  <th style={{ minWidth: 220 }}>Hábito</th>
+                  <th className="week-matrix-habit">Hábito</th>
                   {days.map((d) => {
                     const dk = toKey(d);
                     const isToday = dk === T;
                     return (
-                      <th key={dk} style={{ textAlign: 'center', width: 56, background: isToday ? 'rgba(139, 92, 246, 0.08)' : 'transparent' }}>
+                      <th key={dk} className="week-matrix-day" style={{ textAlign: 'center', background: isToday ? 'rgba(139, 92, 246, 0.08)' : 'transparent' }}>
                         <div style={{ fontSize: 11, color: isToday ? 'var(--accent-2)' : 'var(--muted)' }}>
                           {DAY_SHORT[weekdayIndex(d)]}
                         </div>
@@ -286,19 +286,19 @@ export const WeekView: React.FC = () => {
 
                   return (
                     <tr key={h.id} style={{ opacity: isPaused ? 0.78 : 1 }}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 22 }}>{h.icon}</span>
-                          <div>
-                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {h.name}
+                      <td className="week-matrix-habit">
+                        <div className="week-habit">
+                          <span className="week-habit-icon">{h.icon}</span>
+                          <div className="week-habit-text">
+                            <div className="week-habit-name">
+                              <span>{h.name}</span>
                               {isPaused && (
                                 <span className="badge paused-badge">
                                   <Pause size={10} strokeWidth={3} aria-hidden="true" /> Pausado
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                            <div className="week-habit-meta">
                               +{h.points} pts
                               {h.kind === 'time' && (h.targetMinutes ? ` · ${h.targetMinutes} min` : '')}
                               {h.kind === 'quantity' && (h.targetQuantity ? ` · ${h.targetQuantity} ${h.quantityUnit || 'reps'}` : '')}
@@ -328,9 +328,8 @@ export const WeekView: React.FC = () => {
                             return (
                               <td
                                 key={dk}
+                                className="week-matrix-day"
                                 style={{
-                                  textAlign: 'center',
-                                  padding: 6,
                                   background: 'rgba(234, 179, 8, 0.06)',
                                 }}
                               >
@@ -356,9 +355,8 @@ export const WeekView: React.FC = () => {
                           return (
                             <td
                               key={dk}
+                              className="week-matrix-day"
                               style={{
-                                textAlign: 'center',
-                                padding: 6,
                                 background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
                               }}
                             >
@@ -377,9 +375,8 @@ export const WeekView: React.FC = () => {
                           return (
                             <td
                               key={dk}
+                              className="week-matrix-day"
                               style={{
-                                textAlign: 'center',
-                                padding: 6,
                                 background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
                               }}
                             >
@@ -417,9 +414,8 @@ export const WeekView: React.FC = () => {
                         return (
                           <td
                             key={dk}
+                            className="week-matrix-day"
                             style={{
-                              textAlign: 'center',
-                              padding: 6,
                               background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
                             }}
                           >
@@ -514,23 +510,23 @@ export const WeekView: React.FC = () => {
         </div>
 
         {/* Leyenda de la tabla */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '14px 20px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--muted)', flexWrap: 'wrap' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="week-legend">
+          <span className="week-legend-item">
             <span className="legend-cell" style={{ background: 'var(--accent)', color: '#fff' }}><StatusIcon status="full" size={10} strokeWidth={3.2} /></span> Objetivo completo (+100%)
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="week-legend-item">
             <span className="legend-cell" style={{ background: 'var(--minimum)', color: '#06201c' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="week-legend-item">
             <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'rgba(248, 113, 113, 0.2)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="week-legend-item">
             <span className="legend-cell" style={{ border: '1.5px solid rgba(251, 191, 36, 0.45)', background: 'var(--warning-soft)', color: 'var(--warning)' }}><StatusIcon status="paused" size={9} strokeWidth={3} /></span> En pausa
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="week-legend-item">
             <span style={{ color: 'var(--muted)', opacity: 0.5, fontWeight: 700 }}>—</span> No programado hoy
           </span>
-          <span style={{ marginLeft: 'auto' }}>
+          <span className="week-legend-note">
             <Trophy size={14} style={{ display: 'inline', marginRight: 4, color: 'var(--warning)' }} /> Volver tras una falla cuenta como victoria en <strong>Recuperación</strong>.
           </span>
         </div>

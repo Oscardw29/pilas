@@ -649,7 +649,7 @@ export const AiCoachView: React.FC = () => {
           <h1>Coach de Hábitos IA</h1>
         </div>
 
-        <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="actions coach-model-badges">
           {/* Muestra automáticamente el modelo principal en uso */}
           <span
             className="badge accent"
@@ -673,7 +673,7 @@ export const AiCoachView: React.FC = () => {
 
       {/* Alerta de API Key si no está configurada */}
       {!isKeyConfigured && (
-        <div className="callout attention">
+        <div className="callout attention coach-key-callout">
           <Key />
           <div className="row-between grow" style={{ flexWrap: 'wrap', gap: 10 }}>
             <div>
@@ -815,10 +815,6 @@ export const AiCoachView: React.FC = () => {
                   {/* Burbuja del mensaje */}
                   <div
                     className={`chat-bubble ${m.sender}`}
-                    style={{
-                      maxWidth: '85%',
-                      position: 'relative',
-                    }}
                   >
                     {isEditing ? (
                       <div className="chat-edit-box" style={{ minWidth: 'min(260px, 100%)' }}>
@@ -867,17 +863,8 @@ export const AiCoachView: React.FC = () => {
                   {!isEditing && (
                     <div
                       className="chat-actions-bottom"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginTop: 4,
-                        padding: '0 4px',
-                        opacity: 0,
-                        transition: 'opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      }}
                     >
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      <span className="chat-msg-time">
                         {m.timestamp}
                       </span>
 
@@ -885,15 +872,7 @@ export const AiCoachView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleCopy(m.id, m.content)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'var(--text-2)',
-                          padding: 2,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                        }}
+                        className="chat-msg-action"
                         title="Copiar texto"
                         aria-label="Copiar texto"
                       >
@@ -905,15 +884,7 @@ export const AiCoachView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStartEdit(m.id, m.content)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-2)',
-                            padding: 2,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                          }}
+                          className="chat-msg-action"
                           title="Editar mensaje"
                           aria-label="Editar mensaje"
                         >
@@ -927,15 +898,7 @@ export const AiCoachView: React.FC = () => {
                           type="button"
                           onClick={() => handleRegenerate(m.id)}
                           disabled={loading}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: loading ? 'default' : 'pointer',
-                            color: 'var(--text-2)',
-                            padding: 2,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                          }}
+                          className="chat-msg-action"
                           title="Regenerar respuesta del coach"
                           aria-label="Regenerar respuesta del coach"
                         >
@@ -949,31 +912,12 @@ export const AiCoachView: React.FC = () => {
                   {isUser && totalVersions > 1 && !isEditing && (
                     <div
                       className="chat-versions-nav"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        marginTop: 4,
-                        fontSize: 11,
-                        color: 'var(--text-2)',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        border: '1px solid var(--border)',
-                      }}
                     >
                       <button
                         type="button"
                         disabled={currentVersionNum <= 1}
                         onClick={() => handleSwitchVersion(m.id, -1)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: currentVersionNum > 1 ? 'pointer' : 'default',
-                          opacity: currentVersionNum > 1 ? 1 : 0.3,
-                          color: 'inherit',
-                          padding: '1px 3px',
-                        }}
+                        className="chat-version-btn"
                         title="Versión anterior"
                         aria-label="Versión anterior"
                       >
@@ -986,14 +930,7 @@ export const AiCoachView: React.FC = () => {
                         type="button"
                         disabled={currentVersionNum >= totalVersions}
                         onClick={() => handleSwitchVersion(m.id, 1)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: currentVersionNum < totalVersions ? 'pointer' : 'default',
-                          opacity: currentVersionNum < totalVersions ? 1 : 0.3,
-                          color: 'inherit',
-                          padding: '1px 3px',
-                        }}
+                        className="chat-version-btn"
                         title="Siguiente versión"
                         aria-label="Siguiente versión"
                       >
@@ -1071,7 +1008,7 @@ export const AiCoachView: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                <Lightbulb size={12} style={{ color: 'var(--accent)' }} /> Sugerencias:
+                <Lightbulb size={12} style={{ color: 'var(--accent)' }} /> <span className="chat-presets-label">Sugerencias:</span>
               </span>
               <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'nowrap' }}>
                 {PRESET_QUESTIONS.map((q, idx) => (
@@ -1112,7 +1049,7 @@ export const AiCoachView: React.FC = () => {
             {/* Botón de Micrófono (STT para input) */}
             <button
               type="button"
-              className={`icon-btn ${isRecording ? 'recording' : ''}`}
+              className={`icon-btn chat-mic-btn ${isRecording ? 'recording' : ''}`}
               onClick={toggleRecording}
               style={{
                 flexShrink: 0,
@@ -1146,7 +1083,7 @@ export const AiCoachView: React.FC = () => {
             {/* BOTÓN ASISTENTE DE VOZ EN VIVO: estrictamente icono, a la izquierda de Enviar */}
             <button
               type="button"
-              className="icon-btn"
+              className="icon-btn chat-voice-btn"
               onClick={handleOpenLiveVoice}
               style={{
                 flexShrink: 0,
@@ -1163,11 +1100,11 @@ export const AiCoachView: React.FC = () => {
             {/* Botón Enviar */}
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary chat-send-btn"
               disabled={!input.trim() || loading}
-              style={{ flexShrink: 0 }}
+              aria-label="Enviar"
             >
-              <Send size={16} /> Enviar
+              <Send size={16} /> <span className="chat-send-label">Enviar</span>
             </button>
           </form>
         </div>

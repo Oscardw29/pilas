@@ -165,7 +165,7 @@ export const ReviewView: React.FC = () => {
         </div>
 
         <div className="actions">
-          <div className="segmented">
+          <div className="segmented review-week-switch">
             <button type="button" onClick={handlePrevWeek} title="Semana anterior" aria-label="Semana anterior">
               <ChevronLeft size={16} />
             </button>
@@ -194,7 +194,7 @@ export const ReviewView: React.FC = () => {
       )}
 
       {/* Grid de 4 KPIs con estilo del sistema */}
-      <div className="grid-4">
+      <div className="grid-4 review-kpis">
         <div className="card">
           <div className="stat">
             <div className="stat-top">
@@ -262,7 +262,7 @@ export const ReviewView: React.FC = () => {
       </div>
 
       {/* Mejor y más difícil hábito */}
-      <div className="grid-2">
+      <div className="grid-2 review-highlights">
         <div className="card" style={{ borderLeft: '3px solid var(--success)' }}>
           <div className="row-between">
             <span className="badge success">
@@ -345,12 +345,12 @@ export const ReviewView: React.FC = () => {
             <div className="card-sub">Minutos de foco y hábitos logrados cada día</div>
           </div>
         </div>
-        <div style={{ height: 260, width: '100%', marginTop: 8 }}>
+        <div className="review-chart">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" stroke="var(--muted)" fontSize={12} />
-              <YAxis stroke="var(--muted)" fontSize={12} />
+              <YAxis stroke="var(--muted)" fontSize={12} width={36} allowDecimals={false} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--surface-2)',
@@ -368,12 +368,12 @@ export const ReviewView: React.FC = () => {
 
       {/* Tabla detallada de hábitos */}
       <div className="card flush">
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+        <div className="card-flush-head">
           <div className="card-title">Desglose por hábito</div>
           <div className="card-sub">Detalle de cumplimiento en la semana seleccionada</div>
         </div>
         <div className="table-wrap">
-          <table className="table">
+          <table className="table review-table">
             <thead>
               <tr>
                 <th>Hábito</th>
@@ -434,7 +434,7 @@ export const ReviewView: React.FC = () => {
       </div>
 
       {/* Planificar próxima semana */}
-      <div className="card highlight">
+      <div className="card highlight review-plan">
         <div className="card-head">
           <div className="row">
             <Target size={18} style={{ color: 'var(--accent-2)' }} />
@@ -468,7 +468,7 @@ export const ReviewView: React.FC = () => {
             />
           </div>
 
-          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <div className="row review-plan-actions">
             <button type="button" className="btn btn-primary" onClick={handleSaveReview}>
               <Save size={16} />
               {savedReview ? 'Actualizar plan semanal' : 'Guardar y reclamar +50 pts'}
