@@ -147,16 +147,16 @@ export const RewardsView: React.FC = () => {
 
       {/* Catálogo de Premios */}
       <div className="stack" style={{ gap: 14 }}>
-        <div className="row-between">
+        <div className="row-between reward-catalog-head">
           <div className="card-title">Catálogo de premios disponibles</div>
           <span className="badge accent">{rewards.length + 1} recompensas</span>
         </div>
 
-        <div className="grid-3">
+        <div className="grid-3 reward-grid">
           {/* Recompensa permanente: Protector de racha */}
           <div className="card reward-card freeze-reward-card">
             <div>
-              <div className="row-between" style={{ alignItems: 'flex-start' }}>
+              <div className="row-between reward-card-head">
                 <span className="entity-icon lg" style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', color: '#38bdf8' }}>
                   <Shield size={24} aria-hidden="true" />
                 </span>
@@ -165,16 +165,16 @@ export const RewardsView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="bold" style={{ fontSize: 16, marginTop: 12, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Protector de racha (1 día) <Snowflake size={15} aria-hidden="true" />
+              <div className="reward-name" style={{ color: '#38bdf8' }}>
+                Protector de racha (1 día) <Snowflake size={15} aria-hidden="true" style={{ display: 'inline', verticalAlign: '-2px' }} />
               </div>
-              <p style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 6, minHeight: 38 }}>
+              <p className="reward-desc">
                 Protege tu racha si un día no realizas hábitos. Mantiene la racha activa en color azul congelado sin romper tu progreso. Máximo 1 en inventario.
               </p>
             </div>
 
-            <div style={{ paddingTop: 14, borderTop: '1px solid rgba(56, 189, 248, 0.25)' }}>
-              <div className="row-between">
+            <div className="reward-card-foot" style={{ borderTopColor: 'rgba(56, 189, 248, 0.25)' }}>
+              <div className="row-between reward-foot-row">
                 <div className="reward-price">
                   <Coins size={18} style={{ color: '#38bdf8' }} />
                   <span style={{ color: '#38bdf8' }}>150</span>
@@ -185,7 +185,7 @@ export const RewardsView: React.FC = () => {
                   <button
                     type="button"
                     disabled
-                    className="btn sm btn-secondary"
+                    className="btn sm btn-secondary reward-redeem-btn"
                     style={{ opacity: 0.85, cursor: 'not-allowed', borderColor: '#38bdf8', color: '#38bdf8' }}
                   >
                     <ShieldCheck size={14} aria-hidden="true" /> Activo (1/1)
@@ -195,7 +195,7 @@ export const RewardsView: React.FC = () => {
                     type="button"
                     disabled={pts.balance < 150}
                     onClick={() => setRewardToRedeem('streak_freeze')}
-                    className={`btn sm ${pts.balance >= 150 ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn sm reward-redeem-btn ${pts.balance >= 150 ? 'btn-primary' : 'btn-secondary'}`}
                     style={pts.balance >= 150 ? { background: '#0284c7', color: '#fff', borderColor: '#38bdf8', boxShadow: '0 0 14px rgba(56, 189, 248, 0.5)' } : {}}
                   >
                     {pts.balance >= 150 ? (
@@ -212,7 +212,7 @@ export const RewardsView: React.FC = () => {
               </div>
 
               {hasStreakFreeze && (
-                <div className="xs" style={{ marginTop: 8, textAlign: 'right', color: '#38bdf8', fontWeight: 600 }}>
+                <div className="xs reward-claimed" style={{ color: '#38bdf8', fontWeight: 600 }}>
                   <span className="icon-label"><Check size={12} strokeWidth={3} aria-hidden="true" /> Listo para proteger tu próximo día sin hábitos</span>
                 </div>
               )}
@@ -227,9 +227,9 @@ export const RewardsView: React.FC = () => {
             return (
               <div key={reward.id} className="card reward-card">
                 <div>
-                  <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                  <div className="row-between reward-card-head">
                     <span className="entity-icon lg">{reward.icon}</span>
-                    <div className="row" style={{ gap: 4 }}>
+                    <div className="row reward-card-tools">
                       <button
                         type="button"
                         onClick={() => {
@@ -254,14 +254,14 @@ export const RewardsView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bold" style={{ fontSize: 16, marginTop: 12 }}>{reward.name}</div>
-                  <p style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 6, minHeight: 38 }}>
+                  <div className="reward-name" title={reward.name}>{reward.name}</div>
+                  <p className="reward-desc">
                     Disfruta de este momento de descanso y gratificación por tu constancia sostenida.
                   </p>
                 </div>
 
-                <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <div className="row-between">
+                <div className="reward-card-foot">
+                  <div className="row-between reward-foot-row">
                     <div className="reward-price">
                       <Coins size={18} />
                       <span>{reward.cost}</span>
@@ -272,7 +272,7 @@ export const RewardsView: React.FC = () => {
                       type="button"
                       disabled={!canAfford}
                       onClick={() => setRewardToRedeem(reward)}
-                      className={`btn sm ${canAfford ? 'btn-primary' : 'btn-secondary'}`}
+                      className={`btn sm reward-redeem-btn ${canAfford ? 'btn-primary' : 'btn-secondary'}`}
                       style={canAfford ? { background: 'var(--warning)', color: '#0c0c10', borderColor: 'var(--warning)' } : {}}
                     >
                       {canAfford ? (
@@ -288,7 +288,7 @@ export const RewardsView: React.FC = () => {
                   </div>
 
                   {timesClaimed > 0 && (
-                    <div className="xs muted" style={{ marginTop: 8, textAlign: 'right' }}>
+                    <div className="xs muted reward-claimed">
                       Canjeado {timesClaimed} veces
                     </div>
                   )}
@@ -301,7 +301,7 @@ export const RewardsView: React.FC = () => {
 
       {/* Historial de canjes */}
       <div className="card flush">
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+        <div className="card-flush-head">
           <div className="card-title">Historial de recompensas canjeadas</div>
           <div className="card-sub">Registro de tus canjes y premios disfrutados</div>
         </div>
@@ -312,7 +312,7 @@ export const RewardsView: React.FC = () => {
           </div>
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table reward-history">
               <thead>
                 <tr>
                   <th>Recompensa</th>

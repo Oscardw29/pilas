@@ -484,6 +484,40 @@ ul, ol { list-style: none; }
   .week-nav-today .long { display: none; }
   .week-nav-today .short { display: inline; }
 }
+/* Mi semana: barra superior, matriz y leyenda */
+.week-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.week-tip { display: flex; align-items: center; gap: var(--space-4); font-size: 13px; color: var(--muted); }
+.week-matrix th.week-matrix-habit { min-width: 220px; }
+.week-matrix th.week-matrix-day { width: 56px; }
+.week-matrix td.week-matrix-day { text-align: center; padding: 6px; }
+.week-habit { display: flex; align-items: center; gap: 10px; }
+.week-habit-icon { font-size: 22px; line-height: 1.2; flex-shrink: 0; }
+.week-habit-text { min-width: 0; }
+.week-habit-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.week-habit-meta { font-size: 11.5px; color: var(--muted); }
+.week-legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-5); padding: 14px var(--space-5); border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.week-legend-item { display: flex; align-items: center; gap: 6px; }
+.week-legend-note { margin-left: auto; }
+/* Móvil: la columna del hábito queda fija al deslizar los días y las celdas se compactan */
+@media (max-width: 639.98px) {
+  .week-toolbar { padding: var(--space-3) 14px; gap: var(--space-2); }
+  .week-tip { font-size: 12px; line-height: 1.6; }
+  .week-matrix th, .week-matrix td { padding: 10px 8px; }
+  .week-matrix th.week-matrix-habit, .week-matrix td.week-matrix-habit {
+    position: sticky; left: 0; z-index: 1;
+    width: 140px; min-width: 140px; max-width: 140px; padding-left: 14px;
+    background: var(--surface); box-shadow: 1px 0 0 var(--border);
+  }
+  .week-matrix th.week-matrix-day { width: 44px; padding: 8px 2px; }
+  .week-matrix td.week-matrix-day { padding: 6px 2px; }
+  .week-habit { gap: var(--space-2); }
+  .week-habit-icon { font-size: 18px; }
+  .week-habit-name { flex-wrap: wrap; gap: 2px 6px; font-size: 13px; line-height: 1.3; }
+  .week-habit-name > span:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; hyphens: auto; }
+  .week-habit-meta { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .week-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); padding: var(--space-3) 14px; font-size: 12px; }
+  .week-legend-note { grid-column: 1 / -1; margin-left: 0; line-height: 1.5; }
+}
 /* Movimiento reducido: sin desplazamiento, solo un fundido corto (gana a la regla global por especificidad) */
 @media (prefers-reduced-motion: reduce) {
   .week-slide.is-out-next, .week-slide.is-out-prev { animation: weekFadeOut 70ms linear both !important; }
@@ -633,6 +667,79 @@ ul, ol { list-style: none; }
   align-items: baseline;
   gap: 4px;
 }
+.reward-card-head { align-items: flex-start; }
+.reward-card-tools { gap: 4px; }
+.reward-name { font-size: 16px; font-weight: 600; margin-top: 12px; }
+.reward-desc { color: var(--text-2); font-size: 13px; margin-top: 6px; min-height: 38px; }
+.reward-card-foot { padding-top: 14px; border-top: 1px solid var(--border); }
+.reward-claimed { margin-top: 8px; text-align: right; }
+.card-flush-head { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+
+/* Recompensas en móvil: dos tarjetas compactas por fila */
+@media (max-width: 639.98px) {
+  .reward-catalog-head .card-title { font-size: 14px; }
+  .reward-catalog-head .badge { white-space: nowrap; flex-shrink: 0; }
+  .reward-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .card.reward-card { padding: var(--space-3); gap: var(--space-2); border-radius: 16px; }
+  .reward-card .entity-icon.lg { width: 40px; height: 40px; font-size: 20px; border-radius: 12px; }
+  .reward-card .entity-icon.lg svg { width: 20px; height: 20px; }
+  .reward-card-head { gap: 6px; }
+  .reward-card-head .badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; padding: 2px 7px; }
+  .reward-card-tools { gap: 0; margin: -4px -6px 0 0; }
+  .reward-card-tools .icon-btn.sm { width: 36px; height: 36px; min-width: 36px; min-height: 40px; }
+  .reward-name {
+    font-size: 14px; line-height: 1.3; margin-top: var(--space-2);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; hyphens: auto;
+  }
+  .reward-desc { display: none; }
+  .reward-card-foot { padding-top: var(--space-2); }
+  .reward-foot-row { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .reward-price { font-size: 17px; }
+  .reward-price svg { width: 16px; height: 16px; align-self: center; }
+  .reward-redeem-btn { width: 100%; min-height: 40px; }
+  .reward-claimed { margin-top: 6px; text-align: center; font-size: 11px; line-height: 1.35; }
+  .card-flush-head { padding: 14px var(--space-4); }
+  /* Historial: cada canje en dos líneas (nombre y fecha) con los puntos a la derecha */
+  .reward-history thead { display: none; }
+  .reward-history tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+  .reward-history tr:last-child { border-bottom: 0; }
+  .reward-history td { padding: 0; border: 0; }
+  .reward-history td:nth-child(1) { grid-column: 1; grid-row: 1; min-width: 0; }
+  .reward-history td:nth-child(2) { grid-column: 1; grid-row: 2; padding-left: 40px; font-size: 12px; }
+  .reward-history td:nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (hover: none) {
+  .card.reward-card:hover { transform: none; }
+}
+
+/* Revisión semanal */
+.review-chart { height: 260px; width: 100%; margin-top: var(--space-2); }
+.review-plan-actions { justify-content: flex-end; margin-top: var(--space-2); }
+@media (max-width: 639.98px) {
+  .review-week-switch { display: flex; width: 100%; flex-wrap: nowrap; }
+  .review-week-switch button { display: grid; place-items: center; min-height: 40px; min-width: 44px; padding: 0 var(--space-3); }
+  .review-week-switch button.active { flex: 1; }
+  .review-kpis { gap: 10px; }
+  .review-kpis .card { padding: 14px; }
+  .review-kpis .stat-top { align-items: flex-start; gap: 6px; }
+  .review-kpis .stat-label { font-size: 12px; line-height: 1.3; }
+  .review-kpis .stat-top .badge { white-space: nowrap; flex-shrink: 0; padding: 2px 7px; font-size: 11px; }
+  .review-kpis .stat-top > svg { flex-shrink: 0; }
+  .review-kpis .stat-sub { font-size: 12px; line-height: 1.35; }
+  .review-highlights { gap: 10px; }
+  .review-chart { height: 210px; }
+  .review-plan .card-head { margin-bottom: var(--space-3); }
+  .review-plan-actions .btn { width: 100%; }
+  /* Desglose: una fila por hábito con «cumplidos / programados» y la consistencia a la derecha */
+  .review-table thead { display: none; }
+  .review-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; padding: 10px var(--space-4); border-bottom: 1px solid var(--border); }
+  .review-table tr:last-child { border-bottom: 0; }
+  .review-table td { padding: 0; border: 0; }
+  .review-table td:nth-child(1) { min-width: 0; padding-right: var(--space-2); }
+  .review-table td:nth-child(1) .row { flex-wrap: wrap; row-gap: 4px; }
+  .review-table td:nth-child(3) { padding-right: var(--space-3); }
+  .review-table td:nth-child(3)::before { content: "/ "; padding-left: 4px; }
+}
 
 /* Coach de Hábitos IA: Contenedor y Mensajes */
 .chat-container {
@@ -761,6 +868,40 @@ ul, ol { list-style: none; }
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+}
+.chat-message-wrapper > .chat-bubble { max-width: 85%; position: relative; }
+.chat-actions-bottom { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 0 4px; opacity: 0; transition: opacity .2s cubic-bezier(.4, 0, .2, 1); }
+.chat-msg-time { font-size: 11px; color: var(--muted); }
+.chat-msg-action { display: inline-flex; align-items: center; justify-content: center; padding: 2px; color: var(--text-2); border-radius: 8px; transition: background .15s, color .15s; }
+.chat-msg-action:hover:not(:disabled) { color: var(--text); }
+.chat-msg-action:disabled { cursor: default; }
+.chat-versions-nav { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 8px; font-size: 11px; color: var(--text-2); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 12px; }
+.chat-version-btn { display: inline-flex; align-items: center; justify-content: center; padding: 1px 3px; color: inherit; }
+.chat-version-btn:disabled { opacity: .3; cursor: default; }
+.chat-mic-btn, .chat-voice-btn, .chat-send-btn { flex-shrink: 0; }
+.coach-model-badges { align-items: center; }
+/* Coach IA en móvil: barra de entrada compacta, burbujas más anchas y acciones fáciles de tocar */
+@media (max-width: 639.98px) {
+  .coach-model-badges { gap: 6px; }
+  .coach-key-callout { padding: var(--space-3) 14px; gap: 10px; }
+  .coach-key-callout .title { font-size: 13.5px; }
+  .coach-key-callout .detail { font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
+  .coach-key-callout .btn { width: 100%; }
+  .card.chat-container { padding: var(--space-3); gap: var(--space-2); min-height: 420px; }
+  .chat-messages { padding-right: 0; gap: 10px; }
+  .chat-message-wrapper > .chat-bubble { max-width: 90%; padding: var(--space-3) 14px; font-size: 14px; border-radius: 16px; }
+  .chat-actions-bottom { gap: 0; margin-top: 2px; padding: 0; }
+  .chat-msg-time { padding: 0 6px 0 4px; }
+  .chat-msg-action { width: 40px; height: 40px; padding: 0; }
+  .chat-msg-action svg { width: 16px; height: 16px; }
+  .chat-version-btn { width: 36px; height: 32px; }
+  .chat-presets { margin-top: 0 !important; padding: 4px !important; }
+  .chat-presets-label { display: none; }
+  .chat-input-bar { gap: 6px; margin-top: 0 !important; padding-top: var(--space-2); }
+  .chat-input-bar .input { min-width: 0; height: 44px; padding: 0 12px; }
+  .chat-mic-btn, .chat-voice-btn { width: 44px; height: 44px; }
+  .chat-send-btn { width: 44px; height: 44px; padding: 0; border-radius: 12px; }
+  .chat-send-label { display: none; }
 }
 .preset-pills {
   display: flex;
@@ -1215,9 +1356,13 @@ input[type="date"], select, .select, input, textarea {
 /* Pantallas medianas y pequeñas: el chat ocupa todo y las conversaciones se pliegan */
 @media (max-width: 899.98px) {
   .coach-layout { grid-template-columns: minmax(0, 1fr); }
-  .conversations-sidebar { padding: 8px 10px; }
-  .conversations-header { padding: 2px; }
-  .conversations-title-btn { flex: 1; min-width: 0; min-height: 40px; }
+  /* .card.* para ganar a las reglas base de abajo y al relleno de .card en móvil */
+  .card.conversations-sidebar { padding: 6px 6px 6px 14px; gap: 4px; }
+  .card.conversations-sidebar .conversations-header { padding: 0; gap: 8px; }
+  .conversations-title-btn { flex: 1; min-width: 0; min-height: 44px; font-size: 14px; }
+  .conversations-sidebar .conversation-item { min-height: 44px; padding: 4px 4px 4px 10px; margin-right: 8px; }
+  .conversation-item .conv-more-btn { width: 36px; height: 36px; border-radius: 8px; }
+  .conv-list-open .conv-list { padding-bottom: 6px; }
   .conv-header-label { display: none; }
   .conv-header-current { display: block; color: var(--text); }
   .conv-header-chevron { display: block; flex-shrink: 0; transition: transform .15s; }
