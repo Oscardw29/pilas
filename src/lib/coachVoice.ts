@@ -51,8 +51,8 @@ const GEMINI_VOICES: Record<CoachGender, string> = { male: 'Puck', female: 'Zeph
 const OPENAI_VOICES: Record<CoachGender, string> = { male: 'ash', female: 'coral' };
 /** Antoni y Bella: voces multilingües de ElevenLabs que suenan bien en español */
 const ELEVENLABS_VOICES: Record<CoachGender, string> = { male: 'ErXwobaYiN019PkySvjV', female: 'EXAVITQu4vr4xnSDxMaL' };
-/** Voces públicas en español del catálogo de Fish Audio: «Fernando Martinez» (enérgico) y «Chica» (brillante) */
-const FISH_VOICES: Record<CoachGender, string> = { male: '1fb9a295ef7047eb9ae334b779567f9d', female: '35929683c49c4ec0bf779dc07d22620b' };
+/** Voces públicas en español del catálogo de Fish Audio, elegidas por el usuario: «Rodrigo» (Pilo) y «Chica» (Pila) */
+const FISH_VOICES: Record<CoachGender, string> = { male: 'ec0718028a2445fb9be8e8bfb56a0150', female: '35929683c49c4ec0bf779dc07d22620b' };
 const STYLE_PROMPT =
   'Lee en español latino, con voz cálida y enérgica de entrenador personal que anima sin exagerar';
 
@@ -243,12 +243,11 @@ export function resolveCoachVoice(
   settings: VoiceSettings = useStore.getState().settings,
   secrets: VoiceSecrets = getSecrets(),
 ): CoachVoiceChoice {
-  const tts = settings.ttsPlatform || 'ai_voice';
+  const tts = settings.ttsPlatform || 'fish_audio';
   const ttsModel = settings.ttsModel?.trim() || '';
   const ttsVoice = settings.ttsVoiceId?.trim() || '';
 
   if (tts === 'native') return { provider: null, label: 'Voz del navegador (síntesis nativa)' };
-  // 'ai_voice' pasa directo a la voz de la plataforma de IA (la original del coach)
 
   let note: string | undefined;
   if (tts === 'elevenlabs') {
@@ -271,7 +270,7 @@ export function resolveCoachVoice(
 
   const aiKey = usableKey(secrets.geminiApiKey);
   const platform = settings.aiPlatform || 'gemini';
-  if (aiKey && platform === 'gemini') return { provider: { kind: 'gemini', key: aiKey }, label: 'Voz original · Gemini (Puck para Pilo, Zephyr para Pila)', note };
+  if (aiKey && platform === 'gemini') return { provider: { kind: 'gemini', key: aiKey }, label: 'Gemini TTS (clave de IA)', note };
   if (aiKey && platform === 'openai') {
     return { provider: { kind: 'openai', key: aiKey, model: 'gpt-4o-mini-tts', voice: '' }, label: 'OpenAI TTS (clave de IA)', note };
   }

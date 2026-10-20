@@ -157,18 +157,16 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const [backupModel, setBackupModel] = useState(settings.backupModel || 'gemini-3.1-flash');
 
   // Voz (TTS & STT)
-  const [ttsPlatform, setTtsPlatform] = useState<TtsPlatform>(settings.ttsPlatform || 'ai_voice');
+  const [ttsPlatform, setTtsPlatform] = useState<TtsPlatform>(settings.ttsPlatform || 'fish_audio');
   const keyForTtsPlatform = (p: TtsPlatform | undefined) =>
     (p === 'elevenlabs'
       ? secrets.elevenLabsApiKey
       : p === 'openai'
       ? secrets.openaiTtsApiKey
-      : p === 'native' || p === 'ai_voice'
+      : p === 'native'
       ? ''
       : secrets.fishAudioApiKey) || secrets.ttsApiKey;
-  /** Plataformas sin clave propia: la nativa y la voz original (usa la clave de IA) */
-  const noTtsKey = ttsPlatform === 'native' || ttsPlatform === 'ai_voice';
-  const [ttsApiKey, setTtsApiKey] = useState(() => keyForTtsPlatform(settings.ttsPlatform || 'ai_voice'));
+  const [ttsApiKey, setTtsApiKey] = useState(() => keyForTtsPlatform(settings.ttsPlatform || 'fish_audio'));
   const [ttsModel, setTtsModel] = useState(settings.ttsModel || 's2.1-pro-free');
   const [ttsVoiceId, setTtsVoiceId] = useState(settings.ttsVoiceId || '');
   const [deepgramApiKey, setDeepgramApiKey] = useState(secrets.deepgramApiKey);
@@ -181,7 +179,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
   useEffect(() => {
     const key = ttsApiKey.trim();
-    if (ttsPlatform === 'ai_voice' || (ttsPlatform !== 'native' && key.length < 8)) {
+    if (ttsPlatform !== 'native' && key.length < 8) {
       setTtsCheck(null);
       return;
     }
@@ -436,7 +434,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     if (presets.length > 0) setTtsModel(presets[0].id);
     // Sin ID la voz se elige según el coach (Pilo o Pila); el usuario puede escribir otra
     setTtsVoiceId('');
-    setTtsApiKey(keyForTtsPlatform(p));
+    setTtsApiKey(p === 'native' ? '' : keyForTtsPlatform(p));
     playSound.pop();
   };
 
@@ -991,7 +989,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   value={ttsPlatform}
                   onChange={(val) => handleTtsPlatformChange(val)}
                   options={[
-                    { value: 'ai_voice', label: 'Voz original del coach', sublabel: 'Gemini · Puck (Pilo) y Zephyr (Pila) · usa la clave de IA' },
                     { value: 'fish_audio', label: 'Fish Audio', sublabel: 'Neuronal ultra-realista' },
                     { value: 'elevenlabs', label: 'ElevenLabs', sublabel: 'Voces humanas premium' },
                     { value: 'openai', label: 'OpenAI TTS', sublabel: 'Nova, Alloy, Echo...' },
@@ -1007,9 +1004,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <div className="field">
                 <div className="row-between">
                   <span className="label">
-                    {ttsPlatform === 'ai_voice'
-                      ? 'Clave de IA (la de la tarjeta de arriba)'
-                      : ttsPlatform === 'fish_audio'
+                    {ttsPlatform === 'fish_audio'
                       ? 'Fish Audio API Key'
                       : ttsPlatform === 'elevenlabs'
                       ? 'ElevenLabs API Key'
@@ -1044,10 +1039,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     data-form-type="other"
                     spellCheck={false}
                     className="input"
-                    disabled={noTtsKey || secretsLocked}
-                    value={noTtsKey ? '' : ttsApiKey}
+                    disabled={ttsPlatform === 'native' || secretsLocked}
+                    value={ttsPlatform === 'native' ? 'No se requiere clave' : ttsApiKey}
                     onChange={(e) => setTtsApiKey(e.target.value)}
-                    style={{ paddingRight: !noTtsKey ? 40 : undefined }}
+                    style={{ paddingRight: ttsPlatform !== 'native' ? 40 : undefined }}
                     placeholder={
                       ttsPlatform === 'fish_audio'
                         ? 'fish_...'
@@ -1055,12 +1050,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                         ? 'sk_...'
                         : ttsPlatform === 'openai'
                         ? 'sk-proj-...'
-                        : ttsPlatform === 'ai_voice'
-                        ? 'Usa la clave de la tarjeta de IA'
                         : 'Síntesis local sin costo'
                     }
                   />
-                  {!noTtsKey && (
+                  {ttsPlatform !== 'native' && (
                     <button
                       type="button"
                       onClick={() => setShowTtsKey((p) => !p)}
@@ -1085,8 +1078,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                 <span className="hint">
                   {ttsPlatform === 'native'
                     ? 'Usa el motor de voz del sistema operativo de tu dispositivo.'
-                    : ttsPlatform === 'ai_voice'
-                    ? 'No necesita otra clave: usa la de Inteligencia Artificial.'
                     : 'Clave privada almacenada únicamente en tu navegador.'}
                 </span>
               </div>
@@ -1104,7 +1095,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   value={ttsModel}
                   onChange={(val) => setTtsModel(val)}
                   options={ttsModelOptions}
-                  disabled={noTtsKey}
+                  disabled={ttsPlatform === 'native'}
                 />
                 <span className="hint">
                   {ttsPlatform === 'fish_audio'
@@ -1113,8 +1104,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     ? 'Multilingual v2 está optimizado para español nativo.'
                     : ttsPlatform === 'openai'
                     ? 'tts-1 ofrece baja latencia para conversaciones dinámicas.'
-                    : ttsPlatform === 'ai_voice'
-                    ? 'La voz con la que el coach habló desde el principio.'
                     : 'Voz estándar en español de tu navegador.'}
                 </span>
               </div>
@@ -1132,7 +1121,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   <input
                     type="text"
                     className="input"
-                    disabled={noTtsKey}
+                    disabled={ttsPlatform === 'native'}
                     value={ttsVoiceId}
                     onChange={(e) => setTtsVoiceId(e.target.value)}
                     placeholder="Vacío: voz según Pilo o Pila"
@@ -1163,8 +1152,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                 <span className="hint">
                   {ttsPlatform === 'native'
                     ? 'Usa la síntesis de voz nativa del dispositivo.'
-                    : ttsPlatform === 'ai_voice'
-                    ? 'Puck para Pilo y Zephyr para Pila, según tu coach.'
                     : 'ID de referencia para la síntesis de voz.'}
                 </span>
               </div>

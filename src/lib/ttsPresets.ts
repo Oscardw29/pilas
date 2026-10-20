@@ -6,7 +6,6 @@ export interface TtsModelOption {
 }
 
 export const PRESET_TTS_MODELS: Record<string, TtsModelOption[]> = {
-  ai_voice: [{ id: 'gemini-2.5-flash-preview-tts', name: 'Gemini TTS · Puck (Pilo) / Zephyr (Pila)' }],
   // Los que acepta hoy la API de Fish Audio (cabecera `model`); el relay rechaza cualquier otro
   fish_audio: [
     { id: 's2.1-pro-free', name: 'Fish Audio S2.1 Pro Free (Gratuito para desarrolladores)', defaultVoice: '' },
