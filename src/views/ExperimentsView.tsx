@@ -20,8 +20,6 @@ import { ExperimentModal } from '../components/modals/ExperimentModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useToast } from '../components/ui/ToastContext';
 import { PausedBadge } from '../components/ui/icons';
-import { CoachAvatar } from '../components/coach/CoachAvatar';
-import { useCoachPersona } from '../components/coach/coachPersona';
 import { Beaker, LabShelfArt, TubeProgress } from '../components/lab/LabArt';
 import '../components/lab/lab.css';
 
@@ -39,14 +37,11 @@ const expCode = (exp: Experiment, all: Experiment[]) => {
 export const ExperimentsView: React.FC = () => {
   const { experiments, habits, sessions, updateExperiment, deleteExperiment, addPointEvent, setHabitStatus } = useStore(useShallow((s) => ({ experiments: s.experiments, habits: s.habits, sessions: s.sessions, updateExperiment: s.updateExperiment, deleteExperiment: s.deleteExperiment, addPointEvent: s.addPointEvent, setHabitStatus: s.setHabitStatus })));
   const { showToast } = useToast();
-  const persona = useCoachPersona();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExp, setEditingExp] = useState<Experiment | null>(null);
   const [hoveredExpId, setHoveredExpId] = useState<string | null>(null);
   const [expIdToDelete, setExpIdToDelete] = useState<string | null>(null);
-  /** El coach celebra cada variante adoptada */
-  const [cheerKey, setCheerKey] = useState(0);
 
   const activeExperiments = experiments.filter((e) => e.status === 'running' || e.status === 'planned');
   const finishedExperiments = experiments.filter((e) => e.status === 'finished');
@@ -62,7 +57,6 @@ export const ExperimentsView: React.FC = () => {
       reason: `Experimento concluido: ${exp.name}`,
       source: 'experiment',
     });
-    setCheerKey((k) => k + 1);
     showToast(`¡Variante «${variant.label}» adoptada con éxito! +100 pts.`, 'reward');
   };
 
@@ -144,53 +138,39 @@ export const ExperimentsView: React.FC = () => {
           </p>
 
           <div className="lab-readouts" aria-label="Resumen del laboratorio">
-            <div className="lab-lcd">
-              <span className="lab-lcd-label">En curso</span>
-              <span className="lab-lcd-value">{String(activeExperiments.length).padStart(2, '0')}</span>
+            <div className="lab-stat">
+              <span className="stat-label">En curso</span>
+              <span className="lab-stat-value">{activeExperiments.length}</span>
             </div>
-            <div className="lab-lcd">
-              <span className="lab-lcd-label">Concluidos</span>
-              <span className="lab-lcd-value">{String(finishedExperiments.length).padStart(2, '0')}</span>
+            <div className="lab-stat">
+              <span className="stat-label">Concluidos</span>
+              <span className="lab-stat-value">{finishedExperiments.length}</span>
             </div>
-            <div className="lab-lcd">
-              <span className="lab-lcd-label">Adherencia</span>
-              <span className="lab-lcd-value">{avgAdherence === null ? '--' : `${avgAdherence}%`}</span>
+            <div className="lab-stat">
+              <span className="stat-label">Adherencia media</span>
+              <span className="lab-stat-value">{avgAdherence === null ? '—' : `${avgAdherence}%`}</span>
             </div>
           </div>
 
-          <button type="button" className="btn-3d btn-3d-lab" onClick={openNew}>
-            <Plus size={17} /> Nuevo experimento
+          <button type="button" className="btn btn-primary" onClick={openNew}>
+            <Plus size={16} /> Nuevo experimento
           </button>
         </div>
 
         <div className="lab-hero-scene" aria-hidden="true">
           <LabShelfArt />
-          <div className="lab-hero-coach">
-            <CoachAvatar
-              gender={persona.gender}
-              crop="bust"
-              size={170}
-              outfit="lab"
-              expression={cheerKey ? 'excited' : 'happy'}
-              gesture={cheerKey ? 'cheer' : 'nod'}
-              gestureKey={cheerKey || 1}
-            />
-          </div>
-          <div className="lab-bench">
-            <span className="lab-bench-note">{persona.name} · investigación</span>
-          </div>
         </div>
       </section>
 
       {/* MONITOR: comparativa de adherencia de todas las variantes */}
       {experimentsChartData.length > 0 && (
-        <div className="lab-monitor">
+        <div className="card lab-monitor">
           <div className="lab-monitor-head">
             <div>
               <h3 className="card-title">Monitor de adherencia</h3>
               <p className="card-sub">Tasa de cumplimiento de sesiones por cada variante A/B</p>
             </div>
-            <span className="lab-live">
+            <span className="badge accent lab-live">
               <i aria-hidden="true" /> {experimentsChartData.length} muestras
             </span>
           </div>
@@ -198,18 +178,18 @@ export const ExperimentsView: React.FC = () => {
           <div className="lab-screen" style={{ height: Math.max(160, experimentsChartData.length * 44) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={experimentsChartData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                <XAxis type="number" domain={[0, 100]} unit="%" stroke="#5eead4" fontSize={11} tickLine={false} />
+                <XAxis type="number" domain={[0, 100]} unit="%" stroke="var(--muted)" fontSize={11} tickLine={false} />
                 <YAxis
                   dataKey="name"
                   type="category"
-                  stroke="#5eead4"
+                  stroke="var(--muted)"
                   fontSize={12}
                   tickLine={false}
                   width={150}
                   tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
                 />
                 <Tooltip
-                  cursor={{ fill: 'rgba(94, 234, 212, 0.06)' }}
+                  cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
                   content={({ active, payload }: any) => {
                     if (active && payload && payload.length) {
                       const item = payload[0].payload;
@@ -249,11 +229,11 @@ export const ExperimentsView: React.FC = () => {
         </div>
 
         {activeExperiments.length === 0 ? (
-          <div className="lab-empty">
+          <div className="card lab-empty">
             <Beaker level={0} color="#2dd4bf" shade="#0f766e" size={86} />
             <h3>La mesa está vacía</h3>
             <p>¿No sabes si te conviene estudiar a las 4 PM o a las 8 PM? Monta un experimento y compara resultados reales.</p>
-            <button type="button" className="btn-3d btn-3d-lab" onClick={openNew}>
+            <button type="button" className="btn btn-primary" onClick={openNew}>
               <Plus size={16} /> Crear mi primer experimento
             </button>
           </div>
@@ -277,7 +257,7 @@ export const ExperimentsView: React.FC = () => {
               return (
                 <article
                   key={exp.id}
-                  className={`lab-card${isPausedHabit ? ' paused' : ''}`}
+                  className={`card lab-card${isPausedHabit ? ' paused' : ''}`}
                   onMouseEnter={() => setHoveredExpId(exp.id)}
                   onMouseLeave={() => setHoveredExpId(null)}
                 >
@@ -308,7 +288,7 @@ export const ExperimentsView: React.FC = () => {
                   <header className="lab-card-head">
                     <div className="lab-card-title">
                       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                        <span className="lab-code">{expCode(exp, experiments)}</span>
+                        <span className="badge lab-code">{expCode(exp, experiments)}</span>
                         <span className={`lab-status ${planned ? 'planned' : 'running'}`}>
                           <i aria-hidden="true" /> {planned ? 'Preparado' : 'En curso'}
                         </span>
@@ -388,8 +368,8 @@ export const ExperimentsView: React.FC = () => {
                               </div>
                             </div>
 
-                            <button type="button" className={`btn-3d sm btn-3d-${slot.name.toLowerCase()}`} onClick={() => handleSelectWinner(exp, v)}>
-                              <Trophy size={14} /> Adoptar variante {slot.name}
+                            <button type="button" className="btn btn-secondary sm" onClick={() => handleSelectWinner(exp, v)}>
+                              <Trophy size={14} style={{ color: 'var(--warning)' }} /> Adoptar variante {slot.name}
                             </button>
                           </div>
                         </React.Fragment>
@@ -424,11 +404,11 @@ export const ExperimentsView: React.FC = () => {
               const winner = exp.variants.find((v) => v.id === exp.winnerVariantId);
               const slotIdx = winner ? exp.variants.indexOf(winner) % 2 : -1;
               return (
-                <div key={exp.id} className="lab-report">
+                <div key={exp.id} className="card lab-report">
                   <span className="lab-stamp" aria-hidden="true">
                     Concluido
                   </span>
-                  <span className="lab-code">{expCode(exp, experiments)}</span>
+                  <span className="badge lab-code">{expCode(exp, experiments)}</span>
                   <div className="lab-report-name">{exp.name}</div>
                   {winner && (
                     <div className="lab-report-winner" style={{ color: SLOT[slotIdx].color }}>

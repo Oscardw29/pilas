@@ -20,88 +20,80 @@
 }
 @keyframes caPony { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(5deg); } }
 
-/* Brazos: escondidos fuera del encuadre hasta que hacen falta */
-.coach-avatar .ca-arm { opacity: 0; transition: opacity .2s; }
-.coach-avatar .ca-arm-r { transform: rotate(112deg); }
-.coach-avatar .ca-arm-l { transform: rotate(-104deg); }
 
-/* Hablando: cabeza que acompaña las frases, cejas que se levantan y mano que explica */
+/* Brazos articulados: hombro (.ca-up) y codo (.ca-fore). La postura va en `transform`
+   (con transición, así sube y baja sin saltos) y los vaivenes en `rotate`, que se suma encima. */
+.coach-avatar .ca-up, .coach-avatar .ca-fore { transition: transform .55s cubic-bezier(.34, 1.25, .64, 1); }
+.coach-avatar .ca-hand { transition: transform .3s ease; }
+.coach-avatar .ca-up-r { transform: rotate(-3deg); }
+.coach-avatar .ca-up-l { transform: rotate(3deg); }
+.coach-avatar .ca-fore-r { transform: rotate(-4deg); }
+.coach-avatar .ca-fore-l { transform: rotate(4deg); }
+
+/* Saludo: brazo hacia arriba y la mano se agita desde la muñeca */
+.coach-avatar.ca-g-wave .ca-up-r { transform: rotate(-128deg); }
+.coach-avatar.ca-g-wave .ca-fore-r { transform: rotate(-50deg); animation: caWaveFore .42s ease-in-out .45s 4 alternate; }
+.coach-avatar.ca-g-wave .ca-hand-r { animation: caWaveHand .42s ease-in-out .45s 4 alternate; }
+@keyframes caWaveFore { from { rotate: -10deg; } to { rotate: 12deg; } }
+@keyframes caWaveHand { from { rotate: -12deg; } to { rotate: 10deg; } }
+
+/* Celebración: puño arriba con un par de golpes y un saltito */
+.coach-avatar.ca-g-cheer .ca-up-r { transform: rotate(-138deg); animation: caPump .26s ease-in-out .4s 4 alternate; }
+.coach-avatar.ca-g-cheer .ca-fore-r { transform: rotate(-25deg); }
+.coach-avatar.ca-g-cheer .ca-rig,
+.coach-avatar.ca-g-bounce .ca-rig { animation: caBounce .75s cubic-bezier(.34, 1.56, .64, 1) both; }
+@keyframes caPump { from { rotate: 0deg; } to { rotate: 12deg; } }
+
+/* Hablando: una mano acompaña la explicación (la izquierda; en el laboratorio, la derecha) */
+.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-up-l { transform: rotate(40deg); }
+.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-fore-l { transform: rotate(176deg); animation: caExplainL .5s ease-in-out .5s 4 alternate; }
+.coach-avatar.ca-g-explain.ca-outfit-lab .ca-up-r { transform: rotate(-40deg); }
+.coach-avatar.ca-g-explain.ca-outfit-lab .ca-fore-r { transform: rotate(-176deg); animation: caExplainR .5s ease-in-out .5s 4 alternate; }
+@keyframes caExplainL { from { rotate: 0deg; } to { rotate: 10deg; } }
+@keyframes caExplainR { from { rotate: 0deg; } to { rotate: -10deg; } }
+
+/* Tienda: se balancea y de vez en cuando lanza una moneda y la atrapa */
+.ca-idle-shop .ca-rig { animation: caSway 3.6s ease-in-out infinite; }
+.coach-avatar.ca-g-coin .ca-up-r { transform: rotate(-112deg); }
+.coach-avatar.ca-g-coin .ca-fore-r { transform: rotate(-64deg); }
+.coach-avatar .ca-coin { transform-box: fill-box; transform-origin: center; }
+.coach-avatar.ca-g-coin .ca-coin { animation: caCoinToss 1.5s ease-in-out .7s both; }
+@keyframes caSway { 0%, 100% { transform: translateX(0) rotate(0deg); } 30% { transform: translateX(-2px) rotate(-1.2deg); } 70% { transform: translateX(2px) rotate(1.2deg); } }
+/* El antebrazo apunta hacia arriba: en sus coordenadas «arriba» es +Y */
+@keyframes caCoinToss {
+  0% { transform: translateY(0) scaleX(1); }
+  22% { transform: translateY(30px) scaleX(-1); }
+  32% { transform: translateY(38px) scaleX(1); }
+  44% { transform: translateY(30px) scaleX(-1); }
+  62% { transform: translateY(0) scaleX(1); }
+  70% { transform: translateY(-2px) scaleX(1); }
+  100% { transform: translateY(0) scaleX(1); }
+}
+
+/* Laboratorio: sujeta el matraz frente al pecho, lo agita y lo examina */
+.coach-avatar.ca-outfit-lab .ca-up-l { transform: rotate(30deg); }
+.coach-avatar.ca-outfit-lab .ca-fore-l { transform: rotate(200deg); }
+.ca-outfit-lab .ca-flask { animation: caSwirl 5s ease-in-out infinite; }
+.ca-idle-lab .ca-head { animation: caHeadLab 7s ease-in-out infinite; }
+.ca-outfit-lab .ca-bubble { transform-box: fill-box; transform-origin: center; animation: caBubble 1.9s ease-in infinite; }
+.ca-outfit-lab .ca-bubble.b2 { animation-delay: .6s; }
+.ca-outfit-lab .ca-bubble.b3 { animation-delay: 1.2s; }
+@keyframes caSwirl { 0%, 60%, 100% { transform: rotate(0deg); } 68% { transform: rotate(-7deg); } 76% { transform: rotate(5deg); } 84% { transform: rotate(-3deg); } }
+@keyframes caHeadLab { 0%, 100% { transform: rotate(0deg); } 40%, 62% { transform: rotate(-4.5deg) translateX(-1px); } }
+@keyframes caBubble { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-16px) scale(1.1); opacity: 0; } }
+
+/* Hablando: la cabeza acompaña las frases */
 .coach-avatar.is-talking .ca-head { animation: caTalkHead 1.9s ease-in-out infinite; }
-.coach-avatar.is-talking .ca-brow { animation: caBrowTalk 2.3s ease-in-out infinite; }
 .coach-avatar.is-talking.ca-female .ca-ponytail { animation-duration: 1.5s; }
-.coach-avatar.is-talking:not(.ca-outfit-lab) .ca-arm-l { animation: caExplain 6.5s ease-in-out infinite; }
 @keyframes caTalkHead {
   0%, 100% { transform: rotate(0deg) translateY(0); }
   20% { transform: rotate(-2.4deg) translateY(-1px); }
   45% { transform: rotate(1.2deg) translateY(.5px); }
   70% { transform: rotate(2.2deg) translateY(-.8px); }
 }
-@keyframes caBrowTalk { 0%, 55%, 100% { translate: 0 0; } 65% { translate: 0 -2.6px; } 80% { translate: 0 -.5px; } }
-@keyframes caExplain {
-  0%, 12% { opacity: 0; transform: rotate(-104deg); }
-  20% { opacity: 1; transform: rotate(-4deg); }
-  28% { transform: rotate(-12deg); }
-  36% { transform: rotate(-2deg); }
-  44% { transform: rotate(-10deg); }
-  54% { opacity: 1; transform: rotate(-4deg); }
-  64%, 100% { opacity: 0; transform: rotate(-104deg); }
-}
 
-/* Tienda: se balancea y lanza una moneda de vez en cuando */
-.ca-idle-shop .ca-rig { animation: caSway 3.6s ease-in-out infinite; }
-.ca-idle-shop .ca-arm-r { animation: caCoinArm 7s ease-in-out infinite; }
-.ca-idle-shop .ca-coin { animation: caCoinToss 7s ease-in-out infinite; }
-@keyframes caSway { 0%, 100% { transform: translateX(0) rotate(0deg); } 30% { transform: translateX(-2px) rotate(-1.2deg); } 70% { transform: translateX(2px) rotate(1.2deg); } }
-@keyframes caCoinArm {
-  0%, 8% { opacity: 0; transform: rotate(112deg); }
-  16%, 62% { opacity: 1; transform: rotate(0deg); }
-  70%, 100% { opacity: 0; transform: rotate(112deg); }
-}
-@keyframes caCoinToss {
-  0%, 22% { transform: translateY(0) scaleX(1); }
-  30% { transform: translateY(-34px) scaleX(-1); }
-  36% { transform: translateY(-40px) scaleX(1); }
-  44% { transform: translateY(0) scaleX(-1); }
-  47% { transform: translateY(1.5px) scaleX(1); }
-  50%, 100% { transform: translateY(0) scaleX(1); }
-}
-
-/* Laboratorio: sostiene un matraz que burbujea y lo agita mientras lo examina */
-.ca-outfit-lab .ca-arm-l { opacity: 1; transform: none; }
-.ca-outfit-lab .ca-flask { animation: caSwirl 5s ease-in-out infinite; }
-.ca-idle-lab .ca-head { animation: caHeadLab 7s ease-in-out infinite; }
-.ca-outfit-lab .ca-bubble { transform-box: fill-box; transform-origin: center; animation: caBubble 1.9s ease-in infinite; }
-.ca-outfit-lab .ca-bubble.b2 { animation-delay: .6s; }
-.ca-outfit-lab .ca-bubble.b3 { animation-delay: 1.2s; }
-@keyframes caSwirl { 0%, 60%, 100% { transform: rotate(0deg); } 68% { transform: rotate(-9deg); } 76% { transform: rotate(7deg); } 84% { transform: rotate(-4deg); } }
-@keyframes caHeadLab { 0%, 100% { transform: rotate(0deg); } 40%, 62% { transform: rotate(-4.5deg) translateX(-1px); } }
-@keyframes caBubble { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-16px) scale(1.1); opacity: 0; } }
-
-/* Gestos de una sola vez (van al final: ganan a las animaciones en reposo) */
-.coach-avatar.ca-g-wave .ca-arm-r { animation: caWaveArm 1.9s cubic-bezier(.34, 1.4, .64, 1) both; }
-.coach-avatar.ca-g-wave .ca-hand-r { animation: caWaveHand 1.9s ease-in-out both; }
-.coach-avatar.ca-g-cheer .ca-arm-r { animation: caCheerArm 1.3s cubic-bezier(.34, 1.56, .64, 1) both; }
-.coach-avatar.ca-g-cheer .ca-rig,
-.coach-avatar.ca-g-bounce .ca-rig { animation: caBounce .75s cubic-bezier(.34, 1.56, .64, 1) both; }
+/* Asentir y saltar */
 .coach-avatar.ca-g-nod .ca-head { animation: caNod .9s ease-in-out both; }
-@keyframes caWaveArm {
-  0% { opacity: 0; transform: rotate(112deg); }
-  14%, 82% { opacity: 1; transform: rotate(0deg); }
-  100% { opacity: 0; transform: rotate(112deg); }
-}
-@keyframes caWaveHand {
-  0%, 14% { transform: rotate(0deg); }
-  24% { transform: rotate(-22deg); } 36% { transform: rotate(14deg); }
-  48% { transform: rotate(-22deg); } 60% { transform: rotate(14deg); }
-  72%, 100% { transform: rotate(0deg); }
-}
-@keyframes caCheerArm {
-  0% { opacity: 0; transform: rotate(112deg); }
-  18% { opacity: 1; transform: rotate(-8deg); }
-  32% { transform: rotate(6deg); } 46% { transform: rotate(-8deg); } 60% { transform: rotate(4deg); }
-  84% { opacity: 1; transform: rotate(0deg); }
-  100% { opacity: 0; transform: rotate(112deg); }
-}
 @keyframes caBounce {
   0% { transform: translateY(0) scaleY(1); }
   25% { transform: translateY(2px) scaleY(.96); }
@@ -111,23 +103,8 @@
 }
 @keyframes caNod { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(4deg) translateY(2px); } 60% { transform: rotate(-1deg); } }
 
-/* =====================================================================
-   BOTÓN «3D» CON LABIO INFERIOR (laboratorio y tienda)
-   ===================================================================== */
-.btn-3d {
-  --b3-face: #8b5cf6; --b3-lip: #5b21b6; --b3-text: #fff; --b3-edge: rgba(255, 255, 255, 0.22);
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 18px; border-radius: 14px; border: 2px solid var(--b3-edge); cursor: pointer;
-  font: inherit; font-size: 14px; font-weight: 800; letter-spacing: .01em; white-space: nowrap;
-  color: var(--b3-text); background: var(--b3-face); box-shadow: 0 4px 0 var(--b3-lip);
-  transition: transform .1s, box-shadow .1s, filter .15s;
-}
-.btn-3d.sm { padding: 8px 13px; font-size: 12.5px; border-radius: 12px; }
-.btn-3d svg { flex-shrink: 0; }
-.btn-3d:hover:not(:disabled) { filter: brightness(1.08); }
-.btn-3d:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--b3-lip); }
-.btn-3d:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
-.btn-3d:disabled { cursor: not-allowed; --b3-face: var(--surface-3); --b3-lip: #0c0c10; --b3-text: var(--muted); --b3-edge: var(--border-2); }
+/* Mejillas que se encienden al sonreír */
+.coach-avatar .ca-cheek { transition: opacity .3s; }
 
 /* =====================================================================
    CARAS DEL COACH EN BOTONES Y AVATARES

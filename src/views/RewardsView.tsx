@@ -135,35 +135,36 @@ export const RewardsView: React.FC = () => {
               Canjea los puntos de tus hábitos, sesiones de foco y revisiones semanales por premios reales que disfrutes.
             </p>
 
-            <div className="shop-wallet">
-              <div className="shop-wallet-main">
-                <span className="shop-coin" aria-hidden="true">
-                  <Coins size={22} />
-                </span>
-                <div>
-                  <span className="shop-wallet-label">Puntos disponibles</span>
-                  <span className="shop-wallet-value">
-                    {pts.balance} <small>pts</small>
-                  </span>
+            <div className="shop-stats">
+              <div className="shop-stat">
+                <div className="stat-top">
+                  <span className="stat-label">Puntos disponibles</span>
+                  <span className="badge warning">Canjeable</span>
+                </div>
+                <div className="stat-value shop-balance">
+                  <Coins size={20} aria-hidden="true" /> {pts.balance} <small>pts</small>
+                </div>
+                <div className="row-between xs muted">
+                  <span>Ganados: +{pts.earned}</span>
+                  <span>Canjeados: −{pts.spent}</span>
                 </div>
               </div>
-              <div className="shop-wallet-split">
-                <span>Ganados +{pts.earned}</span>
-                <span>Canjeados −{pts.spent}</span>
-              </div>
-            </div>
 
-            <div className="shop-loyalty" aria-label={`Nivel ${levelInfo.level}`}>
-              <div className="shop-loyalty-top">
-                <span className="shop-loyalty-title">Tarjeta de cliente</span>
-                <span className="shop-loyalty-level">Nivel {levelInfo.level}</span>
-              </div>
-              <div className="shop-loyalty-bar">
-                <div style={{ width: `${Math.round(levelInfo.progress * 100)}%` }} />
-              </div>
-              <div className="shop-loyalty-foot">
-                <span>{pts.earned} XP</span>
-                <span>Faltan {levelInfo.xpForNext - levelInfo.xpInLevel} XP para el nivel {levelInfo.level + 1}</span>
+              <div className="shop-stat">
+                <div className="stat-top">
+                  <span className="stat-label">Nivel de constancia</span>
+                  <span className="badge accent">Nivel {levelInfo.level}</span>
+                </div>
+                <div className="stat-value">
+                  {pts.earned} <small>XP</small>
+                </div>
+                <div className="progress thin">
+                  <div style={{ width: `${Math.round(levelInfo.progress * 100)}%` }} />
+                </div>
+                <div className="row-between xs muted">
+                  <span>{Math.round(levelInfo.progress * 100)}% hacia nivel {levelInfo.level + 1}</span>
+                  <span>Faltan {levelInfo.xpForNext - levelInfo.xpInLevel} XP</span>
+                </div>
               </div>
             </div>
           </div>
@@ -187,7 +188,6 @@ export const RewardsView: React.FC = () => {
             </div>
             <div className="shop-counter">
               <CashRegister />
-              <span className="shop-counter-sign">¡Pilas!</span>
             </div>
           </div>
         </div>
@@ -197,38 +197,58 @@ export const RewardsView: React.FC = () => {
       <div className="stack" style={{ gap: 14 }}>
         <div className="row-between shop-section-head">
           <div className="shop-section-title">
-            <Gift size={18} aria-hidden="true" /> Estantería de premios
-            <span className="badge accent">{rewards.length + 1}</span>
+            <Gift size={17} aria-hidden="true" /> Estantería de premios
           </div>
-          <button type="button" className="btn-3d sm btn-3d-shop" onClick={openNew}>
-            <Plus size={15} /> Nuevo premio
-          </button>
+          <div className="row" style={{ gap: 10 }}>
+            <span className="badge accent">{rewards.length + 1} recompensas</span>
+            <button type="button" className="btn btn-primary sm" onClick={openNew}>
+              <Plus size={15} /> Nuevo premio
+            </button>
+          </div>
         </div>
 
         <div className="shop-shelves">
           {/* Recompensa permanente: Protector de racha */}
           <article className={`shop-item freeze${hasStreakFreeze ? ' owned' : ''}`}>
             <div className="shop-item-display">
-              <span className="shop-box" style={{ ['--box' as string]: '#38bdf8', ['--box-lip' as string]: '#0369a1' }}>
-                <Shield size={30} aria-hidden="true" />
-                <Snowflake size={14} className="shop-box-badge" aria-hidden="true" />
+              <span className="shop-box" style={{ ['--box' as string]: '#38bdf8', ['--box-lip' as string]: '#0284c7' }}>
+                <Shield size={28} aria-hidden="true" />
               </span>
-              <span className={`shop-tag${canAffordFreeze || hasStreakFreeze ? '' : ' locked'}`}>
-                <Coins size={13} aria-hidden="true" /> {FREEZE_COST}
+              <span className="badge shop-item-flag" style={{ background: 'rgba(56, 189, 248, 0.16)', color: '#38bdf8' }}>
+                {hasStreakFreeze ? (
+                  <>
+                    <Snowflake size={11} aria-hidden="true" /> Protección activa
+                  </>
+                ) : (
+                  'Permanente'
+                )}
               </span>
             </div>
             <div className="shop-item-body">
-              <span className="shop-item-kicker">{hasStreakFreeze ? 'Protección activa' : 'Siempre disponible'}</span>
-              <div className="shop-item-name">Protector de racha (1 día)</div>
+              <div className="shop-item-name" style={{ color: '#38bdf8' }}>
+                Protector de racha (1 día)
+              </div>
               <p className="shop-item-desc">Si un día no haces hábitos, tu racha se congela en azul en vez de romperse. Máximo 1 en inventario.</p>
             </div>
             <div className="shop-item-foot">
+              <div className="reward-price" style={{ color: '#38bdf8' }}>
+                <Coins size={18} aria-hidden="true" />
+                <span>{FREEZE_COST}</span>
+                <small className="muted" style={{ fontSize: 12 }}>
+                  pts
+                </small>
+              </div>
               {hasStreakFreeze ? (
-                <button type="button" className="btn-3d sm btn-3d-ice" disabled>
+                <button type="button" className="btn sm btn-secondary shop-owned" disabled>
                   <ShieldCheck size={14} aria-hidden="true" /> Activo (1/1)
                 </button>
               ) : (
-                <button type="button" className="btn-3d sm btn-3d-ice" disabled={!canAffordFreeze} onClick={() => setRewardToRedeem('streak_freeze')}>
+                <button
+                  type="button"
+                  className={`btn sm ${canAffordFreeze ? 'shop-buy-ice' : 'btn-secondary'}`}
+                  disabled={!canAffordFreeze}
+                  onClick={() => setRewardToRedeem('streak_freeze')}
+                >
                   {canAffordFreeze ? (
                     <>
                       <Gift size={14} /> Canjear escudo
@@ -240,12 +260,12 @@ export const RewardsView: React.FC = () => {
                   )}
                 </button>
               )}
-              {hasStreakFreeze && (
-                <span className="shop-item-note">
-                  <Check size={12} strokeWidth={3} aria-hidden="true" /> Listo para tu próximo día sin hábitos
-                </span>
-              )}
             </div>
+            {hasStreakFreeze && (
+              <div className="xs shop-claimed" style={{ color: '#38bdf8' }}>
+                <Check size={12} strokeWidth={3} aria-hidden="true" /> Listo para tu próximo día sin hábitos
+              </div>
+            )}
           </article>
 
           {/* Recompensas del usuario */}
@@ -259,9 +279,6 @@ export const RewardsView: React.FC = () => {
                 <div className="shop-item-display">
                   <span className="shop-box" style={{ ['--box' as string]: box.face, ['--box-lip' as string]: box.lip }}>
                     <span className="shop-box-emoji">{reward.icon}</span>
-                  </span>
-                  <span className={`shop-tag${canAfford ? '' : ' locked'}`}>
-                    <Coins size={13} aria-hidden="true" /> {reward.cost}
                   </span>
                   <div className="shop-item-tools">
                     <button
@@ -286,11 +303,9 @@ export const RewardsView: React.FC = () => {
                       <Trash2 size={15} />
                     </button>
                   </div>
-                  {timesClaimed > 0 && <span className="shop-sticker">×{timesClaimed}</span>}
                 </div>
 
                 <div className="shop-item-body">
-                  <span className="shop-item-kicker">{timesClaimed > 0 ? `Canjeado ${timesClaimed} ${timesClaimed === 1 ? 'vez' : 'veces'}` : 'Premio'}</span>
                   <div className="shop-item-name" title={reward.name}>
                     {reward.name}
                   </div>
@@ -298,7 +313,19 @@ export const RewardsView: React.FC = () => {
                 </div>
 
                 <div className="shop-item-foot">
-                  <button type="button" className="btn-3d sm btn-3d-shop" disabled={!canAfford} onClick={() => setRewardToRedeem(reward)}>
+                  <div className="reward-price">
+                    <Coins size={18} aria-hidden="true" />
+                    <span>{reward.cost}</span>
+                    <small className="muted" style={{ fontSize: 12 }}>
+                      pts
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className={`btn sm ${canAfford ? 'shop-buy' : 'btn-secondary'}`}
+                    disabled={!canAfford}
+                    onClick={() => setRewardToRedeem(reward)}
+                  >
                     {canAfford ? (
                       <>
                         <Gift size={14} /> Canjear
@@ -310,6 +337,11 @@ export const RewardsView: React.FC = () => {
                     )}
                   </button>
                 </div>
+                {timesClaimed > 0 && (
+                  <div className="xs muted shop-claimed">
+                    Canjeado {timesClaimed} {timesClaimed === 1 ? 'vez' : 'veces'}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -317,46 +349,48 @@ export const RewardsView: React.FC = () => {
       </div>
 
       {/* RECIBOS: historial de canjes */}
-      <section className="shop-receipt" aria-labelledby="shop-receipt-title">
-        <div className="shop-receipt-head">
-          <ReceiptText size={18} aria-hidden="true" />
+      <section className="card flush shop-receipt" aria-labelledby="shop-receipt-title">
+        <div className="card-flush-head shop-receipt-head">
+          <ReceiptText size={17} aria-hidden="true" />
           <div>
-            <h3 id="shop-receipt-title">Recibos</h3>
-            <span>Tus canjes y premios disfrutados</span>
+            <div className="card-title" id="shop-receipt-title">
+              Recibos
+            </div>
+            <div className="card-sub">Registro de tus canjes y premios disfrutados</div>
           </div>
         </div>
 
         {redemptions.length === 0 ? (
-          <p className="shop-receipt-empty">Aún no has canjeado recompensas. ¡Completa tus hábitos diarios para sumar puntos!</p>
+          <div className="muted small shop-receipt-empty">Aún no has canjeado recompensas. ¡Completa tus hábitos diarios para sumar puntos!</div>
         ) : (
-          <ul className="shop-receipt-list">
-            {redemptions.map((red: Redemption) => (
-              <li key={red.id}>
-                <span className="shop-receipt-icon" aria-hidden="true">
-                  {red.icon}
-                </span>
-                <span className="shop-receipt-name">
-                  {red.name}
-                  <small>
-                    {new Date(red.date).toLocaleDateString('es-ES', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </small>
-                </span>
-                <span className="shop-receipt-dots" aria-hidden="true" />
-                <span className="shop-receipt-cost">−{red.cost} pts</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {redemptions.length > 0 && (
-          <div className="shop-receipt-total">
-            <span>Total canjeado</span>
-            <span>−{pts.spent} pts</span>
-          </div>
+          <>
+            <ul className="shop-receipt-list">
+              {redemptions.map((red: Redemption) => (
+                <li key={red.id}>
+                  <span className="entity-icon sm" aria-hidden="true">
+                    {red.icon}
+                  </span>
+                  <span className="shop-receipt-name">
+                    {red.name}
+                    <small>
+                      {new Date(red.date).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </small>
+                  </span>
+                  <span className="shop-receipt-dots" aria-hidden="true" />
+                  <span className="shop-receipt-cost">−{red.cost} pts</span>
+                </li>
+              ))}
+            </ul>
+            <div className="shop-receipt-total">
+              <span>Total canjeado</span>
+              <span>−{pts.spent} pts</span>
+            </div>
+          </>
         )}
       </section>
 
