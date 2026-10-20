@@ -4,6 +4,7 @@ import { useStore } from '@/store/useStore';
 import type { CoachGender } from '@/components/coach/coachPersona';
 import type { Secrets, Settings } from '@/types';
 import { PRESET_TTS_MODELS } from './ttsPresets';
+import { stripVoiceTags } from './voiceTags';
 
 const FISH_MODEL_IDS = PRESET_TTS_MODELS.fish_audio.map((m) => m.id);
 
@@ -207,7 +208,8 @@ export async function speakCoach(
 ): Promise<'ok' | 'failed'> {
   stopCoachVoice({ fade: false });
   const mySession = session;
-  const clean = cleanForSpeech(text);
+  // Las etiquetas de expresión ([excited], [pause]…) solo llegan a la voz que las interpreta
+  const clean = cleanForSpeech(voiceTagsEnabled(choice) ? text : stripVoiceTags(text));
   if (!clean) return 'ok';
 
   const { provider } = choice;
@@ -224,6 +226,14 @@ export async function speakCoach(
   // Sin clave de IA la voz del coach es la del navegador
   if (session === mySession) speakWithBrowser(clean, gender, mySession);
   return 'ok';
+}
+
+/**
+ * ¿La voz del coach interpreta etiquetas de expresión? Solo Fish Audio con modelos S2 (s1 usa otra
+ * sintaxis). El prompt del chat solo las pide si esto es true y el coach no está silenciado.
+ */
+export function voiceTagsEnabled(choice: CoachVoiceChoice = resolveCoachVoice()): boolean {
+  return choice.provider?.kind === 'fish' && choice.provider.model !== 's1';
 }
 
 const usableKey = (k: string | undefined) => (k && k.trim().length >= 9 ? k.trim() : '');

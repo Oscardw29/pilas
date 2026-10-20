@@ -5,6 +5,8 @@ import { todayKey } from './dates';
 import { FAIL_REASON_LABELS } from './insights';
 import { getSecrets } from '@/store/useSecrets';
 import { getCoachPersona } from '@/components/coach/coachPersona';
+import { voiceTagsEnabled } from './coachVoice';
+import { VOICE_TAGS_PROMPT } from './voiceTags';
 
 /** Tiempo máximo para listar modelos */
 const MODELS_TIMEOUT_MS = 15_000;
@@ -378,7 +380,9 @@ export async function generateHabitAdvice(
     return generateLocalHabitAdvice(data, userPrompt);
   }
 
-  const systemInstruction = buildSystemContext(data);
+  // Con una voz expresiva (Fish Audio S2) el coach añade etiquetas de tono que solo oye el usuario
+  const withVoiceTags = !data.settings.coachMuted && voiceTagsEnabled();
+  const systemInstruction = buildSystemContext(data) + (withVoiceTags ? `\n\n${VOICE_TAGS_PROMPT}` : '');
 
   // 1. INTENTAR CON EL MODELO PRINCIPAL
   try {
