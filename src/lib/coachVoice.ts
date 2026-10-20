@@ -243,11 +243,12 @@ export function resolveCoachVoice(
   settings: VoiceSettings = useStore.getState().settings,
   secrets: VoiceSecrets = getSecrets(),
 ): CoachVoiceChoice {
-  const tts = settings.ttsPlatform || 'fish_audio';
+  const tts = settings.ttsPlatform || 'ai_voice';
   const ttsModel = settings.ttsModel?.trim() || '';
   const ttsVoice = settings.ttsVoiceId?.trim() || '';
 
   if (tts === 'native') return { provider: null, label: 'Voz del navegador (síntesis nativa)' };
+  // 'ai_voice' pasa directo a la voz de la plataforma de IA (la original del coach)
 
   let note: string | undefined;
   if (tts === 'elevenlabs') {
@@ -270,7 +271,7 @@ export function resolveCoachVoice(
 
   const aiKey = usableKey(secrets.geminiApiKey);
   const platform = settings.aiPlatform || 'gemini';
-  if (aiKey && platform === 'gemini') return { provider: { kind: 'gemini', key: aiKey }, label: 'Gemini TTS (clave de IA)', note };
+  if (aiKey && platform === 'gemini') return { provider: { kind: 'gemini', key: aiKey }, label: 'Voz original · Gemini (Puck para Pilo, Zephyr para Pila)', note };
   if (aiKey && platform === 'openai') {
     return { provider: { kind: 'openai', key: aiKey, model: 'gpt-4o-mini-tts', voice: '' }, label: 'OpenAI TTS (clave de IA)', note };
   }

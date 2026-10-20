@@ -384,7 +384,8 @@ export interface AiConversation {
 
 /* ---------------- Ajustes ---------------- */
 export type AiPlatform = 'gemini' | 'openai' | 'groq' | 'openrouter';
-export type TtsPlatform = 'fish_audio' | 'elevenlabs' | 'openai' | 'native';
+/** `ai_voice`: la voz original del coach, el TTS de la plataforma de IA (Gemini: Puck para Pilo, Zephyr para Pila) */
+export type TtsPlatform = 'ai_voice' | 'fish_audio' | 'elevenlabs' | 'openai' | 'native';
 
 /** Género elegido en la bienvenida: define si el coach es entrenador o entrenadora */
 export type UserGender = 'male' | 'female' | 'other';
