@@ -5,21 +5,19 @@ import { describeCoachAction, type ParsedAction } from '@/lib/coachActions';
 /**
  * Tarjeta de confirmación de un cambio propuesto por el Coach IA (crear/editar hábitos, retos, etc.).
  * Los detalles salen de `describeCoachAction`: textos legibles con los mismos datos validados que se aplicarían.
- * `compact` es la versión pequeña que aparece bajo el asistente de voz.
  */
 export const ActionConfirmationCard: React.FC<{
   action: ParsedAction;
   status: 'pending' | 'applied' | 'dismissed';
   onConfirm: () => void;
   onDismiss: () => void;
-  compact?: boolean;
-}> = ({ action, status, onConfirm, onDismiss, compact = false }) => {
+}> = ({ action, status, onConfirm, onDismiss }) => {
   const summary = describeCoachAction(action);
   const ToneIcon = summary.tone === 'delete' ? Trash2 : summary.tone === 'update' ? Pencil : Plus;
 
   return (
     <div
-      className={`action-card tone-${summary.tone} is-${status}${compact ? ' compact' : ''}`}
+      className={`action-card tone-${summary.tone} is-${status}`}
       role="group"
       aria-label={`Cambio propuesto: ${summary.title}`}
     >

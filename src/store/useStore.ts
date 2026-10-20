@@ -145,9 +145,6 @@ function preservedSettings(st: Settings): Partial<Settings> {
     geminiModel: st.geminiModel,
     backupModel: st.backupModel,
     aiPlatform: st.aiPlatform,
-    ttsPlatform: st.ttsPlatform,
-    ttsModel: st.ttsModel,
-    ttsVoiceId: st.ttsVoiceId,
     soundEnabled: st.soundEnabled,
     soundVolume: st.soundVolume,
   };
@@ -162,10 +159,13 @@ function pickMissing<T extends object>(base: Partial<T>, override: Partial<T>): 
   return out;
 }
 
-/** Quita cualquier clave de API que venga dentro de settings (versiones antiguas o respaldos) */
+/** Ajustes del asistente de voz, ya retirado */
+const REMOVED_SETTINGS = ['ttsPlatform', 'ttsModel', 'ttsVoiceId'];
+
+/** Quita cualquier clave de API (y ajustes retirados) que venga dentro de settings (versiones antiguas o respaldos) */
 function stripSecrets(st: Partial<Settings>): Partial<Settings> {
   const out: Record<string, unknown> = { ...st };
-  for (const k of LEGACY_SECRET_FIELDS) delete out[k];
+  for (const k of [...LEGACY_SECRET_FIELDS, ...REMOVED_SETTINGS]) delete out[k];
   return out as Partial<Settings>;
 }
 
@@ -225,7 +225,7 @@ function migrateData(state: any, version: number, adoptSecrets: boolean): any {
   if (state.settings && typeof state.settings === 'object') {
     // v3: las claves de API salen de settings y pasan al almacén de secretos
     if (adoptSecrets && version < 3) {
-      const legacy: Partial<Secrets> = {};
+      const legacy: Record<string, string> = {};
       for (const k of LEGACY_SECRET_FIELDS) {
         if (typeof state.settings[k] === 'string') legacy[k] = state.settings[k];
       }
