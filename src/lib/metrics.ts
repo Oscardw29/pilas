@@ -259,8 +259,9 @@ export function completionRate(data: D, h: Habit, from: DateKey, to: DateKey, re
 export function currentStreak(data: D, h: Habit, ref = todayKey()): number {
   let n = 0;
   let d = ref;
-  for (let i = 0; i < 3650; i++) {
-    if (d < habitStart(h)) break;
+  const start = habitStart(h);
+  // Sin tope de días: recorre hasta el inicio del hábito
+  while (d >= start) {
     if (isScheduled(h, d)) {
       const l = getLog(data, h.id, d);
       if (isDoneLog(l)) n++;
