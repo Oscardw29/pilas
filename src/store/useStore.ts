@@ -122,7 +122,7 @@ const DATA_KEYS: (keyof AppData)[] = [
   'recommendationFeedback', 'dismissedInsights', 'conversations', 'activeConversationId', 'settings', 'hasStreakFreeze', 'streakFreezes',
 ];
 
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 
 /** true si en este navegador aún no había datos guardados (primer uso): se muestra la bienvenida */
 export const isFirstRun = (() => {
@@ -235,6 +235,11 @@ function migrateData(state: any, version: number, adoptSecrets: boolean): any {
       useSecrets.getState().importLegacy(legacy);
     }
     state.settings = stripSecrets(state.settings);
+    // v4: Fish Audio era la plataforma de voz por defecto sin que nadie la eligiera; la voz por
+    // defecto vuelve a ser la original del coach (Gemini: Puck / Zephyr)
+    if (version < 4 && (!state.settings.ttsPlatform || state.settings.ttsPlatform === 'fish_audio')) {
+      state.settings.ttsPlatform = 'ai_voice';
+    }
     if (!state.settings.geminiModel || state.settings.geminiModel === 'gemini-3.8-flash') {
       state.settings.geminiModel = 'gemini-3.5-flash-lite';
     }
