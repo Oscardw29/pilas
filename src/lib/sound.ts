@@ -287,64 +287,125 @@ class SoundEngine {
   /**
    * RACHA ENCENDIDA: «chispa que prende»: soplido ascendente del fuego al encenderse,
    * crepitar de chispas y un acorde cálido (Mi mayor) que florece.
+   * `power` (0-1, ver getFlamePower) suma capas a medida que la racha crece: más crepitar,
+   * notas más agudas, un golpe grave, metales y, en lo más alto, una fanfarria final.
    */
-  public streak() {
+  public streak(power = 0) {
+    const p = Math.min(1, Math.max(0, power));
     this.play(() => {
-      // Ignición: ruido que sube de grave a agudo
-      this.noise({ dur: 0.42, gain: 0.2, attack: 0.18, filter: { type: 'bandpass', freq: 260, to: 3200, q: 0.9 }, reverb: 0.2 });
+      // Ignición: ruido que sube de grave a agudo (más largo y fuerte con más días)
+      this.noise({ dur: 0.42 + p * 0.25, gain: 0.2 + p * 0.08, attack: 0.18, filter: { type: 'bandpass', freq: 260, to: 3200 + p * 3000, q: 0.9 }, reverb: 0.2 + p * 0.2 });
       // Crepitar: chispas cortas aleatorias
-      for (let i = 0; i < 7; i++) {
-        this.noise({ at: 0.18 + i * 0.07 + Math.random() * 0.04, dur: 0.025, gain: 0.08, attack: 0.002, filter: { type: 'highpass', freq: 3500 + Math.random() * 2500 } });
+      const crackles = 7 + Math.round(p * 12);
+      for (let i = 0; i < crackles; i++) {
+        this.noise({ at: 0.18 + i * (0.5 / crackles + 0.03) + Math.random() * 0.04, dur: 0.025, gain: 0.08, attack: 0.002, filter: { type: 'highpass', freq: 3500 + Math.random() * 2500 } });
       }
-      // Flor de acorde cálido: Mi4 Sol#4 Si4 Mi5 (+ Si5 brillante al final)
-      [329.63, 415.3, 493.88, 659.25, 987.77].forEach((freq, i) =>
-        this.tone({ type: i < 4 ? 'triangle' : 'sine', freq, at: 0.3 + i * 0.06, dur: 0.9 - i * 0.05, gain: i < 4 ? 0.11 : 0.13, attack: 0.02, reverb: 0.35 }),
+      // Flor de acorde cálido: Mi4 Sol#4 Si4 Mi5 Si5, y luego Mi6, Sol#6, Si6 según la potencia
+      const chord = [329.63, 415.3, 493.88, 659.25, 987.77, 1318.51, 1661.22, 1975.53];
+      const notes = 5 + Math.round(p * 3);
+      chord.slice(0, notes).forEach((freq, i) =>
+        this.tone({ type: i < 4 ? 'triangle' : 'sine', freq, at: 0.3 + i * 0.06, dur: 0.9 + p * 0.6 - i * 0.05, gain: i < 4 ? 0.11 : 0.12 - i * 0.006, attack: 0.02, reverb: 0.35 + p * 0.2 }),
       );
       // Cuerpo grave que sostiene
-      this.tone({ freq: 164.81, at: 0.3, dur: 0.8, gain: 0.1, attack: 0.04, reverb: 0.2 });
+      this.tone({ freq: 164.81, at: 0.3, dur: 0.8 + p * 0.6, gain: 0.1, attack: 0.04, reverb: 0.2 });
+
+      // Desde 14 días: golpe grave al prender
+      if (p >= 0.3) {
+        this.tone({ freq: 110, to: 46, at: 0.3, dur: 0.5, gain: 0.14 + p * 0.12, attack: 0.004 });
+        this.noise({ at: 0.3, dur: 0.25, gain: 0.08 + p * 0.06, attack: 0.003, filter: { type: 'lowpass', freq: 2400, to: 300 }, reverb: 0.3 });
+      }
+      // Desde 50 días: metales cálidos (Mi mayor con sierras desafinadas)
+      if (p >= 0.45) {
+        [164.81, 246.94, 329.63, 415.3].forEach((freq) =>
+          [-8, 8].forEach((detune) =>
+            this.tone({ type: 'sawtooth', freq, detune, at: 0.32, dur: 1 + p * 0.6, gain: 0.018 + p * 0.016, attack: 0.05, filter: { type: 'lowpass', freq: 2600, to: 600, q: 1 }, reverb: 0.45 }),
+          ),
+        );
+      }
+      // Desde 100 días: cascada de destellos
+      if (p >= 0.6) {
+        const sparkles = [1318.51, 1661.22, 1975.53, 2637.02, 3322.44];
+        sparkles.slice(0, 2 + Math.round((p - 0.6) * 7.5)).forEach((freq, i) =>
+          this.tone({ freq, at: 0.55 + i * 0.07, dur: 0.6, gain: 0.05, attack: 0.006, reverb: 0.6 }),
+        );
+      }
+      // Desde 250 días: fanfarria final que sube un tono (Fa# mayor) y queda resonando
+      if (p >= 0.8) {
+        [185, 277.18, 369.99, 466.16, 554.37, 739.99].forEach((freq, i) =>
+          this.tone({ type: i < 3 ? 'sawtooth' : 'triangle', freq, at: 1.05 + i * 0.03, dur: 1.4 + p * 0.4, gain: i < 3 ? 0.03 : 0.07, attack: 0.03, filter: i < 3 ? { type: 'lowpass', freq: 2000, to: 500 } : undefined, reverb: 0.6 }),
+        );
+        this.tone({ freq: 92.5, to: 46, at: 1.05, dur: 0.7, gain: 0.2, attack: 0.004 });
+      }
+      // Fénix: grito ascendente al final
+      if (p >= 0.95) {
+        this.tone({ type: 'triangle', freq: 740, to: 2960, glide: 0.5, at: 1.5, dur: 0.9, gain: 0.05, attack: 0.05, reverb: 0.7 });
+      }
     });
   }
 
   /**
    * SÚPER RACHA: más llamativa. Subida de tensión (barrido), impacto con sub-grave,
    * acorde de metales (Re mayor con sierras desafinadas) y lluvia de destellos en cascada.
+   * Con más `power` (0-1) el impacto pega más, la cascada es más larga, hay un segundo impacto
+   * y, en lo más alto, un acorde final que sube a Mi mayor.
    */
-  public superStreak() {
+  public superStreak(power = 0) {
+    const p = Math.min(1, Math.max(0, power));
     this.play(() => {
       // 1. Riser: sierra filtrada que sube + ruido creciente (0 → 0.5 s)
-      this.tone({ type: 'sawtooth', freq: 110, to: 440, dur: 0.5, gain: 0.07, attack: 0.4, filter: { type: 'lowpass', freq: 300, to: 4000, q: 4 } });
-      this.noise({ dur: 0.5, gain: 0.12, attack: 0.45, filter: { type: 'highpass', freq: 600, to: 6000 } });
+      this.tone({ type: 'sawtooth', freq: 110, to: 440, dur: 0.5, gain: 0.07 + p * 0.03, attack: 0.4, filter: { type: 'lowpass', freq: 300, to: 4000 + p * 3000, q: 4 } });
+      this.noise({ dur: 0.5, gain: 0.12 + p * 0.06, attack: 0.45, filter: { type: 'highpass', freq: 600, to: 6000 } });
 
       const hit = 0.5;
       // 2. Impacto: sub-grave y golpe de ruido
-      this.tone({ freq: 90, to: 38, at: hit, dur: 0.6, gain: 0.32, attack: 0.004 });
-      this.noise({ at: hit, dur: 0.35, gain: 0.18, attack: 0.003, filter: { type: 'lowpass', freq: 5000, to: 400 }, reverb: 0.4 });
+      this.tone({ freq: 90, to: 38, at: hit, dur: 0.6 + p * 0.3, gain: 0.32 + p * 0.1, attack: 0.004 });
+      this.noise({ at: hit, dur: 0.35 + p * 0.2, gain: 0.18 + p * 0.06, attack: 0.003, filter: { type: 'lowpass', freq: 5000, to: 400 }, reverb: 0.4 + p * 0.2 });
 
-      // 3. Acorde de metales: Re3 La3 Re4 Fa#4 La4 Re5, dos sierras desafinadas por nota
-      [146.83, 220, 293.66, 369.99, 440, 587.33].forEach((freq) => {
+      // 3. Acorde de metales: Re3 La3 Re4 Fa#4 La4 Re5 (+ Fa#5 y La5 con más días), dos sierras desafinadas por nota
+      const brass = [146.83, 220, 293.66, 369.99, 440, 587.33, 739.99, 880];
+      brass.slice(0, 6 + Math.round(p * 2)).forEach((freq) => {
         [-9, 9].forEach((detune) =>
           this.tone({
             type: 'sawtooth',
             freq,
             detune,
             at: hit,
-            dur: 1.3,
+            dur: 1.3 + p * 0.7,
             gain: 0.035,
             attack: 0.02,
             filter: { type: 'lowpass', freq: 3200, to: 700, q: 1.2 },
-            reverb: 0.45,
+            reverb: 0.45 + p * 0.15,
           }),
         );
       });
 
-      // 4. Cascada de destellos: Re6 Fa#6 La6 Re7 Fa#7 La7
-      [1174.66, 1479.98, 1760, 2349.32, 2959.96, 3520].forEach((freq, i) =>
+      // 4. Cascada de destellos: Re6 Fa#6 La6 Re7 Fa#7 La7 (más larga con más días)
+      const sparkles = [1174.66, 1479.98, 1760, 2349.32, 2959.96, 3520, 4698.63, 5919.91];
+      sparkles.slice(0, 6 + Math.round(p * 2)).forEach((freq, i) =>
         this.tone({ freq, at: hit + 0.12 + i * 0.075, dur: 0.6, gain: 0.07, attack: 0.006, reverb: 0.6 }),
       );
       // Eco final: arpegio descendente suave que cierra la fanfarria
       [2349.32, 1760, 1479.98, 1174.66].forEach((freq, i) =>
         this.tone({ type: 'triangle', freq, at: hit + 0.75 + i * 0.09, dur: 0.5, gain: 0.04, attack: 0.01, reverb: 0.7 }),
       );
+
+      // 5. Desde 50 días: segundo impacto, sincronizado con la segunda oleada de confeti
+      if (p >= 0.4) {
+        const hit2 = 1.1;
+        this.tone({ freq: 73.42, to: 36, at: hit2, dur: 0.6, gain: 0.22 + p * 0.1, attack: 0.004 });
+        this.noise({ at: hit2, dur: 0.3, gain: 0.12, attack: 0.003, filter: { type: 'lowpass', freq: 4000, to: 400 }, reverb: 0.5 });
+      }
+      // 6. Desde 200 días: el acorde sube a Mi mayor y queda brillando
+      if (p >= 0.75) {
+        [164.81, 246.94, 329.63, 415.3, 493.88, 659.25].forEach((freq) =>
+          [-7, 7].forEach((detune) =>
+            this.tone({ type: 'sawtooth', freq, detune, at: 1.45, dur: 1.8, gain: 0.03, attack: 0.08, filter: { type: 'lowpass', freq: 3600, to: 900, q: 1 }, reverb: 0.7 }),
+          ),
+        );
+        [1318.51, 1661.22, 1975.53, 2637.02].forEach((freq, i) =>
+          this.tone({ freq, at: 1.5 + i * 0.08, dur: 0.9, gain: 0.05, attack: 0.008, reverb: 0.75 }),
+        );
+      }
     });
   }
 

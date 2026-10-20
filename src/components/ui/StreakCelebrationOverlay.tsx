@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Sparkles } from 'lucide-react';
-import { StreakFlame } from './StreakFlame';
+import { StreakFlame, getFlamePower } from './StreakFlame';
 import { fireStreakEmbers, fireSuperStreakBurst } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
 
@@ -58,12 +58,14 @@ export const StreakCelebrationOverlay: React.FC = () => {
       if (!detail) return;
       setClosing(false);
       setData({ ...detail, key: Date.now() });
+      // Más días, más potencia: el sonido y el confeti suman capas con cada nivel de la llama
+      const power = getFlamePower(detail.days);
       if (detail.isSuper) {
-        playSound.superStreak();
-        fireSuperStreakBurst();
+        playSound.superStreak(power);
+        fireSuperStreakBurst(power);
       } else {
-        playSound.streak();
-        fireStreakEmbers();
+        playSound.streak(power);
+        fireStreakEmbers(power);
       }
     };
     window.addEventListener(EVENT_NAME, handleEvent);
@@ -99,7 +101,11 @@ export const StreakCelebrationOverlay: React.FC = () => {
     if (exitTimer.current) clearTimeout(exitTimer.current);
   }, []);
 
-  const particles = useParticles(data?.isSuper ? 26 : 20, data?.key ?? 0);
+  const power = data ? getFlamePower(data.days) : 0;
+  const particles = useParticles((data?.isSuper ? 26 : 20) + Math.round(power * 34), data?.key ?? 0);
+  // Ondas y estrellas en órbita también crecen con el nivel
+  const ringCount = 3 + (power >= 0.45 ? 1 : 0) + (power >= 0.75 ? 1 : 0);
+  const orbitCount = 6 + Math.round(power * 6);
 
   if (!data) return null;
 
@@ -115,8 +121,8 @@ export const StreakCelebrationOverlay: React.FC = () => {
       aria-live="assertive"
       aria-label={isSuper ? `Súper racha desbloqueada: ${days} días` : `Racha encendida: ${days} días`}
     >
-      {isSuper && <div className="celebrate-flash" aria-hidden="true" />}
-      {isSuper && <div className="celebrate-rays" aria-hidden="true" />}
+      {(isSuper || power >= 0.8) && <div className="celebrate-flash" aria-hidden="true" />}
+      {(isSuper || power >= 0.6) && <div className="celebrate-rays" aria-hidden="true" />}
 
       {/* Brasas / polvo estelar ascendente */}
       <div className="celebrate-particles" aria-hidden="true">
@@ -140,16 +146,16 @@ export const StreakCelebrationOverlay: React.FC = () => {
       <div className="celebrate-stage">
         <div className="celebrate-emblem">
           {/* Ondas de calor (racha) u onda expansiva (súper racha) */}
-          <span className="celebrate-ring r1" aria-hidden="true" />
-          <span className="celebrate-ring r2" aria-hidden="true" />
-          <span className="celebrate-ring r3" aria-hidden="true" />
+          {Array.from({ length: ringCount }, (_, i) => (
+            <span key={i} className={`celebrate-ring r${i + 1}`} aria-hidden="true" />
+          ))}
 
           {!isSuper && <span className="celebrate-spark" aria-hidden="true" />}
 
           {isSuper && (
             <div className="celebrate-orbit" aria-hidden="true">
-              {Array.from({ length: 6 }, (_, i) => (
-                <span key={i} style={{ '--i': i } as React.CSSProperties} />
+              {Array.from({ length: orbitCount }, (_, i) => (
+                <span key={i} style={{ '--i': i, '--n': orbitCount } as React.CSSProperties} />
               ))}
             </div>
           )}
