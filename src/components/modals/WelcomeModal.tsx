@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sparkles, Sprout, LayoutDashboard } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useStore, isFirstRun } from '@/store/useStore';
@@ -13,19 +13,44 @@ const GENDERS: { value: UserGender; label: string }[] = [
   { value: 'other', label: 'Otro' },
 ];
 
+const PREVIEW_EVENT = 'constancia:welcome-preview';
+
+/** Vuelve a abrir la bienvenida como vista previa (desde Ajustes): no borra datos ni cambia ajustes */
+export function openWelcomePreview() {
+  window.dispatchEvent(new CustomEvent(PREVIEW_EVENT));
+}
+
 /**
  * Bienvenida del primer uso: el usuario elige empezar vacío o explorar con datos de ejemplo,
  * en lugar de encontrarse directamente con hábitos y rachas ficticias.
  */
 export const WelcomeModal: React.FC = () => {
   const [open, setOpen] = useState(isFirstRun);
+  const [preview, setPreview] = useState(false);
   const [name, setName] = useState('');
   const [gender, setGender] = useState<UserGender | undefined>(undefined);
   const persona = personaFor(gender);
   const updateSettings = useStore((s) => s.updateSettings);
   const resetEmpty = useStore((s) => s.resetEmpty);
 
+  useEffect(() => {
+    const onPreview = () => {
+      const { userName, userGender } = useStore.getState().settings;
+      setName(userName || '');
+      setGender(userGender);
+      setPreview(true);
+      setOpen(true);
+    };
+    window.addEventListener(PREVIEW_EVENT, onPreview);
+    return () => window.removeEventListener(PREVIEW_EVENT, onPreview);
+  }, []);
+
   const finish = (mode: 'empty' | 'demo') => {
+    if (preview) {
+      setOpen(false);
+      setPreview(false);
+      return;
+    }
     if (mode === 'empty') resetEmpty();
     updateSettings({ userName: name.trim(), userGender: gender });
     playSound.celebration();
@@ -87,6 +112,12 @@ export const WelcomeModal: React.FC = () => {
             , tu {persona.role}. Te acompaño con tus hábitos y te leo mis consejos en voz alta (me puedes silenciar).
           </p>
         </div>
+
+        {preview && (
+          <span className="hint" style={{ textAlign: 'center' }}>
+            Vista previa: elegir una opción solo cierra esta ventana, no cambia tus datos ni tus ajustes.
+          </span>
+        )}
 
         <div className="welcome-options">
           <button type="button" className="welcome-option" onClick={() => finish('empty')}>

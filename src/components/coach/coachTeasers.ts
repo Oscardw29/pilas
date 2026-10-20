@@ -6,7 +6,8 @@ import { todayKey } from '@/lib/dates';
  * AVISOS DEL COACH
  * Mensajes cortos que despiertan curiosidad junto al botón del coach («tengo que decirte algo…»).
  * Al tocarlos se abre su página con la pregunta lista, para que cumpla lo que prometió.
- * Frecuencia contenida: como mucho uno cada 2 horas y 4 al día, y nunca justo después de visitarle.
+ * Frecuencia contenida: siempre uno al entrar a la app y, después, como mucho uno cada 2 horas y 4 al día,
+ * y nunca justo después de visitarle.
  */
 
 export interface CoachTeaserMsg {
@@ -21,6 +22,8 @@ const STORAGE_KEY = 'constancia_coach_teasers';
 const MIN_GAP_MS = 2 * 60 * 60 * 1000;
 const AFTER_VISIT_MS = 45 * 60 * 1000;
 const MAX_PER_DAY = 4;
+/** Recargar la página enseguida no repite el aviso de entrada */
+const ENTRY_GAP_MS = 10 * 60 * 1000;
 
 interface TeaserLog {
   day: string;
@@ -58,6 +61,12 @@ export function markCoachVisited() {
 export function canShowTeaser(now = Date.now()): boolean {
   const log = readLog();
   return log.count < MAX_PER_DAY && now - log.lastAt > MIN_GAP_MS && now - log.visitedAt > AFTER_VISIT_MS;
+}
+
+/** El aviso al entrar: ignora el cupo diario, salvo que acabe de salir uno (recarga) o se acabe de visitar al coach */
+export function canShowEntryTeaser(now = Date.now()): boolean {
+  const log = readLog();
+  return now - log.lastAt > ENTRY_GAP_MS && now - log.visitedAt > AFTER_VISIT_MS;
 }
 
 /** Muestra un aviso ya (prueba desde Ajustes) */
