@@ -384,7 +384,6 @@ export interface AiConversation {
 
 /* ---------------- Ajustes ---------------- */
 export type AiPlatform = 'gemini' | 'openai' | 'groq' | 'openrouter';
-export type TtsPlatform = 'fish_audio' | 'elevenlabs' | 'openai' | 'native';
 
 export interface Settings {
   userName: string;
@@ -399,13 +398,6 @@ export interface Settings {
   geminiModel: string;
   /** Modelo de respaldo por si el principal falla (ej. Gemini 3.1 Flash) */
   backupModel?: string;
-
-  /** Plataforma proveedora de TTS (Síntesis de voz) */
-  ttsPlatform?: TtsPlatform;
-  /** Modelo del proveedor de TTS (ej. s1, eleven_multilingual_v2, tts-1) */
-  ttsModel?: string;
-  /** ID de voz o nombre de voz del proveedor de TTS */
-  ttsVoiceId?: string;
 
   /** Efectos de sonido en la interfaz */
   soundEnabled?: boolean;
@@ -425,13 +417,6 @@ export interface Settings {
 export interface Secrets {
   /** Clave de la plataforma de IA configurada (Gemini u otra) */
   geminiApiKey: string;
-  /** Clave del proveedor de TTS activo (heredada; se usa como respaldo) */
-  ttsApiKey: string;
-  fishAudioApiKey: string;
-  elevenLabsApiKey: string;
-  openaiTtsApiKey: string;
-  /** Clave de Deepgram para transcripción de voz */
-  deepgramApiKey: string;
 }
 
 export interface NotificationSettings {

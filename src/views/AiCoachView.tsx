@@ -17,9 +17,6 @@ import {
   Copy,
   Check,
   X,
-  Mic,
-  MicOff,
-  Volume2,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -31,8 +28,6 @@ import { useToast } from '../components/ui/ToastContext';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Modal } from '../components/ui/Modal';
-import { VoiceAssistantModal } from '../components/modals/VoiceAssistantModal';
-import { useDictation } from '../components/coach/useDictation';
 import { playSound } from '../lib/sound';
 import { AiConversation } from '../types';
 
@@ -101,7 +96,6 @@ export const AiCoachView: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   // Estados de gestión de conversaciones
   const [showNewConvModal, setShowNewConvModal] = useState(false);
@@ -274,8 +268,6 @@ export const AiCoachView: React.FC = () => {
     finishStream();
     const convId = activeConversationId;
 
-    if (dictation.active) dictation.cancel();
-
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'user',
@@ -345,23 +337,6 @@ export const AiCoachView: React.FC = () => {
     }
   };
 
-  // Dictado: pide permiso de micrófono y escribe en el campo lo que dices
-  const dictation = useDictation({
-    onText: setInput,
-    onError: (message) => toast(message, 'warning'),
-  });
-  const isRecording = dictation.active;
-
-  const toggleRecording = () => {
-    if (dictation.active) {
-      void dictation.stop();
-      playSound.click();
-    } else {
-      playSound.pop();
-      void dictation.start(input);
-    }
-  };
-
   /** Guarda el estado de la acción en el propio mensaje (persistido con la conversación) */
   const setMessageActionStatus = (msgId: string, actionStatus: 'applied' | 'dismissed') => {
     setMessages((prev) => {
@@ -388,12 +363,6 @@ export const AiCoachView: React.FC = () => {
     } catch (err: any) {
       toast(`Error aplicando acción: ${err?.message || 'Error desconocido'}`, 'error');
     }
-  };
-
-  // Iniciar Asistente de Voz en vivo
-  const handleOpenLiveVoice = () => {
-    playSound.pop();
-    setShowVoiceModal(true);
   };
 
   // Regenerar respuesta del coach
@@ -1037,7 +1006,7 @@ export const AiCoachView: React.FC = () => {
             </div>
           )}
 
-          {/* Input de chat: micrófono STT, texto, botón voz en vivo a la izquierda de enviar */}
+          {/* Input de chat */}
           <form
             className="chat-input-bar"
             onSubmit={(e) => {
@@ -1046,56 +1015,14 @@ export const AiCoachView: React.FC = () => {
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}
           >
-            {/* Botón de Micrófono (STT para input) */}
-            <button
-              type="button"
-              className={`icon-btn chat-mic-btn ${isRecording ? 'recording' : ''}`}
-              onClick={toggleRecording}
-              style={{
-                flexShrink: 0,
-                background: isRecording ? 'rgba(239, 68, 68, 0.2)' : undefined,
-                borderColor: isRecording ? '#ef4444' : undefined,
-                color: isRecording ? '#ef4444' : 'var(--text-2)',
-              }}
-              title={isRecording ? 'Detener dictado por voz' : 'Hablar por micrófono (dictado a texto)'}
-              aria-label={isRecording ? 'Detener dictado por voz' : 'Hablar por micrófono (dictado a texto)'}
-            >
-              {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-
             <input
               type="text"
               className="input chat-input grow"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                dictation.state === 'starting'
-                  ? 'Activando micrófono…'
-                  : dictation.state === 'processing'
-                  ? 'Transcribiendo…'
-                  : isRecording
-                  ? 'Escuchando… habla y tu voz se escribirá aquí'
-                  : 'Pregunta sobre tus hábitos, energía o consistencia...'
-              }
+              placeholder="Pregunta sobre tus hábitos, energía o consistencia..."
               disabled={loading}
             />
-
-            {/* BOTÓN ASISTENTE DE VOZ EN VIVO: estrictamente icono, a la izquierda de Enviar */}
-            <button
-              type="button"
-              className="icon-btn chat-voice-btn"
-              onClick={handleOpenLiveVoice}
-              style={{
-                flexShrink: 0,
-                background: 'rgba(99, 102, 241, 0.12)',
-                borderColor: 'rgba(99, 102, 241, 0.3)',
-                color: 'var(--accent-2)',
-              }}
-              title="Abrir Asistente de Voz en tiempo real"
-              aria-label="Asistente de Voz en vivo"
-            >
-              <Volume2 size={18} />
-            </button>
 
             {/* Botón Enviar */}
             <button
@@ -1295,11 +1222,6 @@ export const AiCoachView: React.FC = () => {
         zIndex={1400}
       />
 
-      {/* Modal del Asistente de Voz con visualizador circular radial de crestas */}
-      <VoiceAssistantModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-      />
     </div>
   );
 };
