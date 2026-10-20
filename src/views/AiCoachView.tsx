@@ -7,6 +7,7 @@ import { generateHabitAdvice, hasGeminiKey, generateTopicTitle } from '../lib/ge
 import { coachChoiceMessage, executeCoachAction, type ParsedAction } from '../lib/coachActions';
 import { ActionConfirmationCard } from '../components/coach/ActionConfirmationCard';
 import { extractActionAndText } from '../components/coach/extractAction';
+import { stripVoiceTags } from '../lib/voiceTags';
 import {
   Send,
   Sparkles,
@@ -920,7 +921,7 @@ export const AiCoachView: React.FC = () => {
                       {/* Botón Copiar */}
                       <button
                         type="button"
-                        onClick={() => handleCopy(m.id, m.content)}
+                        onClick={() => handleCopy(m.id, isUser ? m.content : stripVoiceTags(m.content))}
                         className="chat-msg-action"
                         title="Copiar texto"
                         aria-label="Copiar texto"
