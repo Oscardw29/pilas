@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Clapperboard, Flame, Gift, MessageCircleMore, Snowflake } from 'lucide-react';
+import { Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen } from 'lucide-react';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
 import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
 import { triggerCoachTeaser } from '@/components/coach/coachTeasers';
 import { useCoachPersona } from '@/components/coach/coachPersona';
+import { openWelcomePreview } from '@/components/modals/WelcomeModal';
 
 const MIN_DAYS = 1;
 /** Diez años: la racha real no tiene tope */
@@ -132,7 +133,17 @@ export const AnimationTestCard: React.FC = () => {
             <MessageCircleMore size={16} style={{ color: 'var(--accent-2)' }} />
             Mostrar un aviso junto a su botón
           </button>
-          <span className="hint">Normalmente aparece solo, como mucho cada 2 horas y 4 veces al día.</span>
+          <span className="hint">Siempre sale uno al entrar a la app; después, como mucho cada 2 horas y 4 veces al día.</span>
+        </div>
+
+        {/* Pantalla de inicio */}
+        <div className="field">
+          <span className="label">Pantalla de inicio</span>
+          <button type="button" className="btn btn-secondary" onClick={openWelcomePreview} style={{ alignSelf: 'flex-start' }}>
+            <DoorOpen size={16} style={{ color: 'var(--accent-2)' }} />
+            Ver el menú de inicio de la app
+          </button>
+          <span className="hint">La bienvenida del primer uso. Es solo una vista previa: no borra ni cambia nada.</span>
         </div>
       </div>
     </div>

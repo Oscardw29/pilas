@@ -1,17 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { useCoachPersona } from './coachPersona';
-import { canShowTeaser, pickTeaser, recordTeaserShown, TEASER_EVENT, type CoachTeaserMsg } from './coachTeasers';
+import { canShowEntryTeaser, canShowTeaser, pickTeaser, recordTeaserShown, TEASER_EVENT, type CoachTeaserMsg } from './coachTeasers';
 import { playSound } from '@/lib/sound';
 
-/** Primer aviso posible tras abrir la app, y cada cuánto se vuelve a comprobar */
-const FIRST_CHECK_MS = 25_000;
+/** Aviso al entrar a la app (se reintenta si hay un diálogo abierto, p. ej. la bienvenida), y cada cuánto se vuelve a comprobar */
+const ENTRY_DELAY_MS = 3_000;
+const ENTRY_RETRY_MS = 2_000;
 const CHECK_EVERY_MS = 60_000;
 /** Velocidad de escritura letra a letra */
 const TYPE_MS = 38;
 /** Tiempo visible tras terminar de escribir (se pausa con el ratón encima) */
 const LINGER_MS = 9_000;
 const EXIT_MS = 320;
+
+/** Una vez por apertura de la app: el componente se desmonta en la página del coach y no debe repetirlo al volver */
+let entryPending = true;
 
 interface CoachTeaserProps {
   /** El chat flotante está abierto: no molestar */
@@ -44,7 +48,14 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, tucked, onUnt
 
   const show = (force = false) => {
     if (teaserRef.current || blockedRef.current) return;
-    if (!force && (tuckedRef.current || !canShowTeaser() || document.hidden)) return;
+    if (!force && (tuckedRef.current || document.hidden)) return;
+    const entry = !force && entryPending;
+    if (entry) {
+      // Espera a que se cierre cualquier diálogo (bienvenida del primer uso, etc.)
+      if (document.querySelector('.modal-backdrop')) return;
+      entryPending = false;
+      if (!canShowEntryTeaser()) return;
+    } else if (!force && !canShowTeaser()) return;
     if (force && tuckedRef.current) onUntuckRef.current();
     const msg = pickTeaser();
     // La prueba desde Ajustes no gasta el cupo diario
@@ -57,9 +68,14 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, tucked, onUnt
   const showRef = useRef(show);
   showRef.current = show;
 
-  // Programación: primera comprobación tras un rato y luego cada minuto
+  // Programación: un aviso nada más entrar y luego una comprobación cada minuto
   useEffect(() => {
-    const first = setTimeout(() => showRef.current(), FIRST_CHECK_MS);
+    let first: ReturnType<typeof setTimeout>;
+    const tryEntry = () => {
+      showRef.current();
+      if (entryPending) first = setTimeout(tryEntry, ENTRY_RETRY_MS);
+    };
+    first = setTimeout(tryEntry, ENTRY_DELAY_MS);
     const every = setInterval(() => showRef.current(), CHECK_EVERY_MS);
     const onForce = () => showRef.current(true);
     window.addEventListener(TEASER_EVENT, onForce);
