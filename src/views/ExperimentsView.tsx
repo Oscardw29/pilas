@@ -100,9 +100,13 @@ export const ExperimentsView: React.FC = () => {
     return { completionPct, avgDuration, avgEnergy, avgDiff };
   };
 
+  /* El monitor muestra por defecto solo lo que está en curso; los concluidos se incluyen a demanda */
+  const [monitorScope, setMonitorScope] = useState<'active' | 'all'>('active');
+  const monitorExperiments = monitorScope === 'active' ? activeExperiments : experiments;
+
   const experimentsChartData = useMemo(() => {
     const list: { name: string; adherencia: number; duracion: number; expName: string; slot: number }[] = [];
-    experiments.forEach((exp) => {
+    monitorExperiments.forEach((exp) => {
       exp.variants.forEach((v, i) => {
         const stats = getVariantStats(exp, v);
         list.push({
@@ -115,7 +119,7 @@ export const ExperimentsView: React.FC = () => {
       });
     });
     return list;
-  }, [experiments, sessions]);
+  }, [experiments, sessions, monitorScope]);
 
   const avgAdherence = useMemo(() => {
     const vals = activeExperiments.flatMap((exp) => exp.variants.map((v) => getVariantStats(exp, v).completionPct));
@@ -163,7 +167,7 @@ export const ExperimentsView: React.FC = () => {
       </section>
 
       {/* MONITOR: comparativa de adherencia de todas las variantes */}
-      {experimentsChartData.length > 0 && (
+      {experiments.length > 0 && (
         <div className="card lab-monitor">
           <div className="lab-monitor-head">
             <div>
@@ -175,7 +179,22 @@ export const ExperimentsView: React.FC = () => {
             </span>
           </div>
 
-          <div className="lab-screen" style={{ height: Math.max(160, experimentsChartData.length * 44) }}>
+          {experiments.length > activeExperiments.length && (
+            <div className="segmented lab-monitor-scope" role="group" aria-label="Experimentos en el monitor">
+              <button type="button" className={monitorScope === 'active' ? 'active' : ''} aria-pressed={monitorScope === 'active'} onClick={() => setMonitorScope('active')}>
+                En curso ({activeExperiments.length})
+              </button>
+              <button type="button" className={monitorScope === 'all' ? 'active' : ''} aria-pressed={monitorScope === 'all'} onClick={() => setMonitorScope('all')}>
+                Todos ({experiments.length})
+              </button>
+            </div>
+          )}
+
+          {experimentsChartData.length === 0 ? (
+            <p className="card-sub lab-monitor-empty">No hay experimentos en curso. Pulsa «Todos» para revisar los anteriores.</p>
+          ) : (
+          <div className="lab-screen">
+          <div style={{ height: Math.max(160, experimentsChartData.length * 44) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={experimentsChartData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} unit="%" stroke="var(--muted)" fontSize={11} tickLine={false} />
@@ -216,6 +235,8 @@ export const ExperimentsView: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          </div>
+          )}
         </div>
       )}
 
