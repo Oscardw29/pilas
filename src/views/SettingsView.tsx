@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
-import { AiPlatform } from '../types';
+import { AiPlatform, UserGender } from '../types';
+import { personaFor } from '../components/coach/coachPersona';
 import {
   Save,
   RotateCcw,
@@ -68,6 +69,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const { showToast } = useToast();
 
   const [userName, setUserName] = useState(settings.userName || 'Usuario');
+  const [userGender, setUserGender] = useState<UserGender>(settings.userGender || 'other');
   const [maxActiveHabits, setMaxActiveHabits] = useState(settings.maxActiveHabits || 7);
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
@@ -204,6 +206,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     e.preventDefault();
     updateSettings({
       userName: userName.trim(),
+      userGender,
       maxActiveHabits: Number(maxActiveHabits),
       askFailReason,
       aiPlatform,
@@ -383,6 +386,35 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   onChange={(e) => setUserName(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="field">
+                <span className="label" id="settings-gender-label">
+                  Te identificas como
+                </span>
+                <div className="gender-options" role="radiogroup" aria-labelledby="settings-gender-label">
+                  {(
+                    [
+                      ['male', 'Hombre'],
+                      ['female', 'Mujer'],
+                      ['other', 'Otro'],
+                    ] as [UserGender, string][]
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={userGender === value}
+                      className="gender-option"
+                      onClick={() => setUserGender(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="hint">
+                  Tu coach será {personaFor(userGender).name}, tu {personaFor(userGender).role}.
+                </span>
               </div>
 
               <div className="field">
@@ -785,7 +817,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <div>
                 <div className="card-title">Notificaciones del Sistema (Windows y Celulares)</div>
                 <div className="card-sub">
-                  Alertas nativas del sistema operativo: recordatorios a tu hora exacta, racha activa y Coach IA con variantes
+                  Alertas nativas del sistema operativo: recordatorios a tu hora exacta, racha activa y mensajes de {personaFor(userGender).name} con variantes
                 </div>
               </div>
             </div>
@@ -963,7 +995,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                       </span>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Sparkles size={15} style={{ color: 'var(--accent-2)' }} />
-                        Mensaje del Coach IA con tu nombre ({userName || 'Usuario'})
+                        Mensaje de {personaFor(userGender).name} con tu nombre ({userName || 'Usuario'})
                       </span>
                     </label>
 
@@ -988,7 +1020,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     </div>
                   </div>
                   <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Envía un mensaje reflexivo y motivacional del Coach con tu nombre real, alternando frases de disciplina, claridad mental y enfoque sin necesidad de consumo de API.
+                    Envía un mensaje reflexivo y motivacional de {personaFor(userGender).name} con tu nombre real, alternando frases de disciplina, claridad mental y enfoque sin necesidad de consumo de API.
                   </p>
                 </div>
 

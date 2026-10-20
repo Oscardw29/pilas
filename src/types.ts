@@ -385,8 +385,15 @@ export interface AiConversation {
 /* ---------------- Ajustes ---------------- */
 export type AiPlatform = 'gemini' | 'openai' | 'groq' | 'openrouter';
 
+/** Género elegido en la bienvenida: define si el coach es entrenador o entrenadora */
+export type UserGender = 'male' | 'female' | 'other';
+
 export interface Settings {
   userName: string;
+  /** Sin elegir u «otro» → entrenador */
+  userGender?: UserGender;
+  /** El coach no lee en voz alta sus respuestas */
+  coachMuted?: boolean;
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
   minimumRatio: number;
   /** Máximo recomendado de hábitos activos antes de sugerir revisión */
