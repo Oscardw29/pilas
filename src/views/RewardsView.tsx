@@ -171,11 +171,12 @@ export const RewardsView: React.FC = () => {
 
           <div className="shop-front-scene" aria-hidden="true">
             <ShopBackShelf />
+            {/* El bocadillo ocupa solo el hueco libre a la izquierda del tendero (no invade el texto) */}
+            <div className="shop-bubble">
+              {lineChars.slice(0, typed).join('')}
+              <span className="shop-bubble-ghost">{lineChars.slice(typed).join('')}</span>
+            </div>
             <div className="shop-keeper">
-              <div className="shop-bubble">
-                {lineChars.slice(0, typed).join('')}
-                <span className="shop-bubble-ghost">{lineChars.slice(typed).join('')}</span>
-              </div>
               <CoachAvatar
                 gender={persona.gender}
                 crop="bust"
@@ -309,7 +310,9 @@ export const RewardsView: React.FC = () => {
                   <div className="shop-item-name" title={reward.name}>
                     {reward.name}
                   </div>
-                  <p className="shop-item-desc">Un momento de descanso y gratificación por tu constancia sostenida.</p>
+                  <p className="shop-item-desc" title={reward.description || undefined}>
+                    {reward.description?.trim() || 'Un momento de descanso y gratificación por tu constancia sostenida.'}
+                  </p>
                 </div>
 
                 <div className="shop-item-foot">
@@ -349,25 +352,23 @@ export const RewardsView: React.FC = () => {
       </div>
 
       {/* RECIBOS: historial de canjes */}
-      <section className="card flush shop-receipt" aria-labelledby="shop-receipt-title">
-        <div className="card-flush-head shop-receipt-head">
-          <ReceiptText size={17} aria-hidden="true" />
+      <section className="shop-receipt" aria-labelledby="shop-receipt-title">
+        <div className="shop-receipt-head">
+          <ReceiptText size={18} aria-hidden="true" />
           <div>
-            <div className="card-title" id="shop-receipt-title">
-              Recibos
-            </div>
-            <div className="card-sub">Registro de tus canjes y premios disfrutados</div>
+            <h3 id="shop-receipt-title">Recibos</h3>
+            <span>Tus canjes y premios disfrutados</span>
           </div>
         </div>
 
         {redemptions.length === 0 ? (
-          <div className="muted small shop-receipt-empty">Aún no has canjeado recompensas. ¡Completa tus hábitos diarios para sumar puntos!</div>
+          <p className="shop-receipt-empty">Aún no has canjeado recompensas. ¡Completa tus hábitos diarios para sumar puntos!</p>
         ) : (
           <>
             <ul className="shop-receipt-list">
               {redemptions.map((red: Redemption) => (
                 <li key={red.id}>
-                  <span className="entity-icon sm" aria-hidden="true">
+                  <span className="shop-receipt-icon" aria-hidden="true">
                     {red.icon}
                   </span>
                   <span className="shop-receipt-name">
