@@ -1,15 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bot, Maximize2, Send, Sparkles, X } from 'lucide-react';
+import { Maximize2, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 import { useStore, selectData } from '@/store/useStore';
 import { executeCoachAction, type ParsedAction } from '@/lib/coachActions';
 import { playSound } from '@/lib/sound';
+import { speakCoach, stopCoachVoice, unlockCoachVoice } from '@/lib/coachVoice';
 import { useToast } from '@/components/ui/ToastContext';
 import { MarkdownMessage } from '@/components/ui/MarkdownMessage';
 import { ActionConfirmationCard } from './ActionConfirmationCard';
 import { extractActionAndText } from './extractAction';
+import { CoachAvatar } from './CoachAvatar';
+import { CoachTeaser } from './CoachTeaser';
+import { useCoachPersona } from './coachPersona';
 
-/** Mismo formato de mensaje que la vista del Coach IA: ambas comparten la conversación activa */
+/** Mismo formato de mensaje que la página del coach: ambas comparten la conversación activa */
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
@@ -19,8 +23,8 @@ interface ChatMessage {
   [extra: string]: unknown;
 }
 
-const WELCOME_TEXT =
-  '¡Hola! Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en Coach IA.';
+const welcomeText = (name: string) =>
+  `¡Hola! Soy ${name}. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página.`;
 
 const QUICK_PROMPTS = ['¿Qué hago ahora mismo?', '¿Cómo salvo mi racha hoy?', 'Resume mi semana'];
 
@@ -34,18 +38,21 @@ const loadAi = () => import('@/lib/gemini');
 
 /**
  * CHAT FLOTANTE DEL COACH
- * Burbuja en la esquina inferior derecha de todas las páginas excepto Coach IA.
+ * Botón con la cara del coach en la esquina inferior derecha de todas las páginas excepto la suya.
  * Escribe en la conversación activa del store, así se puede continuar en la vista completa.
  */
 export const FloatingCoachChat: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const persona = useCoachPersona();
   const conversations = useStore((s) => s.conversations);
   const activeConversationId = useStore((s) => s.activeConversationId);
   const createConversation = useStore((s) => s.createConversation);
   const renameConversation = useStore((s) => s.renameConversation);
   const setConversationMessages = useStore((s) => s.setConversationMessages);
+  const muted = useStore((s) => Boolean(s.settings.coachMuted));
+  const updateSettings = useStore((s) => s.updateSettings);
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -58,7 +65,7 @@ export const FloatingCoachChat: React.FC = () => {
   const conversation = conversations?.find((c) => c.id === activeConversationId);
   const messages = (conversation?.messages as ChatMessage[] | undefined) ?? [];
   const visibleMessages: ChatMessage[] =
-    messages.length > 0 ? messages : [{ id: 'welcome', sender: 'assistant', content: WELCOME_TEXT, timestamp: '' }];
+    messages.length > 0 ? messages : [{ id: 'welcome', sender: 'assistant', content: welcomeText(persona.name), timestamp: '' }];
   const onlyWelcome = !messages.some((m) => m.sender === 'user');
 
   // Bajar al último mensaje al abrir y con cada mensaje nuevo
@@ -104,16 +111,29 @@ export const FloatingCoachChat: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll, { capture: true });
   }, [open]);
 
-  // Al entrar a Coach IA el chat flotante se cierra (la vista completa toma el relevo)
+  // Al entrar a la página del coach el chat flotante se cierra (la vista completa toma el relevo)
   useEffect(() => {
     if (hidden) setOpen(false);
   }, [hidden]);
 
   if (hidden) return null;
 
+  /** El aviso lleva a la página del coach con su pregunta lista para enviarse */
+  const openFromTeaser = (prompt: string) => {
+    setOpen(false);
+    navigate('/coach', { state: { coachPrompt: prompt } });
+  };
+
   const close = () => {
     setOpen(false);
+    stopCoachVoice({ fade: true });
     playSound.modalClose();
+  };
+
+  const toggleMute = () => {
+    if (!muted) stopCoachVoice({ fade: true });
+    updateSettings({ coachMuted: !muted });
+    playSound.toggle();
   };
 
   const toggle = () => {
@@ -139,6 +159,8 @@ export const FloatingCoachChat: React.FC = () => {
   const handleSend = async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || loading) return;
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
     const convId = ensureConversation();
     const prior = readMessages(convId);
 
@@ -177,6 +199,8 @@ export const FloatingCoachChat: React.FC = () => {
       const botMsg: ChatMessage = { id: `bot-${Date.now()}`, sender: 'assistant', content: response, timestamp: nowTime() };
       setConversationMessages(convId, [...readMessages(convId), botMsg]);
       playSound.messageIn();
+      // Lee la respuesta en voz alta (salvo silencio o si el chat ya se cerró)
+      if (!useStore.getState().settings.coachMuted && panelRef.current) void speakCoach(response, persona.gender);
     } catch (error: any) {
       toast('Error al generar respuesta: ' + (error?.message || 'Inténtalo de nuevo'), 'warning');
     } finally {
@@ -217,16 +241,27 @@ export const FloatingCoachChat: React.FC = () => {
           ref={panelRef}
           className="coach-float-panel"
           role="dialog"
-          aria-label="Chat con el Coach IA"
+          aria-label={`Chat con ${persona.name}`}
         >
           <header className="coach-float-head">
-            <span className="coach-float-avatar" aria-hidden="true">
-              <Bot size={18} />
+            <span className="coach-float-avatar has-face" aria-hidden="true">
+              <CoachAvatar gender={persona.gender} crop="head" size={34} expression={loading ? 'thinking' : 'neutral'} talk followPointer={false} />
             </span>
             <div className="coach-float-title">
-              <strong>Coach IA</strong>
+              <strong>{persona.name}</strong>
               <span className="truncate">{conversation?.title ?? 'Nueva conversación'}</span>
             </div>
+            <button
+              type="button"
+              className={`icon-btn sm coach-float-mute${muted ? ' muted' : ''}`}
+              onClick={toggleMute}
+              aria-pressed={muted}
+              title={muted ? 'Activar voz' : 'Silenciar'}
+              aria-label={muted ? `Activar la voz de ${persona.name}` : `Silenciar a ${persona.name}`}
+              data-no-sound="true"
+            >
+              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </button>
             <button
               type="button"
               className="icon-btn sm"
@@ -234,8 +269,8 @@ export const FloatingCoachChat: React.FC = () => {
                 setOpen(false);
                 navigate('/coach');
               }}
-              title="Abrir en Coach IA"
-              aria-label="Abrir en Coach IA"
+              title={`Abrir la página de ${persona.name}`}
+              aria-label={`Abrir la página de ${persona.name}`}
               data-no-sound="true"
             >
               <Maximize2 size={15} />
@@ -269,7 +304,7 @@ export const FloatingCoachChat: React.FC = () => {
             {loading && (
               <div className="coach-float-msg assistant">
                 <div className="chat-bubble assistant coach-float-thinking">
-                  <div className="thinking-dots" aria-label="El coach está escribiendo">
+                  <div className="thinking-dots" aria-label={`${persona.name} está escribiendo`}>
                     <span className="dot dot-1" />
                     <span className="dot dot-2" />
                     <span className="dot dot-3" />
@@ -300,7 +335,7 @@ export const FloatingCoachChat: React.FC = () => {
               ref={inputRef}
               className="input"
               rows={1}
-              placeholder="Escribe al coach…"
+              placeholder={`Escríbele a ${persona.name}…`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -309,7 +344,7 @@ export const FloatingCoachChat: React.FC = () => {
                   void handleSend();
                 }
               }}
-              aria-label="Mensaje para el coach"
+              aria-label={`Mensaje para ${persona.name}`}
             />
             <button type="submit" className="btn btn-primary coach-float-send" disabled={!input.trim() || loading} aria-label="Enviar" data-no-sound="true">
               <Send size={16} />
@@ -318,17 +353,19 @@ export const FloatingCoachChat: React.FC = () => {
         </div>
       )}
 
+      <CoachTeaser blocked={open || tucked} onOpen={openFromTeaser} />
+
       <button
         type="button"
         className={`coach-fab ${open ? 'open' : ''}${tucked ? ' tucked' : ''}`}
         onClick={toggle}
-        aria-label={open ? 'Cerrar chat del coach' : 'Abrir chat del coach'}
+        aria-label={open ? `Cerrar chat con ${persona.name}` : `Abrir chat con ${persona.name}`}
         aria-expanded={open}
-        title={open ? 'Cerrar chat' : 'Pregúntale al coach'}
+        title={open ? 'Cerrar chat' : `Pregúntale a ${persona.name}`}
         data-no-sound="true"
       >
-        <span className="coach-fab-icon coach-fab-icon-bot" aria-hidden="true">
-          <Bot size={24} />
+        <span className="coach-fab-icon coach-fab-icon-bot coach-fab-face" aria-hidden="true">
+          <CoachAvatar gender={persona.gender} crop="head" size={58} expression={open ? 'happy' : 'neutral'} />
         </span>
         <span className="coach-fab-icon coach-fab-icon-close" aria-hidden="true">
           <X size={22} />

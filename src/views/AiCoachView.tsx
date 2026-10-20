@@ -23,7 +23,12 @@ import {
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { CoachStage } from '../components/coach/CoachStage';
+import { CoachAvatar } from '../components/coach/CoachAvatar';
+import { useCoachPersona, type CoachPersona } from '../components/coach/coachPersona';
+import { markCoachVisited } from '../components/coach/coachTeasers';
+import { speakCoach, stopCoachVoice, unlockCoachVoice } from '../lib/coachVoice';
 import { useToast } from '../components/ui/ToastContext';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -66,7 +71,8 @@ const PRESET_QUESTIONS = [
   '¿Qué experimento A/B me recomiendas hacer ahora?',
 ];
 
-const DEFAULT_WELCOME_TEXT = `¡Hola! Soy tu Coach de Hábitos. Tengo acceso en tiempo real a tus objetivos, tus datos de consistencia de los últimos 30 días, patrones de energía y causas de fallo registradas.\n\n¿En qué te puedo asesorar hoy para optimizar tu constancia?`;
+const welcomeText = (p: CoachPersona) =>
+  `¡Hola! Soy ${p.name}, tu ${p.role} de hábitos. Tengo acceso en tiempo real a tus objetivos, tus datos de consistencia de los últimos 30 días, patrones de energía y causas de fallo registradas.\n\n¿En qué te puedo asesorar hoy para optimizar tu constancia?`;
 
 export const AiCoachView: React.FC = () => {
   const {
@@ -93,6 +99,12 @@ export const AiCoachView: React.FC = () => {
   const isKeyConfigured = useSecrets((s) => hasGeminiKey(s.keys.geminiApiKey));
   const keysLocked = useSecrets((s) => s.locked);
   const { toast } = useToast();
+  const persona = useCoachPersona();
+  const DEFAULT_WELCOME_TEXT = welcomeText(persona);
+  const location = useLocation();
+  const navigate = useNavigate();
+  /** Sube cuando se aplica una acción sugerida: el coach lo celebra */
+  const [cheerKey, setCheerKey] = useState(0);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -191,6 +203,7 @@ export const AiCoachView: React.FC = () => {
   // Sincronizar mensajes al cambiar la conversación activa
   useEffect(() => {
     finishStream();
+    stopCoachVoice({ fade: true });
     if (!activeConversationId) return;
     const currentConv = conversations.find((c) => c.id === activeConversationId);
     if (currentConv && Array.isArray(currentConv.messages) && currentConv.messages.length > 0) {
@@ -210,9 +223,12 @@ export const AiCoachView: React.FC = () => {
   }, [activeConversationId]);
 
   useEffect(() => {
+    markCoachVisited();
     return () => {
       if (streamRef.current) clearInterval(streamRef.current.timer);
       streamRef.current = null;
+      // Al salir de la página el coach deja de hablar con un fundido
+      stopCoachVoice({ fade: true });
     };
   }, []);
 
@@ -247,6 +263,9 @@ export const AiCoachView: React.FC = () => {
       return;
     }
 
+    // El coach lee la respuesta (salvo que esté silenciado)
+    if (!useStore.getState().settings.coachMuted) void speakCoach(fullText, persona.gender);
+
     finishStream();
     const words = fullText.split(' ');
     let currentIdx = 0;
@@ -266,6 +285,8 @@ export const AiCoachView: React.FC = () => {
     const textToSend = messageText || input;
     if (!textToSend.trim() || loading) return;
     finishStream();
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
     const convId = activeConversationId;
 
     const userMsg: ChatMessage = {
@@ -337,6 +358,19 @@ export const AiCoachView: React.FC = () => {
     }
   };
 
+  // Llegada desde el aviso del coach: su pregunta se envía sola para que cumpla lo prometido
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  const teaserHandled = useRef(false);
+  useEffect(() => {
+    const prompt = (location.state as { coachPrompt?: string } | null)?.coachPrompt;
+    if (!prompt || teaserHandled.current) return;
+    teaserHandled.current = true;
+    navigate(location.pathname, { replace: true, state: null });
+    // Deja que la conversación activa se cargue antes de enviar (sin limpieza: en StrictMode el efecto se repite)
+    setTimeout(() => handleSendRef.current(prompt), 400);
+  }, [location.state]);
+
   /** Guarda el estado de la acción en el propio mensaje (persistido con la conversación) */
   const setMessageActionStatus = (msgId: string, actionStatus: 'applied' | 'dismissed') => {
     setMessages((prev) => {
@@ -360,6 +394,7 @@ export const AiCoachView: React.FC = () => {
       else playSound.pop();
       toast(result.message, action.action === 'delete_habit' ? 'info' : 'success');
       setMessageActionStatus(msgId, 'applied');
+      setCheerKey((k) => k + 1);
     } catch (err: any) {
       toast(`Error aplicando acción: ${err?.message || 'Error desconocido'}`, 'error');
     }
@@ -376,6 +411,8 @@ export const AiCoachView: React.FC = () => {
     const userMsg = messages[botIdx - 1];
     if (userMsg.sender !== 'user') return;
 
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
     setLoading(true);
     playSound.click();
 
@@ -443,6 +480,8 @@ export const AiCoachView: React.FC = () => {
     const newText = editText.trim();
     setEditingId(null);
     setShowEditConfirm(false);
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
 
     const subsequent = messages.slice(userIdx + 1);
     // Copia: no mutar las versiones que forman parte del estado
@@ -611,11 +650,14 @@ export const AiCoachView: React.FC = () => {
   };
 
   return (
-    <div className="stack fade-up">
+    <div className="stack fade-up coach-page">
       {/* Cabecera */}
       <div className="page-head">
         <div>
-          <h1>Coach de Hábitos IA</h1>
+          <p className="eyebrow">Coach de hábitos con IA</p>
+          <h1>
+            {persona.name}, tu {persona.role}
+          </h1>
         </div>
 
         <div className="actions coach-model-badges">
@@ -662,7 +704,8 @@ export const AiCoachView: React.FC = () => {
 
       {/* LAYOUT PRINCIPAL: CONVERSACIONES A LA IZQUIERDA Y CHAT A LA DERECHA */}
       <div className="coach-layout">
-        {/* PANEL IZQUIERDO: CONVERSACIONES */}
+        {/* PANEL IZQUIERDO: CONVERSACIONES Y, DEBAJO, EL COACH */}
+        <div className="coach-left">
         <div className={`card conversations-sidebar ${convListOpen ? 'conv-list-open' : ''}`}>
           {/* Encabezado: Recientes ⌵ (plegable en pantallas pequeñas) y botón + Nueva */}
           <div className="conversations-header">
@@ -756,6 +799,9 @@ export const AiCoachView: React.FC = () => {
               );
             })}
           </div>
+        </div>
+
+        <CoachStage thinking={loading && !streamRef.current} cheerKey={cheerKey} />
         </div>
 
         {/* CONTENEDOR DE CHAT PRINCIPAL A LA DERECHA */}
@@ -868,8 +914,8 @@ export const AiCoachView: React.FC = () => {
                           onClick={() => handleRegenerate(m.id)}
                           disabled={loading}
                           className="chat-msg-action"
-                          title="Regenerar respuesta del coach"
-                          aria-label="Regenerar respuesta del coach"
+                          title={`Regenerar respuesta de ${persona.name}`}
+                          aria-label={`Regenerar respuesta de ${persona.name}`}
                         >
                           <Sparkles size={13} />
                         </button>
@@ -934,13 +980,16 @@ export const AiCoachView: React.FC = () => {
                     background: 'rgba(99, 102, 241, 0.08)',
                   }}
                 >
+                  <span className="chat-thinking-avatar" aria-hidden="true">
+                    <CoachAvatar gender={persona.gender} crop="head" size={38} expression="thinking" />
+                  </span>
                   <div className="thinking-dots">
                     <span className="dot dot-1" />
                     <span className="dot dot-2" />
                     <span className="dot dot-3" />
                   </div>
                   <span style={{ fontSize: 13, color: 'var(--text-2)', fontStyle: 'italic' }}>
-                    El Coach está analizando tus datos y redactando la mejor respuesta...
+                    {persona.name} está analizando tus datos y preparando la mejor respuesta…
                   </span>
                 </div>
               </div>

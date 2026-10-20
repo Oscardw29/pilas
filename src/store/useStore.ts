@@ -150,6 +150,9 @@ function preservedSettings(st: Settings): Partial<Settings> {
     ttsVoiceId: st.ttsVoiceId,
     soundEnabled: st.soundEnabled,
     soundVolume: st.soundVolume,
+    // El coach conserva su identidad y su silencio aunque se reinicien los datos
+    userGender: st.userGender,
+    coachMuted: st.coachMuted,
   };
 }
 

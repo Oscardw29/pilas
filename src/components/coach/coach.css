@@ -1,0 +1,306 @@
+/* =====================================================================
+   PERSONAJE DEL COACH (Pilo / Pila): animaciones del SVG
+   Todas las piezas se mueven con transform (barato en móviles).
+   ===================================================================== */
+.coach-avatar { display: block; flex-shrink: 0; }
+.coach-avatar .ca-eye { transform-box: fill-box; transform-origin: center; transition: transform .06s ease-out; }
+.coach-avatar.ca-blink .ca-eye { transform: scaleY(.08); }
+.coach-avatar .ca-pupil { transition: transform .17s cubic-bezier(.3, .7, .4, 1); }
+.coach-avatar .ca-brow { transition: transform .28s cubic-bezier(.34, 1.56, .64, 1); }
+
+/* Respiración y cabeceo en reposo */
+.coach-avatar .ca-body { animation: caBreathe 4.2s ease-in-out infinite; }
+.ca-idle-calm .ca-head { animation: caHeadIdle 7s ease-in-out infinite; }
+.ca-female .ca-ponytail { animation: caPony 3.8s ease-in-out infinite; }
+@keyframes caBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.014) translateY(-.6px); } }
+@keyframes caHeadIdle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.6deg) translateY(.4px); }
+  60% { transform: rotate(1.4deg); }
+}
+@keyframes caPony { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(5deg); } }
+
+/* Brazos: escondidos fuera del encuadre hasta que hacen falta */
+.coach-avatar .ca-arm { opacity: 0; transition: opacity .2s; }
+.coach-avatar .ca-arm-r { transform: rotate(112deg); }
+.coach-avatar .ca-arm-l { transform: rotate(-104deg); }
+
+/* Hablando: cabeza que acompaña las frases, cejas que se levantan y mano que explica */
+.coach-avatar.is-talking .ca-head { animation: caTalkHead 1.9s ease-in-out infinite; }
+.coach-avatar.is-talking .ca-brow { animation: caBrowTalk 2.3s ease-in-out infinite; }
+.coach-avatar.is-talking.ca-female .ca-ponytail { animation-duration: 1.5s; }
+.coach-avatar.is-talking:not(.ca-outfit-lab) .ca-arm-l { animation: caExplain 6.5s ease-in-out infinite; }
+@keyframes caTalkHead {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  20% { transform: rotate(-2.4deg) translateY(-1px); }
+  45% { transform: rotate(1.2deg) translateY(.5px); }
+  70% { transform: rotate(2.2deg) translateY(-.8px); }
+}
+@keyframes caBrowTalk { 0%, 55%, 100% { translate: 0 0; } 65% { translate: 0 -2.6px; } 80% { translate: 0 -.5px; } }
+@keyframes caExplain {
+  0%, 12% { opacity: 0; transform: rotate(-104deg); }
+  20% { opacity: 1; transform: rotate(-4deg); }
+  28% { transform: rotate(-12deg); }
+  36% { transform: rotate(-2deg); }
+  44% { transform: rotate(-10deg); }
+  54% { opacity: 1; transform: rotate(-4deg); }
+  64%, 100% { opacity: 0; transform: rotate(-104deg); }
+}
+
+/* Tienda: se balancea y lanza una moneda de vez en cuando */
+.ca-idle-shop .ca-rig { animation: caSway 3.6s ease-in-out infinite; }
+.ca-idle-shop .ca-arm-r { animation: caCoinArm 7s ease-in-out infinite; }
+.ca-idle-shop .ca-coin { animation: caCoinToss 7s ease-in-out infinite; }
+@keyframes caSway { 0%, 100% { transform: translateX(0) rotate(0deg); } 30% { transform: translateX(-2px) rotate(-1.2deg); } 70% { transform: translateX(2px) rotate(1.2deg); } }
+@keyframes caCoinArm {
+  0%, 8% { opacity: 0; transform: rotate(112deg); }
+  16%, 62% { opacity: 1; transform: rotate(0deg); }
+  70%, 100% { opacity: 0; transform: rotate(112deg); }
+}
+@keyframes caCoinToss {
+  0%, 22% { transform: translateY(0) scaleX(1); }
+  30% { transform: translateY(-34px) scaleX(-1); }
+  36% { transform: translateY(-40px) scaleX(1); }
+  44% { transform: translateY(0) scaleX(-1); }
+  47% { transform: translateY(1.5px) scaleX(1); }
+  50%, 100% { transform: translateY(0) scaleX(1); }
+}
+
+/* Laboratorio: sostiene un matraz que burbujea y lo agita mientras lo examina */
+.ca-outfit-lab .ca-arm-l { opacity: 1; transform: none; }
+.ca-outfit-lab .ca-flask { animation: caSwirl 5s ease-in-out infinite; }
+.ca-idle-lab .ca-head { animation: caHeadLab 7s ease-in-out infinite; }
+.ca-outfit-lab .ca-bubble { transform-box: fill-box; transform-origin: center; animation: caBubble 1.9s ease-in infinite; }
+.ca-outfit-lab .ca-bubble.b2 { animation-delay: .6s; }
+.ca-outfit-lab .ca-bubble.b3 { animation-delay: 1.2s; }
+@keyframes caSwirl { 0%, 60%, 100% { transform: rotate(0deg); } 68% { transform: rotate(-9deg); } 76% { transform: rotate(7deg); } 84% { transform: rotate(-4deg); } }
+@keyframes caHeadLab { 0%, 100% { transform: rotate(0deg); } 40%, 62% { transform: rotate(-4.5deg) translateX(-1px); } }
+@keyframes caBubble { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-16px) scale(1.1); opacity: 0; } }
+
+/* Gestos de una sola vez (van al final: ganan a las animaciones en reposo) */
+.coach-avatar.ca-g-wave .ca-arm-r { animation: caWaveArm 1.9s cubic-bezier(.34, 1.4, .64, 1) both; }
+.coach-avatar.ca-g-wave .ca-hand-r { animation: caWaveHand 1.9s ease-in-out both; }
+.coach-avatar.ca-g-cheer .ca-arm-r { animation: caCheerArm 1.3s cubic-bezier(.34, 1.56, .64, 1) both; }
+.coach-avatar.ca-g-cheer .ca-rig,
+.coach-avatar.ca-g-bounce .ca-rig { animation: caBounce .75s cubic-bezier(.34, 1.56, .64, 1) both; }
+.coach-avatar.ca-g-nod .ca-head { animation: caNod .9s ease-in-out both; }
+@keyframes caWaveArm {
+  0% { opacity: 0; transform: rotate(112deg); }
+  14%, 82% { opacity: 1; transform: rotate(0deg); }
+  100% { opacity: 0; transform: rotate(112deg); }
+}
+@keyframes caWaveHand {
+  0%, 14% { transform: rotate(0deg); }
+  24% { transform: rotate(-22deg); } 36% { transform: rotate(14deg); }
+  48% { transform: rotate(-22deg); } 60% { transform: rotate(14deg); }
+  72%, 100% { transform: rotate(0deg); }
+}
+@keyframes caCheerArm {
+  0% { opacity: 0; transform: rotate(112deg); }
+  18% { opacity: 1; transform: rotate(-8deg); }
+  32% { transform: rotate(6deg); } 46% { transform: rotate(-8deg); } 60% { transform: rotate(4deg); }
+  84% { opacity: 1; transform: rotate(0deg); }
+  100% { opacity: 0; transform: rotate(112deg); }
+}
+@keyframes caBounce {
+  0% { transform: translateY(0) scaleY(1); }
+  25% { transform: translateY(2px) scaleY(.96); }
+  50% { transform: translateY(-9px) scaleY(1.03); }
+  75% { transform: translateY(1px) scaleY(.98); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+@keyframes caNod { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(4deg) translateY(2px); } 60% { transform: rotate(-1deg); } }
+
+/* =====================================================================
+   BOTÓN «3D» CON LABIO INFERIOR (laboratorio y tienda)
+   ===================================================================== */
+.btn-3d {
+  --b3-face: #8b5cf6; --b3-lip: #5b21b6; --b3-text: #fff; --b3-edge: rgba(255, 255, 255, 0.22);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 18px; border-radius: 14px; border: 2px solid var(--b3-edge); cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 800; letter-spacing: .01em; white-space: nowrap;
+  color: var(--b3-text); background: var(--b3-face); box-shadow: 0 4px 0 var(--b3-lip);
+  transition: transform .1s, box-shadow .1s, filter .15s;
+}
+.btn-3d.sm { padding: 8px 13px; font-size: 12.5px; border-radius: 12px; }
+.btn-3d svg { flex-shrink: 0; }
+.btn-3d:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-3d:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--b3-lip); }
+.btn-3d:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.btn-3d:disabled { cursor: not-allowed; --b3-face: var(--surface-3); --b3-lip: #0c0c10; --b3-text: var(--muted); --b3-edge: var(--border-2); }
+
+/* =====================================================================
+   CARAS DEL COACH EN BOTONES Y AVATARES
+   ===================================================================== */
+.coach-fab-face {
+  width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: end center;
+}
+.coach-fab-face .coach-avatar { width: 100%; height: auto; transform: translateY(6%); }
+.coach-float-avatar.has-face { overflow: hidden; place-items: end center; background: linear-gradient(140deg, #a78bfa, #6d28d9); }
+.coach-float-avatar.has-face .coach-avatar { width: 100%; height: auto; transform: translateY(5%); }
+.chat-thinking-avatar {
+  width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  display: grid; place-items: end center; background: rgba(139, 92, 246, 0.28);
+}
+.chat-thinking-avatar .coach-avatar { width: 100%; height: auto; transform: translateY(5%); }
+
+/* =====================================================================
+   BIENVENIDA Y AJUSTES: elección de género
+   ===================================================================== */
+.gender-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.gender-option {
+  flex: 1 1 0; min-width: 84px; min-height: 44px; padding: 8px 12px;
+  border-radius: 14px; border: 2px solid var(--border-2); background: var(--surface-2);
+  color: var(--text-2); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+  box-shadow: 0 3px 0 var(--border-2); transition: transform .12s, box-shadow .12s, background .15s, border-color .15s, color .15s;
+}
+.gender-option:hover { border-color: var(--accent-2); color: var(--text); }
+.gender-option:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border-2); }
+.gender-option[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); color: #fff; box-shadow: 0 3px 0 var(--accent-strong); }
+.gender-option:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+
+.welcome-coach {
+  display: flex; align-items: flex-end; gap: 12px; padding: 10px 14px 0; overflow: hidden;
+  border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.28);
+  background: radial-gradient(120px 90px at 50px 100%, rgba(139, 92, 246, 0.35), transparent 70%), var(--surface-2);
+}
+.welcome-coach-text { margin: 0; padding-bottom: 12px; align-self: center; font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+.welcome-coach-text strong { color: var(--text); }
+
+/* =====================================================================
+   AVISO DEL COACH JUNTO A SU BOTÓN
+   ===================================================================== */
+.coach-teaser {
+  position: fixed; z-index: calc(var(--z-modal) - 11);
+  right: calc(max(24px, var(--safe-right)) + 58px + 12px); bottom: calc(18px + var(--safe-bottom));
+  display: flex; flex-direction: column; align-items: flex-end;
+  transform-origin: 100% 85%;
+  animation: teaserIn .55s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+.coach-teaser.leaving { animation: teaserOut .32s ease-in both; }
+@keyframes teaserIn { from { opacity: 0; transform: translateX(34px) scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes teaserOut { to { opacity: 0; transform: translateX(24px) scale(.8); } }
+
+.coach-teaser-figure {
+  position: relative; z-index: 0; margin: 0 14px -40px 0; pointer-events: none;
+  animation: teaserPeek .6s cubic-bezier(.34, 1.56, .64, 1) .18s both;
+}
+.coach-teaser-figure::before {
+  content: ''; position: absolute; left: 50%; bottom: 30px; width: 96px; height: 96px; translate: -50% 0;
+  border-radius: 50%; background: radial-gradient(circle, rgba(167, 139, 250, 0.45), transparent 68%); z-index: -1;
+}
+@keyframes teaserPeek { from { opacity: 0; transform: translateY(46px); } to { opacity: 1; transform: none; } }
+
+.coach-teaser-bubble {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  width: max-content; max-width: min(250px, calc(100vw - 120px)); padding: 11px 16px 10px;
+  font: inherit; text-align: left; color: #221a33; cursor: pointer;
+  background: #fff; border: 2px solid #e5e7eb; border-radius: 18px;
+  box-shadow: 0 4px 0 #cfd3dc, 0 22px 44px -14px rgba(0, 0, 0, 0.75);
+  transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), box-shadow .15s;
+}
+.coach-teaser-bubble:hover { transform: translateY(-2px); }
+.coach-teaser-bubble:active { transform: translateY(3px); box-shadow: 0 1px 0 #cfd3dc, 0 12px 30px -14px rgba(0, 0, 0, 0.75); }
+.coach-teaser-bubble:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 3px; }
+/* Pico de la burbuja hacia el botón del coach (a la derecha) */
+.coach-teaser-bubble::after {
+  content: ''; position: absolute; right: -9px; bottom: 16px; width: 16px; height: 16px;
+  background: #fff; border-right: 2px solid #e5e7eb; border-bottom: 2px solid #e5e7eb;
+  transform: rotate(-45deg); border-radius: 0 0 4px 0;
+}
+.coach-teaser-name { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #7c3aed; }
+.coach-teaser-text { font-size: 14.5px; font-weight: 700; line-height: 1.35; }
+.coach-teaser-ghost { color: transparent; }
+.coach-teaser-caret {
+  display: inline-block; width: 2px; height: 1.05em; margin: 0 1px -2px; background: #7c3aed; border-radius: 1px;
+  animation: caretBlink .7s steps(1) infinite;
+}
+@keyframes caretBlink { 50% { opacity: 0; } }
+.coach-teaser-cta { font-size: 12px; font-weight: 700; color: #7c3aed; opacity: 0; transform: translateY(3px); transition: opacity .25s, transform .25s; }
+.coach-teaser-cta.show { opacity: 1; transform: none; }
+.coach-teaser-bubble-wrap { position: relative; z-index: 1; }
+.coach-teaser-close {
+  position: absolute; z-index: 2; left: -10px; top: -10px;
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: #4b5563; background: #f3f4f6; border: 2px solid #e5e7eb;
+}
+.coach-teaser-close:hover { color: #111827; background: #fff; }
+
+@media (max-width: 639.98px) {
+  /* Móvil: el aviso sale por encima del botón y el pico apunta hacia abajo */
+  .coach-teaser { right: 10px; bottom: calc(var(--bottom-nav-h) + 14px + 52px + 12px + var(--safe-bottom)); transform-origin: 90% 100%; }
+  .app-shell:has(.timer-bar) .coach-teaser { bottom: calc(var(--bottom-nav-h) + 86px + 52px + 12px + var(--safe-bottom)); }
+  .coach-teaser-figure { margin-right: 22px; }
+  .coach-teaser-bubble { max-width: min(260px, calc(100vw - 40px)); }
+  .coach-teaser-bubble::after { right: 18px; bottom: -9px; transform: rotate(45deg); }
+  @keyframes teaserIn { from { opacity: 0; transform: translateY(26px) scale(.7); } to { opacity: 1; transform: none; } }
+  @keyframes teaserOut { to { opacity: 0; transform: translateY(18px) scale(.8); } }
+}
+
+/* =====================================================================
+   EL COACH EN SU PÁGINA (debajo de la lista de conversaciones)
+   ===================================================================== */
+.coach-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.card.coach-stage {
+  position: relative; overflow: hidden; padding: 0; display: flex; flex-direction: column; align-items: stretch;
+  background:
+    radial-gradient(220px 160px at 58% 78%, rgba(139, 92, 246, 0.22), transparent 70%),
+    linear-gradient(180deg, var(--surface) 0%, #17142a 100%);
+}
+.coach-stage-figure { position: relative; display: flex; justify-content: center; align-items: flex-end; padding: 18px 0 0 34px; }
+.coach-stage-halo {
+  position: absolute; left: calc(50% + 17px); bottom: 14px; width: 168px; height: 168px; translate: -50% 0;
+  border-radius: 50%; background: radial-gradient(circle, rgba(167, 139, 250, 0.3), transparent 68%);
+  transition: transform .3s;
+}
+.coach-stage.speaking .coach-stage-halo { animation: haloPulse 1.4s ease-in-out infinite; }
+@keyframes haloPulse { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.12); opacity: 1; } }
+.coach-stage-figure .coach-avatar { position: relative; }
+
+.coach-stage-plate {
+  position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; border-top: 2px solid rgba(124, 58, 237, 0.55);
+  background: linear-gradient(180deg, #7c3aed, #6d28d9); color: #fff;
+  box-shadow: inset 0 -4px 0 #5b21b6;
+}
+.coach-stage-plate strong { font-size: 16px; font-weight: 800; letter-spacing: .01em; }
+.coach-stage-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #ede9fe; }
+.coach-voice-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.coach-voice-bars i { width: 3px; height: 100%; border-radius: 2px; background: #fde68a; animation: voiceBar .8s ease-in-out infinite; transform-origin: bottom; }
+.coach-voice-bars i:nth-child(2) { animation-delay: .2s; }
+.coach-voice-bars i:nth-child(3) { animation-delay: .4s; }
+@keyframes voiceBar { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+
+/* Botón de silencio a la izquierda del coach: botón «3D» con labio inferior */
+.coach-mute-btn {
+  position: absolute; z-index: 2; left: 12px; top: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 48px; padding: 8px 0 6px; border-radius: 14px; cursor: pointer;
+  font: inherit; font-size: 10.5px; font-weight: 800; color: #fff;
+  background: #8b5cf6; border: 2px solid #a78bfa; box-shadow: 0 4px 0 #5b21b6;
+  transition: transform .1s, box-shadow .1s, background .15s;
+}
+.coach-mute-btn:hover { background: #9d74f7; }
+.coach-mute-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #5b21b6; }
+.coach-mute-btn:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.coach-mute-btn.muted { background: var(--surface-3); border-color: var(--border-2); color: var(--muted); box-shadow: 0 4px 0 #0c0c10; }
+.coach-mute-label { line-height: 1; }
+
+/* Pantallas medianas y pequeñas: tira compacta encima del chat */
+@media (max-width: 899.98px) {
+  .coach-left { gap: 10px; }
+  .card.coach-stage { flex-direction: row; align-items: stretch; min-height: 0; }
+  .coach-mute-btn { position: static; align-self: center; margin: 0 0 0 10px; flex-shrink: 0; }
+  .coach-stage-figure { padding: 6px 0 0; width: 92px; flex-shrink: 0; }
+  .coach-stage-figure .coach-avatar { width: 88px; height: auto; }
+  .coach-stage-halo { left: 50%; width: 84px; height: 84px; bottom: 4px; }
+  .coach-stage-plate {
+    flex: 1; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;
+    border-top: 0; background: none; box-shadow: none; padding: 8px 12px 8px 4px;
+  }
+  .coach-stage-plate strong { color: var(--text); }
+  .coach-stage-status { color: var(--text-2); }
+  .coach-page .chat-container { height: calc(100dvh - var(--bottom-nav-h) - 250px - var(--safe-bottom)); min-height: 360px; }
+}

@@ -110,3 +110,14 @@ export const MoodIcon: React.FC<{ level: Level5; size?: number; colored?: boolea
   const Icon = MOOD_ICONS[level] ?? FaceNeutral;
   return <Icon size={size} color={colored ? ENERGY_COLORS[level] : undefined} aria-hidden="true" />;
 };
+
+/** Icono de línea del coach (cara con cinta deportiva) al estilo lucide, para la navegación */
+export const CoachIcon: React.FC<{ size?: number; className?: string; 'aria-hidden'?: boolean | 'true' }> = ({ size = 24, ...rest }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...rest}>
+    <circle cx="12" cy="13" r="8.5" />
+    <path d="M4.3 10.4c4.8-2.4 10.6-2.4 15.4 0" />
+    <path d="M10 4.6c.9-1.7 3.6-1.9 4.6-.2" />
+    <path d="M9.3 13.2v.6M14.7 13.2v.6" />
+    <path d="M9.4 16.4c1.5 1.2 3.7 1.2 5.2 0" />
+  </svg>
+);

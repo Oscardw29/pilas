@@ -4,6 +4,7 @@ import { consistency, goalProgress, recoveryStats, pointsSummary } from './metri
 import { todayKey } from './dates';
 import { FAIL_REASON_LABELS } from './insights';
 import { getSecrets } from '@/store/useSecrets';
+import { getCoachPersona } from '@/components/coach/coachPersona';
 
 /** Tiempo máximo para listar modelos */
 const MODELS_TIMEOUT_MS = 15_000;
@@ -199,7 +200,8 @@ export function buildSystemContext(data: AppData, ref = todayKey()): string {
     .map((e) => `- Experimento: "${e.name}" | Estado: ${e.status} | Conclusión: ${e.conclusion ?? 'En curso'}`)
     .join('\n');
 
-  return `Eres el Coach de Hábitos de "¡Pilas!", una aplicación de alto rendimiento para el desarrollo personal basada en datos reales.
+  const persona = getCoachPersona(data.settings);
+  return `Eres ${persona.name}, ${persona.article} ${persona.role} de hábitos de "¡Pilas!", una aplicación de alto rendimiento para el desarrollo personal basada en datos reales. Hablas en primera persona con tu nombre y tu género (${persona.role}), con un tono cercano y con energía.
 
 REGLAS DE ORO DEL COACH:
 1. NUNCA optimices para que el usuario acumule más hábitos. Optimiza para MEJORES hábitos y máxima consistencia.

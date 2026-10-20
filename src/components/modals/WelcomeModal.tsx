@@ -3,6 +3,15 @@ import { Sparkles, Sprout, LayoutDashboard } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useStore, isFirstRun } from '@/store/useStore';
 import { playSound } from '@/lib/sound';
+import { CoachAvatar } from '@/components/coach/CoachAvatar';
+import { personaFor } from '@/components/coach/coachPersona';
+import type { UserGender } from '@/types';
+
+const GENDERS: { value: UserGender; label: string }[] = [
+  { value: 'male', label: 'Hombre' },
+  { value: 'female', label: 'Mujer' },
+  { value: 'other', label: 'Otro' },
+];
 
 /**
  * Bienvenida del primer uso: el usuario elige empezar vacío o explorar con datos de ejemplo,
@@ -11,12 +20,14 @@ import { playSound } from '@/lib/sound';
 export const WelcomeModal: React.FC = () => {
   const [open, setOpen] = useState(isFirstRun);
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<UserGender | undefined>(undefined);
+  const persona = personaFor(gender);
   const updateSettings = useStore((s) => s.updateSettings);
   const resetEmpty = useStore((s) => s.resetEmpty);
 
   const finish = (mode: 'empty' | 'demo') => {
     if (mode === 'empty') resetEmpty();
-    updateSettings({ userName: name.trim() });
+    updateSettings({ userName: name.trim(), userGender: gender });
     playSound.celebration();
     setOpen(false);
   };
@@ -46,6 +57,36 @@ export const WelcomeModal: React.FC = () => {
             maxLength={40}
           />
         </label>
+
+        <div className="field">
+          <span className="label" id="welcome-gender-label">
+            ¿Con qué te identificas?
+          </span>
+          <div className="gender-options" role="radiogroup" aria-labelledby="welcome-gender-label">
+            {GENDERS.map((g) => (
+              <button
+                key={g.value}
+                type="button"
+                role="radio"
+                aria-checked={gender === g.value}
+                className="gender-option"
+                onClick={() => setGender(g.value)}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="welcome-coach">
+          <CoachAvatar gender={persona.gender} size={96} expression={gender ? 'happy' : 'neutral'} gesture={gender ? 'bounce' : null} gestureKey={gender ? GENDERS.findIndex((g) => g.value === gender) + 1 : 0} />
+          <p className="welcome-coach-text" aria-live="polite">
+            <strong>
+              ¡Hola{name.trim() ? `, ${name.trim()}` : ''}! Soy {persona.name}
+            </strong>
+            , tu {persona.role}. Te acompaño con tus hábitos y te leo mis consejos en voz alta (me puedes silenciar).
+          </p>
+        </div>
 
         <div className="welcome-options">
           <button type="button" className="welcome-option" onClick={() => finish('empty')}>
