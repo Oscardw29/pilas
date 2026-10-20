@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore, selectData } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
 import { generateHabitAdvice, hasGeminiKey, generateTopicTitle } from '../lib/gemini';
-import { executeCoachAction, type ParsedAction } from '../lib/coachActions';
+import { coachChoiceMessage, executeCoachAction, type ParsedAction } from '../lib/coachActions';
 import { ActionConfirmationCard } from '../components/coach/ActionConfirmationCard';
 import { extractActionAndText } from '../components/coach/extractAction';
 import {
@@ -108,6 +108,8 @@ export const AiCoachView: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  /** Respuesta que se está regenerando: espera dentro de su propia burbuja */
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   // Estados de gestión de conversaciones
   const [showNewConvModal, setShowNewConvModal] = useState(false);
@@ -281,9 +283,13 @@ export const AiCoachView: React.FC = () => {
     streamRef.current = { timer, botId, fullText, onDone };
   };
 
-  const handleSend = async (messageText?: string) => {
+  /**
+   * `base`: mensajes sobre los que se añade el del usuario (por defecto los actuales).
+   * `force`: envía aunque siga la animación de escritura (la respuesta anterior ya está completa).
+   */
+  const handleSend = async (messageText?: string, opts: { base?: ChatMessage[]; force?: boolean } = {}) => {
     const textToSend = messageText || input;
-    if (!textToSend.trim() || loading) return;
+    if (!textToSend.trim() || (loading && !opts.force)) return;
     finishStream();
     stopCoachVoice({ fade: true });
     unlockCoachVoice();
@@ -303,7 +309,7 @@ export const AiCoachView: React.FC = () => {
       activeVersionIndex: 0,
     };
 
-    const nextMessages = [...messages, userMsg];
+    const nextMessages = [...(opts.base ?? messages), userMsg];
     setMessages(nextMessages);
     if (activeConversationId) {
       setConversationMessages(activeConversationId, nextMessages);
@@ -380,6 +386,25 @@ export const AiCoachView: React.FC = () => {
     });
   };
 
+  /**
+   * Responder a una propuesta con sus botones deja constancia en el chat: se envía un mensaje con lo
+   * elegido y el coach contesta. Si aún se espera una respuesta, solo se guarda el estado.
+   */
+  const reportActionChoice = (msgId: string, action: ParsedAction, actionStatus: 'applied' | 'dismissed') => {
+    if (loading && !streamRef.current) {
+      setMessageActionStatus(msgId, actionStatus);
+      return;
+    }
+    // Si la respuesta aún se está «escribiendo», se guarda con su texto completo
+    const st = streamRef.current;
+    const base = messages.map((m) => ({
+      ...m,
+      ...(st && m.id === st.botId ? { content: st.fullText } : {}),
+      ...(m.id === msgId ? { actionStatus } : {}),
+    }));
+    void handleSend(coachChoiceMessage(action, actionStatus), { base, force: true });
+  };
+
   // Ejecutar acciones sugeridas por el Coach tras confirmación del usuario (validadas en lib/coachActions)
   const handleExecuteAction = (msgId: string, action: ParsedAction) => {
     const target = messages.find((m) => m.id === msgId);
@@ -393,11 +418,16 @@ export const AiCoachView: React.FC = () => {
       if (action.action === 'delete_habit') playSound.delete();
       else playSound.pop();
       toast(result.message, action.action === 'delete_habit' ? 'info' : 'success');
-      setMessageActionStatus(msgId, 'applied');
+      reportActionChoice(msgId, action, 'applied');
       setCheerKey((k) => k + 1);
     } catch (err: any) {
       toast(`Error aplicando acción: ${err?.message || 'Error desconocido'}`, 'error');
     }
+  };
+
+  const handleDismissAction = (msgId: string, action: ParsedAction) => {
+    if (messages.find((m) => m.id === msgId)?.actionStatus) return;
+    reportActionChoice(msgId, action, 'dismissed');
   };
 
   // Regenerar respuesta del coach
@@ -414,6 +444,7 @@ export const AiCoachView: React.FC = () => {
     stopCoachVoice({ fade: true });
     unlockCoachVoice();
     setLoading(true);
+    setRegeneratingId(botMsgId);
     playSound.click();
 
     try {
@@ -423,21 +454,14 @@ export const AiCoachView: React.FC = () => {
       }));
 
       const newResponse = await generateHabitAdvice(currentData(), userMsg.content, priorHistory);
-      // Nuevo id: la acción sugerida (si la hay) es otra y no hereda el estado "aplicada"
-      const newBotId = `bot-${Date.now()}`;
-      setMessages((prev) => prev.map((m) => (m.id === botMsgId ? { id: newBotId, sender: 'assistant', content: '', timestamp: nowTime() } : m)));
-      if (convId) {
-        const conv = useStore.getState().conversations?.find((c) => c.id === convId);
-        if (conv) {
-          setConversationMessages(
-            convId,
-            (conv.messages as ChatMessage[]).map((m) => (m.id === botMsgId ? { id: newBotId, sender: 'assistant', content: '', timestamp: nowTime() } : m))
-          );
-        }
-      }
-      deliverBotResponse(convId, newBotId, newResponse, () => setLoading(false));
-      toast('Respuesta regenerada con éxito', 'success');
+      // Misma burbuja (mismo id); sin estado de acción: la propuesta nueva, si la hay, está pendiente
+      setMessages((prev) =>
+        prev.map((m) => (m.id === botMsgId ? { id: botMsgId, sender: 'assistant', content: '', timestamp: nowTime() } : m))
+      );
+      setRegeneratingId(null);
+      deliverBotResponse(convId, botMsgId, newResponse, () => setLoading(false));
     } catch (error: any) {
+      setRegeneratingId(null);
       toast('Error al regenerar respuesta: ' + (error?.message || 'Error desconocido'), 'warning');
       setLoading(false);
     }
@@ -857,6 +881,12 @@ export const AiCoachView: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                    ) : m.id === regeneratingId ? (
+                      <div className="thinking-dots" aria-label={`${persona.name} está regenerando la respuesta`}>
+                        <span className="dot dot-1" />
+                        <span className="dot dot-2" />
+                        <span className="dot dot-3" />
+                      </div>
                     ) : (
                       <>
                         <MarkdownMessage content={parsed.text} />
@@ -866,7 +896,7 @@ export const AiCoachView: React.FC = () => {
                               action={parsed.action}
                               status={m.actionStatus || 'pending'}
                               onConfirm={() => handleExecuteAction(m.id, parsed.action!)}
-                              onDismiss={() => setMessageActionStatus(m.id, 'dismissed')}
+                              onDismiss={() => handleDismissAction(m.id, parsed.action!)}
                             />
                           </div>
                         )}
@@ -957,8 +987,8 @@ export const AiCoachView: React.FC = () => {
               );
             })}
 
-            {/* ANIMACIÓN DE CARGA / PENSANDO DEL COACH */}
-            {loading && (
+            {/* ANIMACIÓN DE CARGA / PENSANDO DEL COACH (al regenerar espera en su propia burbuja) */}
+            {loading && !regeneratingId && !streamRef.current && (
               <div
                 className="chat-message-wrapper assistant"
                 style={{

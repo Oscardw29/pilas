@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
-import { CoachAvatar } from './CoachAvatar';
+import { Sparkles, X } from 'lucide-react';
 import { useCoachPersona } from './coachPersona';
 import { canShowTeaser, pickTeaser, recordTeaserShown, TEASER_EVENT, type CoachTeaserMsg } from './coachTeasers';
 import { playSound } from '@/lib/sound';
@@ -15,37 +14,44 @@ const LINGER_MS = 9_000;
 const EXIT_MS = 320;
 
 interface CoachTeaserProps {
-  /** El chat flotante está abierto o la burbuja escondida: no molestar */
+  /** El chat flotante está abierto: no molestar */
   blocked: boolean;
+  /** La burbuja está escondida al bajar por la página (móvil): los avisos automáticos esperan */
+  tucked: boolean;
+  /** Vuelve a mostrar la burbuja (la prueba desde Ajustes la saca aunque esté escondida) */
+  onUntuck: () => void;
   onOpen: (prompt: string) => void;
 }
 
 /**
  * Burbuja del coach junto a su botón (a la izquierda en escritorio, encima en móvil):
- * el personaje asoma del pecho hacia arriba detrás de la burbuja y escribe su mensaje.
+ * una tarjeta blanca en la que el coach escribe su mensaje letra a letra.
  */
-export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, onOpen }) => {
+export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, tucked, onUntuck, onOpen }) => {
   const persona = useCoachPersona();
   const [teaser, setTeaser] = useState<CoachTeaserMsg | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [typed, setTyped] = useState(0);
   const [hover, setHover] = useState(false);
-  const [waveKey, setWaveKey] = useState(0);
   const blockedRef = useRef(blocked);
   blockedRef.current = blocked;
+  const tuckedRef = useRef(tucked);
+  tuckedRef.current = tucked;
+  const onUntuckRef = useRef(onUntuck);
+  onUntuckRef.current = onUntuck;
   const teaserRef = useRef<CoachTeaserMsg | null>(null);
   teaserRef.current = teaser;
 
   const show = (force = false) => {
     if (teaserRef.current || blockedRef.current) return;
-    if (!force && (!canShowTeaser() || document.hidden)) return;
+    if (!force && (tuckedRef.current || !canShowTeaser() || document.hidden)) return;
+    if (force && tuckedRef.current) onUntuckRef.current();
     const msg = pickTeaser();
     // La prueba desde Ajustes no gasta el cupo diario
     if (!force) recordTeaserShown();
     setLeaving(false);
     setTyped(0);
     setTeaser(msg);
-    setWaveKey((k) => k + 1);
     playSound.pop();
   };
   const showRef = useRef(show);
@@ -90,8 +96,8 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, onOpen }) => 
   }, [done, hover, leaving]);
 
   useEffect(() => {
-    if (blocked) hide();
-  }, [blocked]);
+    if (blocked || tucked) hide();
+  }, [blocked, tucked]);
 
   if (!teaser) return null;
 
@@ -107,9 +113,6 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, onOpen }) => 
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div className="coach-teaser-figure" aria-hidden="true">
-        <CoachAvatar gender={persona.gender} crop="bust" size={116} expression="happy" gesture="wave" gestureKey={waveKey} />
-      </div>
       <div className="coach-teaser-bubble-wrap">
       <button
         type="button"
@@ -118,7 +121,10 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, onOpen }) => 
         aria-label={`${persona.name} dice: ${teaser.text}. Abrir su página`}
         data-no-sound="true"
       >
-        <span className="coach-teaser-name">{persona.name}</span>
+        <span className="coach-teaser-name">
+          <Sparkles size={12} aria-hidden="true" />
+          {persona.name}
+        </span>
         <span className="coach-teaser-text" aria-hidden="true">
           {chars.slice(0, typed).join('')}
           {!done && <span className="coach-teaser-caret" />}
