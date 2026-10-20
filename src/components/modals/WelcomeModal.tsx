@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Sprout, LayoutDashboard } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useStore, isFirstRun } from '@/store/useStore';
 import { playSound } from '@/lib/sound';
 import { CoachAvatar } from '@/components/coach/CoachAvatar';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { personaFor } from '@/components/coach/coachPersona';
 import type { UserGender } from '@/types';
 
@@ -21,8 +21,8 @@ export function openWelcomePreview() {
 }
 
 /**
- * Bienvenida del primer uso: el usuario elige empezar vacío o explorar con datos de ejemplo,
- * en lugar de encontrarse directamente con hábitos y rachas ficticias.
+ * Bienvenida del primer uso: nombre y género para el coach. Siempre se empieza desde cero
+ * (los datos de ejemplo se pueden cargar después desde Ajustes).
  */
 export const WelcomeModal: React.FC = () => {
   const [open, setOpen] = useState(isFirstRun);
@@ -31,7 +31,6 @@ export const WelcomeModal: React.FC = () => {
   const [gender, setGender] = useState<UserGender | undefined>(undefined);
   const persona = personaFor(gender);
   const updateSettings = useStore((s) => s.updateSettings);
-  const resetEmpty = useStore((s) => s.resetEmpty);
 
   useEffect(() => {
     const onPreview = () => {
@@ -45,25 +44,22 @@ export const WelcomeModal: React.FC = () => {
     return () => window.removeEventListener(PREVIEW_EVENT, onPreview);
   }, []);
 
-  const finish = (mode: 'empty' | 'demo') => {
+  const finish = () => {
     if (preview) {
       setOpen(false);
       setPreview(false);
       return;
     }
-    if (mode === 'empty') resetEmpty();
     updateSettings({ userName: name.trim(), userGender: gender });
     playSound.celebration();
     setOpen(false);
   };
 
   return (
-    <Modal isOpen={open} onClose={() => finish('demo')} title="Bienvenido a ¡Pilas!" preventBackdropClose>
+    <Modal isOpen={open} onClose={finish} title="Bienvenido a ¡Pilas!" preventBackdropClose>
       <div className="form">
         <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
-          <div className="empty-icon" style={{ marginBottom: 0 }} aria-hidden="true">
-            <Sparkles />
-          </div>
+          <BrandMark size={44} className="welcome-logo" />
           <p style={{ color: 'var(--text-2)', lineHeight: 1.55 }}>
             Construye hábitos con versiones mínimas, rachas que perdonan días libres y un coach que analiza tus datos.
             Todo se guarda solo en este dispositivo.
@@ -115,22 +111,13 @@ export const WelcomeModal: React.FC = () => {
 
         {preview && (
           <span className="hint" style={{ textAlign: 'center' }}>
-            Vista previa: elegir una opción solo cierra esta ventana, no cambia tus datos ni tus ajustes.
+            Vista previa: empezar solo cierra esta ventana, no cambia tus datos ni tus ajustes.
           </span>
         )}
 
-        <div className="welcome-options">
-          <button type="button" className="welcome-option" onClick={() => finish('empty')}>
-            <Sprout aria-hidden="true" />
-            <span className="welcome-option-title">Empezar desde cero</span>
-            <span className="welcome-option-sub">Crea tus propios objetivos y hábitos.</span>
-          </button>
-          <button type="button" className="welcome-option" onClick={() => finish('demo')}>
-            <LayoutDashboard aria-hidden="true" />
-            <span className="welcome-option-title">Explorar con datos de ejemplo</span>
-            <span className="welcome-option-sub">~9 semanas de historial para ver todas las métricas. Puedes borrarlos en Ajustes.</span>
-          </button>
-        </div>
+        <button type="button" className="btn btn-primary lg" onClick={finish}>
+          Empezar
+        </button>
       </div>
     </Modal>
   );

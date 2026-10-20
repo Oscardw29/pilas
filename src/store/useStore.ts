@@ -289,7 +289,8 @@ export function selectData(s: Store): AppData {
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      ...createDemoData(),
+      // El primer uso empieza siempre vacío; los datos de ejemplo se cargan a mano desde Ajustes
+      ...createEmptyData(),
 
       /* Objetivos */
       addGoal: (g) => {
