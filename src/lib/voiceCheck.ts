@@ -20,9 +20,7 @@ const TIMEOUT_MS = 12_000;
 
 const authFailed = (status: number) => status === 401 || status === 403;
 
-export async function checkTtsKey(platform: TtsPlatform, key: string): Promise<VoiceCheckResult | null> {
-  // La voz original usa la clave de IA, que ya comprueba la tarjeta de IA
-  if (platform === 'ai_voice') return null;
+export async function checkTtsKey(platform: TtsPlatform, key: string): Promise<VoiceCheckResult> {
   try {
     if (platform === 'native') return await checkNativeVoices();
 
