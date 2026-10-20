@@ -30,6 +30,8 @@ import {
   Droplets,
   Eye,
   EyeOff,
+  Play,
+  Square,
 } from 'lucide-react';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
@@ -40,7 +42,7 @@ import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
 import { fetchAvailableModels, PRESET_MODELS, ModelOption } from '../lib/gemini';
 import { checkDeepgramKey, checkTtsKey, type VoiceCheckResult } from '../lib/voiceCheck';
-import { resolveCoachVoice } from '../lib/coachVoice';
+import { resolveCoachVoice, speakCoach, stopCoachVoice, unlockCoachVoice, useCoachSpeaking } from '../lib/coachVoice';
 import { playSound } from '../lib/sound';
 import { PRESET_TTS_MODELS } from '../lib/ttsPresets';
 import {
@@ -337,6 +339,31 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       ),
     [ttsPlatform, ttsModel, ttsVoiceId, aiPlatform, geminiApiKey, ttsApiKey, secrets],
   );
+  /** Prueba de voz con lo que hay en el formulario (sin guardar), con la voz de Pilo o Pila elegida arriba */
+  const coachSpeaking = useCoachSpeaking();
+  const [testingVoice, setTestingVoice] = useState(false);
+  const handleTestVoice = async () => {
+    if (coachSpeaking || testingVoice) {
+      stopCoachVoice({ fade: true });
+      setTestingVoice(false);
+      return;
+    }
+    const persona = personaFor(userGender);
+    unlockCoachVoice();
+    setTestingVoice(true);
+    const result = await speakCoach(
+      `¡Hola! Soy ${persona.name}, tu ${persona.role}. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!`,
+      persona.gender,
+      coachVoicePreview,
+    );
+    setTestingVoice(false);
+    if (result === 'failed') {
+      showToast(`No se pudo generar la voz con ${coachVoicePreview.label}. Revisa la clave, el saldo o el ID de voz.`, 'warning');
+    }
+  };
+  // Al salir de Ajustes la prueba se corta
+  useEffect(() => () => stopCoachVoice({ fade: true }), []);
+
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsLoadedStatus, setModelsLoadedStatus] = useState<string | null>(null);
   const [isTestingAi, setIsTestingAi] = useState(false);
@@ -1228,12 +1255,34 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
             </div>
 
             {/* Qué voz usará de verdad el coach con estos ajustes */}
-            <div className="callout" style={{ alignItems: 'flex-start' }}>
+            <div className="callout" style={{ alignItems: 'center' }}>
               <Volume2 />
-              <div>
+              <div className="grow" style={{ minWidth: 0 }}>
                 <div className="title">Voz del coach: {coachVoicePreview.label}</div>
                 {coachVoicePreview.note && <div className="detail">{coachVoicePreview.note}, por eso el coach usa esta voz en su lugar.</div>}
               </div>
+              <button
+                type="button"
+                className="btn btn-secondary sm"
+                onClick={handleTestVoice}
+                disabled={testingVoice && !coachSpeaking}
+                aria-label={coachSpeaking ? 'Detener la prueba de voz' : `Probar la voz de ${personaFor(userGender).name}`}
+                style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {coachSpeaking ? (
+                  <>
+                    <Square size={13} /> Detener
+                  </>
+                ) : testingVoice ? (
+                  <>
+                    <RefreshCw size={13} className="spin" /> Generando…
+                  </>
+                ) : (
+                  <>
+                    <Play size={13} /> Probar voz
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

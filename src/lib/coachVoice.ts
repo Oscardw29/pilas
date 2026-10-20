@@ -199,13 +199,18 @@ export function stopCoachVoice({ fade = true }: { fade?: boolean } = {}) {
  * Con clave de IA nunca cambia a la voz del sistema: si la de IA falla tras reintentarlo,
  * se calla y devuelve 'failed' para que la vista avise (el texto sigue en el chat).
  */
-export async function speakCoach(text: string, gender: CoachGender): Promise<'ok' | 'failed'> {
+export async function speakCoach(
+  text: string,
+  gender: CoachGender,
+  /** Voz a usar en lugar de la guardada (el botón «Probar voz» de Ajustes, antes de guardar) */
+  choice: CoachVoiceChoice = resolveCoachVoice(),
+): Promise<'ok' | 'failed'> {
   stopCoachVoice({ fade: false });
   const mySession = session;
   const clean = cleanForSpeech(text);
   if (!clean) return 'ok';
 
-  const { provider } = resolveCoachVoice();
+  const { provider } = choice;
   if (provider && ensureCtx()) {
     try {
       await speakWithApi(clean, gender, provider, mySession);
