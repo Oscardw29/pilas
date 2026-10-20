@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { pointsSummary, levelFromXp } from '@/lib/metrics';
-import { formatClock } from '@/lib/dates';
+import { formatClock, todayKey } from '@/lib/dates';
 import { SessionFinishModal } from '@/components/modals/SessionFinishModal';
 import { EnergyModal } from '@/components/modals/EnergyModal';
 import { TimerModal } from '@/components/modals/TimerModal';
@@ -107,6 +107,7 @@ export const Shell: React.FC = () => {
   const pauseTimer = useStore((s) => s.pauseTimer);
   const resumeTimer = useStore((s) => s.resumeTimer);
   const cancelTimer = useStore((s) => s.cancelTimer);
+  const energySetToday = useStore((s) => s.energy.some((e) => e.date === todayKey()));
 
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showEnergyModal, setShowEnergyModal] = useState(false);
@@ -155,7 +156,7 @@ export const Shell: React.FC = () => {
           </NavLink>
           <button
             type="button"
-            className="icon-btn sm energy-btn"
+            className={`icon-btn sm energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
             onClick={() => setShowEnergyModal(true)}
             title="Registrar nivel de energía de hoy"
             aria-label="Registrar nivel de energía de hoy"
@@ -207,7 +208,7 @@ export const Shell: React.FC = () => {
           <div className="row" style={{ gap: 6 }}>
             <button
               type="button"
-              className="icon-btn energy-btn"
+              className={`icon-btn energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
               onClick={() => setShowEnergyModal(true)}
               aria-label="Registrar nivel de energía de hoy"
             >
