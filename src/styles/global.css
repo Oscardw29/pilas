@@ -1756,6 +1756,21 @@ input[type="date"], select, .select, input, textarea {
 .brand-wordmark { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; color: #fff; white-space: nowrap; }
 .brand-bang { color: #fbbf24; font-weight: 900; }
 .energy-btn { color: var(--warning); }
+/* Sin energía registrada hoy: el rayo vibra en ráfagas cortas para llamar la atención */
+.energy-btn--pending svg { animation: energy-buzz 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
+.energy-btn--pending:hover svg, .energy-btn--pending:focus-visible svg { animation-play-state: paused; }
+@keyframes energy-buzz {
+  0%, 60%, 100% { transform: translate(0, 0) rotate(0); }
+  63% { transform: translate(-1px, 0) rotate(-8deg); }
+  66% { transform: translate(1px, 0) rotate(8deg); }
+  69% { transform: translate(-1px, 0) rotate(-6deg); }
+  72% { transform: translate(1px, 0) rotate(6deg); }
+  75% { transform: translate(-0.5px, 0) rotate(-3deg); }
+  78% { transform: translate(0, 0) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .energy-btn--pending svg { animation: none; }
+}
 
 /* Sidebar / rail */
 .sidebar { display: none; }
