@@ -62,7 +62,7 @@ export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) =>
         <CoachAvatar
           gender={persona.gender}
           crop="bust"
-          size={176}
+          size={164}
           expression={expression}
           talk
           // Saluda al entrar y, después, celebra cada acción aplicada
