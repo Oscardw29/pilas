@@ -39,6 +39,8 @@ import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
 import { fetchAvailableModels, PRESET_MODELS, ModelOption } from '../lib/gemini';
+import { checkDeepgramKey, checkTtsKey, type VoiceCheckResult } from '../lib/voiceCheck';
+import { resolveCoachVoice } from '../lib/coachVoice';
 import { playSound } from '../lib/sound';
 import { PRESET_TTS_MODELS } from '../lib/ttsPresets';
 import {
@@ -111,6 +113,14 @@ const VOICE_PRESETS: Record<string, VoicePresetGroup[]> = {
   ],
 };
 
+/** Insignias del estado de las claves de voz: mismo estilo que la de modelos detectados de IA */
+const VOICE_BADGE_STYLE: Record<VoiceCheckResult['state'] | 'checking', React.CSSProperties> = {
+  ok: { fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc' },
+  invalid: { fontSize: 11, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' },
+  error: { fontSize: 11, background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' },
+  checking: { fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 },
+};
+
 /**
  * El formulario copia los ajustes a estado local al montarse. Tras importar o reiniciar datos se vuelve a montar
  * (cambio de `key`) para que no guarde valores obsoletos encima de los nuevos.
@@ -160,6 +170,54 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const [ttsModel, setTtsModel] = useState(settings.ttsModel || 's2.1-pro-free');
   const [ttsVoiceId, setTtsVoiceId] = useState(settings.ttsVoiceId || '');
   const [deepgramApiKey, setDeepgramApiKey] = useState(secrets.deepgramApiKey);
+
+  // Comprobación de las claves de voz y modelos detectados (como en la tarjeta de IA)
+  const [ttsCheck, setTtsCheck] = useState<VoiceCheckResult | null>(null);
+  const [isCheckingTts, setIsCheckingTts] = useState(false);
+  const [sttCheck, setSttCheck] = useState<VoiceCheckResult | null>(null);
+  const [isCheckingStt, setIsCheckingStt] = useState(false);
+
+  useEffect(() => {
+    const key = ttsApiKey.trim();
+    if (ttsPlatform !== 'native' && key.length < 8) {
+      setTtsCheck(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setIsCheckingTts(true);
+      const result = await checkTtsKey(ttsPlatform, key);
+      if (!active) return;
+      setTtsCheck(result);
+      setIsCheckingTts(false);
+    }, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      setIsCheckingTts(false);
+    };
+  }, [ttsPlatform, ttsApiKey]);
+
+  useEffect(() => {
+    const key = deepgramApiKey.trim();
+    if (key.length < 8) {
+      setSttCheck(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setIsCheckingStt(true);
+      const result = await checkDeepgramKey(key);
+      if (!active) return;
+      setSttCheck(result);
+      setIsCheckingStt(false);
+    }, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      setIsCheckingStt(false);
+    };
+  }, [deepgramApiKey]);
 
   // Al desbloquear las claves cifradas, rellenar los campos con los valores descifrados
   useEffect(() => {
@@ -246,7 +304,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   }, [availableModels, backupModel]);
 
   const ttsModelOptions = useMemo(() => {
-    const models = PRESET_TTS_MODELS[ttsPlatform] || [];
+    // Con la clave comprobada se ofrecen los modelos que de verdad tiene la cuenta
+    const detected = ttsCheck?.state === 'ok' && ttsCheck.models?.length ? ttsCheck.models : null;
+    const models = detected ?? PRESET_TTS_MODELS[ttsPlatform] ?? [];
     const opts = models.map((m) => ({
       value: m.id,
       label: m.name,
@@ -260,7 +320,23 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       });
     }
     return opts;
-  }, [ttsPlatform, ttsModel]);
+  }, [ttsPlatform, ttsModel, ttsCheck]);
+
+  /** Voz que usará el coach con lo que hay ahora en el formulario */
+  const coachVoicePreview = useMemo(
+    () =>
+      resolveCoachVoice(
+        { ttsPlatform, ttsModel, ttsVoiceId, aiPlatform },
+        {
+          geminiApiKey,
+          ttsApiKey,
+          elevenLabsApiKey: ttsPlatform === 'elevenlabs' ? ttsApiKey : secrets.elevenLabsApiKey,
+          openaiTtsApiKey: ttsPlatform === 'openai' ? ttsApiKey : secrets.openaiTtsApiKey,
+          fishAudioApiKey: ttsPlatform === 'fish_audio' ? ttsApiKey : secrets.fishAudioApiKey,
+        },
+      ),
+    [ttsPlatform, ttsModel, ttsVoiceId, aiPlatform, geminiApiKey, ttsApiKey, secrets],
+  );
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsLoadedStatus, setModelsLoadedStatus] = useState<string | null>(null);
   const [isTestingAi, setIsTestingAi] = useState(false);
@@ -355,10 +431,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const handleTtsPlatformChange = (p: TtsPlatform) => {
     setTtsPlatform(p);
     const presets = PRESET_TTS_MODELS[p] || [];
-    if (presets.length > 0) {
-      setTtsModel(presets[0].id);
-      setTtsVoiceId(presets[0].defaultVoice || '');
-    }
+    if (presets.length > 0) setTtsModel(presets[0].id);
+    // Sin ID la voz se elige según el coach (Pilo o Pila); el usuario puede escribir otra
+    setTtsVoiceId('');
     setTtsApiKey(p === 'native' ? '' : keyForTtsPlatform(p));
     playSound.pop();
   };
@@ -887,6 +962,13 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                 <div className="card-sub">Claves y preferencias de voz y transcripción, guardadas en este navegador</div>
               </div>
             </div>
+            {isCheckingTts ? (
+              <span className="badge" style={VOICE_BADGE_STYLE.checking}>
+                <RefreshCw size={11} className="spin" /> Comprobando clave…
+              </span>
+            ) : (
+              ttsCheck && <span className="badge" style={VOICE_BADGE_STYLE[ttsCheck.state]}>{ttsCheck.message}</span>
+            )}
           </div>
 
           <div className="form">
@@ -1042,7 +1124,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     disabled={ttsPlatform === 'native'}
                     value={ttsVoiceId}
                     onChange={(e) => setTtsVoiceId(e.target.value)}
-                    placeholder="ID personalizado (opcional)"
+                    placeholder="Vacío: voz según Pilo o Pila"
                     style={{
                       fontFamily: 'monospace',
                       fontSize: 12.5,
@@ -1132,6 +1214,26 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <span className="hint">
                 Proveedor fijo de STT. Modelo Nova-3 con transcripción ultrarrápida y puntuación automática en español. Si no se configura, se utiliza el reconocimiento de voz nativo del navegador.
               </span>
+              {(isCheckingStt || sttCheck) && (
+                <span className="badge" style={{ ...VOICE_BADGE_STYLE[isCheckingStt ? 'checking' : sttCheck!.state], alignSelf: 'flex-start' }}>
+                  {isCheckingStt ? (
+                    <>
+                      <RefreshCw size={11} className="spin" /> Comprobando clave…
+                    </>
+                  ) : (
+                    sttCheck!.message
+                  )}
+                </span>
+              )}
+            </div>
+
+            {/* Qué voz usará de verdad el coach con estos ajustes */}
+            <div className="callout" style={{ alignItems: 'flex-start' }}>
+              <Volume2 />
+              <div>
+                <div className="title">Voz del coach: {coachVoicePreview.label}</div>
+                {coachVoicePreview.note && <div className="detail">{coachVoicePreview.note}, por eso el coach usa esta voz en su lugar.</div>}
+              </div>
             </div>
           </div>
         </div>

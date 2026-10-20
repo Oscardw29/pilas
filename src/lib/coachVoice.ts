@@ -2,20 +2,35 @@ import { useSyncExternalStore } from 'react';
 import { getSecrets } from '@/store/useSecrets';
 import { useStore } from '@/store/useStore';
 import type { CoachGender } from '@/components/coach/coachPersona';
+import type { Secrets, Settings } from '@/types';
+import { PRESET_TTS_MODELS } from './ttsPresets';
+
+const FISH_MODEL_IDS = PRESET_TTS_MODELS.fish_audio.map((m) => m.id);
 
 /**
  * VOZ DEL COACH
  * Lee en voz alta las respuestas del chat y publica el «nivel» de la voz (0–1) para que la boca
  * del personaje se mueva al ritmo de lo que dice.
  *
- * 1. Con clave de Gemini (o de OpenAI) usa su modelo de texto a voz y reproduce el audio con
- *    Web Audio: así el silencio puede hacerse con un fundido de 0,5 s y la boca sigue la señal real.
- *    Si falla se reintenta y, si sigue fallando, se calla: nunca cambia a la voz del sistema.
- * 2. Sin clave usa la voz del navegador (speechSynthesis). Esa voz no admite
- *    bajar el volumen a mitad de frase: al silenciarla se corta y la boca se cierra suavemente.
+ * 1. Voz de IA, por orden: la plataforma elegida en «Voz (TTS)» de Ajustes (Fish Audio, ElevenLabs u
+ *    OpenAI con su clave) y, si falta su clave, la de la plataforma de IA del chat (Gemini u OpenAI).
+ *    Se reproduce con Web Audio: así el silencio puede hacerse con un fundido de 0,5 s y la boca
+ *    sigue la señal real. Si falla se reintenta y, si sigue fallando, se calla: nunca cambia a
+ *    la voz del sistema.
+ * 2. «Síntesis nativa» elegida o sin ninguna clave: la voz del navegador (speechSynthesis). Esa voz
+ *    no admite bajar el volumen a mitad de frase: al silenciarla se corta y la boca se cierra suavemente.
+ *
+ * Fish Audio no permite llamadas desde el navegador (su API no tiene CORS): se le habla a través
+ * del relay del mismo dominio /api/fish-tts (api/fish-tts.ts en Vercel, middleware en Vite).
  */
 
-type Provider = 'gemini' | 'openai';
+type Provider =
+  | { kind: 'gemini'; key: string }
+  /** OpenAI: la clave de la plataforma de IA o la dedicada de voz; `model`/`voice` vacíos = por defecto */
+  | { kind: 'openai'; key: string; model: string; voice: string }
+  | { kind: 'elevenlabs'; key: string; model: string; voice: string }
+  /** Fish Audio a través del relay /api/fish-tts (su API no admite llamadas desde el navegador) */
+  | { kind: 'fish'; key: string; model: string; voice: string };
 
 /** Duración del fundido al silenciar o cambiar de conversación */
 const FADE_S = 0.5;
@@ -34,6 +49,10 @@ const TTS_MAX_RETRY_DELAY_MS = 15_000;
 const GEMINI_TTS_MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts'];
 const GEMINI_VOICES: Record<CoachGender, string> = { male: 'Puck', female: 'Zephyr' };
 const OPENAI_VOICES: Record<CoachGender, string> = { male: 'ash', female: 'coral' };
+/** Antoni y Bella: voces multilingües de ElevenLabs que suenan bien en español */
+const ELEVENLABS_VOICES: Record<CoachGender, string> = { male: 'ErXwobaYiN019PkySvjV', female: 'EXAVITQu4vr4xnSDxMaL' };
+/** Voces públicas en español del catálogo de Fish Audio: «Fernando Martinez» (enérgico) y «Chica» (brillante) */
+const FISH_VOICES: Record<CoachGender, string> = { male: '1fb9a295ef7047eb9ae334b779567f9d', female: '35929683c49c4ec0bf779dc07d22620b' };
 const STYLE_PROMPT =
   'Lee en español latino, con voz cálida y enérgica de entrenador personal que anima sin exagerar';
 
@@ -186,7 +205,7 @@ export async function speakCoach(text: string, gender: CoachGender): Promise<'ok
   const clean = cleanForSpeech(text);
   if (!clean) return 'ok';
 
-  const provider = pickProvider();
+  const { provider } = resolveCoachVoice();
   if (provider && ensureCtx()) {
     try {
       await speakWithApi(clean, gender, provider, mySession);
@@ -202,13 +221,60 @@ export async function speakCoach(text: string, gender: CoachGender): Promise<'ok
   return 'ok';
 }
 
-function pickProvider(): Provider | null {
-  const key = getSecrets().geminiApiKey?.trim();
-  if (!key || key.length < 9) return null;
-  const platform = useStore.getState().settings.aiPlatform || 'gemini';
-  if (platform === 'gemini') return 'gemini';
-  if (platform === 'openai') return 'openai';
-  return null;
+const usableKey = (k: string | undefined) => (k && k.trim().length >= 9 ? k.trim() : '');
+
+export interface CoachVoiceChoice {
+  /** null = voz del navegador */
+  provider: Provider | null;
+  /** Qué voz usará el coach, para mostrarlo en Ajustes */
+  label: string;
+  /** Por qué no se usa la plataforma elegida, si es el caso */
+  note?: string;
+}
+
+type VoiceSettings = Pick<Settings, 'ttsPlatform' | 'ttsModel' | 'ttsVoiceId' | 'aiPlatform'>;
+type VoiceSecrets = Pick<Secrets, 'geminiApiKey' | 'elevenLabsApiKey' | 'openaiTtsApiKey' | 'fishAudioApiKey' | 'ttsApiKey'>;
+
+/**
+ * Decide con qué voz habla el coach según Ajustes y las claves guardadas.
+ * Ajustes pasa los valores del formulario para enseñar la elección antes de guardar.
+ */
+export function resolveCoachVoice(
+  settings: VoiceSettings = useStore.getState().settings,
+  secrets: VoiceSecrets = getSecrets(),
+): CoachVoiceChoice {
+  const tts = settings.ttsPlatform || 'fish_audio';
+  const ttsModel = settings.ttsModel?.trim() || '';
+  const ttsVoice = settings.ttsVoiceId?.trim() || '';
+
+  if (tts === 'native') return { provider: null, label: 'Voz del navegador (síntesis nativa)' };
+
+  let note: string | undefined;
+  if (tts === 'elevenlabs') {
+    const key = usableKey(secrets.elevenLabsApiKey || secrets.ttsApiKey);
+    const model = ttsModel.startsWith('eleven_') ? ttsModel : 'eleven_multilingual_v2';
+    if (key) return { provider: { kind: 'elevenlabs', key, model, voice: ttsVoice }, label: `ElevenLabs · ${model}` };
+    note = 'Falta la clave de ElevenLabs';
+  } else if (tts === 'openai') {
+    const key = usableKey(secrets.openaiTtsApiKey);
+    // gpt-4o-audio-preview no existe en el endpoint de voz: se usa su equivalente
+    const model = ttsModel && ttsModel !== 'gpt-4o-audio-preview' ? ttsModel : 'gpt-4o-mini-tts';
+    if (key) return { provider: { kind: 'openai', key, model, voice: ttsVoice }, label: `OpenAI TTS · ${model}` };
+    note = 'Falta la clave de OpenAI para voz';
+  } else if (tts === 'fish_audio') {
+    const key = usableKey(secrets.fishAudioApiKey || secrets.ttsApiKey);
+    const model = FISH_MODEL_IDS.includes(ttsModel) ? ttsModel : 's2.1-pro';
+    if (key) return { provider: { kind: 'fish', key, model, voice: ttsVoice }, label: `Fish Audio · ${model}` };
+    note = 'Falta la clave de Fish Audio';
+  }
+
+  const aiKey = usableKey(secrets.geminiApiKey);
+  const platform = settings.aiPlatform || 'gemini';
+  if (aiKey && platform === 'gemini') return { provider: { kind: 'gemini', key: aiKey }, label: 'Gemini TTS (clave de IA)', note };
+  if (aiKey && platform === 'openai') {
+    return { provider: { kind: 'openai', key: aiKey, model: 'gpt-4o-mini-tts', voice: '' }, label: 'OpenAI TTS (clave de IA)', note };
+  }
+  return { provider: null, label: 'Voz del navegador', note };
 }
 
 /* ---------------- Voz de IA (Gemini / OpenAI) ---------------- */
@@ -304,10 +370,10 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   maybeFinish();
 }
 
-/** Clave inválida, sin permiso o petición mal formada: reintentar no arregla nada */
+/** Clave inválida, sin saldo, sin permiso o petición mal formada: reintentar no arregla nada */
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return !/\b(400|401|403|404)\b|API key not valid|PERMISSION_DENIED|INVALID_ARGUMENT/i.test(msg);
+  return !/\b(400|401|402|403|404)\b|API key not valid|PERMISSION_DENIED|INVALID_ARGUMENT/i.test(msg);
 }
 
 /** Espera antes de reintentar: la que pida la API en un 429 («retry in 7s») o una creciente */
@@ -328,17 +394,17 @@ function waitUntilDrained(mySession: number): Promise<void> {
 let geminiModelIdx = 0;
 
 async function synthesize(text: string, gender: CoachGender, provider: Provider): Promise<{ data: Uint8Array; mime: string }> {
-  const apiKey = getSecrets().geminiApiKey.trim();
-
-  if (provider === 'openai') {
+  if (provider.kind === 'openai') {
+    const model = provider.model || 'gpt-4o-mini-tts';
     const res = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.key}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini-tts',
-        voice: OPENAI_VOICES[gender],
+        model,
+        voice: provider.voice || OPENAI_VOICES[gender],
         input: text,
-        instructions: STYLE_PROMPT,
+        // Solo los modelos gpt-4o admiten indicaciones de estilo
+        ...(model.startsWith('gpt-4o') ? { instructions: STYLE_PROMPT } : {}),
         response_format: 'pcm',
       }),
       signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
@@ -347,8 +413,32 @@ async function synthesize(text: string, gender: CoachGender, provider: Provider)
     return { data: new Uint8Array(await res.arrayBuffer()), mime: 'audio/pcm;rate=24000' };
   }
 
+  if (provider.kind === 'fish') {
+    const res = await fetch('/api/fish-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-fish-key': provider.key },
+      body: JSON.stringify({ text, model: provider.model, reference_id: provider.voice || FISH_VOICES[gender] }),
+      signal: AbortSignal.timeout(TTS_TIMEOUT_MS + 5_000),
+    });
+    // El relay devuelve el código de Fish Audio (401 clave, 402 sin saldo, 429 límite…)
+    if (!res.ok) throw new Error(`Fish Audio TTS HTTP ${res.status}`);
+    return { data: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get('Content-Type') || 'audio/pcm;rate=24000' };
+  }
+
+  if (provider.kind === 'elevenlabs') {
+    const voice = encodeURIComponent(provider.voice || ELEVENLABS_VOICES[gender]);
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=pcm_24000`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'xi-api-key': provider.key },
+      body: JSON.stringify({ text, model_id: provider.model, language_code: provider.model.includes('v2_5') ? 'es' : undefined }),
+      signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`ElevenLabs TTS HTTP ${res.status}`);
+    return { data: new Uint8Array(await res.arrayBuffer()), mime: 'audio/pcm;rate=24000' };
+  }
+
   const { GoogleGenAI, Modality } = await import('@google/genai');
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: provider.key });
   for (;;) {
     const model = GEMINI_TTS_MODELS[geminiModelIdx];
     try {

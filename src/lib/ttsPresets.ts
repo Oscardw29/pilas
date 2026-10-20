@@ -6,14 +6,13 @@ export interface TtsModelOption {
 }
 
 export const PRESET_TTS_MODELS: Record<string, TtsModelOption[]> = {
+  // Los que acepta hoy la API de Fish Audio (cabecera `model`); el relay rechaza cualquier otro
   fish_audio: [
-    { id: 's2.1-pro-free', name: 'Fish Audio S2.1 Pro Free (Gratuito / Alta fidelidad)', defaultVoice: '' },
-    { id: 's2-pro', name: 'Fish Audio S2 Pro (Última generación profesional)', defaultVoice: '' },
-    { id: 's2.1-pro', name: 'Fish Audio S2.1 Pro (Expresión avanzada y dicción fluida)', defaultVoice: '' },
-    { id: 's2', name: 'Fish Audio S2 (Nueva generación estándar)', defaultVoice: '' },
-    { id: 's1', name: 'Fish Audio S1 (Neuronal ultra-realista)', defaultVoice: '' },
-    { id: 'tts-1', name: 'Fish Audio TTS-1 (Baja latencia)', defaultVoice: '' },
-    { id: 'speech-1', name: 'Fish Audio Speech-1 (Conversacional)', defaultVoice: '' },
+    { id: 's2.1-pro-free', name: 'Fish Audio S2.1 Pro Free (Gratuito para desarrolladores)', defaultVoice: '' },
+    { id: 's2.1-pro', name: 'Fish Audio S2.1 Pro (Recomendado · expresión avanzada)', defaultVoice: '' },
+    { id: 's2-pro', name: 'Fish Audio S2 Pro (Generación anterior)', defaultVoice: '' },
+    { id: 's1', name: 'Fish Audio S1 (Clásico)', defaultVoice: '' },
+    { id: 'drama-3', name: 'Fish Audio Drama 3 (Interpretación dramática)', defaultVoice: '' },
   ],
   elevenlabs: [
     { id: 'eleven_multilingual_v2', name: 'Eleven Multilingual v2 (Español nativo recomendado)', defaultVoice: '21m00Tcm4TlvDq8ikWAM' },
