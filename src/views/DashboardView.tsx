@@ -233,8 +233,9 @@ export const DashboardView: React.FC = () => {
   }, [data, T]);
 
   const { streakCardTheme, nextStreakMilestone, streakMilestonePercent } = useMemo(() => {
-    const milestones = [3, 7, 14, 21, 30, 50, 100, 365];
-    const nextMilestone = milestones.find((m) => m > globalStreak.streak) || (globalStreak.streak + 10);
+    const milestones = [3, 7, 14, 21, 30, 50, 60, 100, 150, 200, 250, 350, 365, 500, 730, 1000];
+    // Después de 1000 días, el siguiente hito es el próximo aniversario
+    const nextMilestone = milestones.find((m) => m > globalStreak.streak) ?? Math.ceil((globalStreak.streak + 1) / 365) * 365;
     const percent = Math.min(100, Math.max(6, Math.round((globalStreak.streak / nextMilestone) * 100)));
 
     if (globalStreak.isFrozen) {
