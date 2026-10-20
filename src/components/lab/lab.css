@@ -48,7 +48,10 @@
 .lab-live { flex-shrink: 0; }
 .lab-live i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: labBlink 1.8s ease-in-out infinite; }
 @keyframes labBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-.lab-screen { overflow: hidden; }
+/* Altura tope (~8 barras): con más muestras el monitor se desplaza por dentro en vez de estirar la página */
+.lab-screen { max-height: 360px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.lab-monitor-scope { margin-bottom: 12px; }
+.lab-monitor-empty { padding: 24px 0; text-align: center; }
 .lab-tooltip { padding: 8px 12px; border-radius: 10px; font-size: 12px; background: rgba(20, 21, 33, 0.96); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7); }
 .lab-tooltip-title { margin-bottom: 2px; font-weight: 700; color: #fff; }
 .lab-tooltip-sub { font-size: 11px; color: var(--muted); }
