@@ -31,8 +31,8 @@ export const Beaker: React.FC<BeakerProps> = ({ level, color, shade, size = 76, 
         <g className="lab-liquid" style={{ transform: `translateY(${top}px)` }}>
           <rect x={10} y={4} width={60} height={100} fill={shade} />
           <rect x={10} y={8} width={60} height={100} fill={color} />
-          {/* Superficie con onda */}
-          <path className="lab-wave" d="M-20 4 Q-10 0 0 4 T20 4 T40 4 T60 4 T80 4 T100 4 V12 H-20 Z" fill={color} />
+          {/* Superficie con onda: un periodo mide 40 y la animación desplaza exactamente eso (bucle sin corte) */}
+          <path className="lab-wave" d="M-40 4 Q-30 0 -20 4 T0 4 T20 4 T40 4 T60 4 T80 4 T100 4 T120 4 V12 H-40 Z" fill={color} />
           <circle className="lab-bub lb1" cx={30} cy={60} r={2.6} fill="#fff" opacity={0.55} />
           <circle className="lab-bub lb2" cx={44} cy={66} r={1.9} fill="#fff" opacity={0.55} />
           <circle className="lab-bub lb3" cx={52} cy={58} r={1.5} fill="#fff" opacity={0.55} />

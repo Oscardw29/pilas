@@ -3,9 +3,22 @@ import type { CoachGender } from './coachPersona';
 import { onCoachVoiceLevel, useCoachSpeaking } from '@/lib/coachVoice';
 import './coach.css';
 
-export type CoachExpression = 'neutral' | 'happy' | 'thinking' | 'surprised' | 'excited' | 'wink';
+export type CoachExpression =
+  | 'neutral'
+  | 'happy'
+  | 'grin'
+  | 'thinking'
+  | 'surprised'
+  | 'excited'
+  | 'wink'
+  | 'smirk'
+  | 'curious'
+  | 'proud'
+  | 'determined';
 export type CoachOutfit = 'coach' | 'shop' | 'lab';
 export type CoachGesture = 'wave' | 'cheer' | 'bounce' | 'nod';
+/** Posturas de los brazos: los gestos de una vez y las que el personaje hace solo */
+type Pose = CoachGesture | 'coin' | 'explain';
 
 interface CoachAvatarProps {
   gender: CoachGender;
@@ -22,6 +35,8 @@ interface CoachAvatarProps {
   talk?: boolean;
   /** Los ojos siguen al puntero (en pantallas táctiles miran alrededor solos) */
   followPointer?: boolean;
+  /** Microexpresiones y gestos espontáneos mientras está en reposo */
+  lively?: boolean;
   className?: string;
 }
 
@@ -47,20 +62,25 @@ const C = {
   teal: '#14B8A6',
   tealLip: '#0F766E',
   cream: '#FFF1D6',
-  creamShade: '#F2D9AE',
+  creamShade: '#EBCF9F',
   coat: '#F1F5F9',
-  coatShade: '#CBD5E1',
+  coatShade: '#C3CDDA',
   steel: '#334155',
   glass: '#67E8F9',
   glassRim: '#0E7490',
 };
 
-const GESTURE_MS: Record<CoachGesture, number> = { wave: 1900, cheer: 1300, bounce: 750, nod: 900 };
+const POSE_MS: Record<Pose, number> = { wave: 2100, cheer: 1500, bounce: 750, nod: 900, coin: 3200, explain: 2800 };
 
 /** Ejes de los ojos (centro del SVG de 200 × 210) */
 const EYE_L = { x: 78, y: 103 };
 const EYE_R = { x: 122, y: 103 };
 const LOOK_MAX = { x: 4.4, y: 3.8 };
+
+/** Hombros: el brazo gira desde aquí y el codo a 32 unidades (dentro del contorno del torso) */
+const SH_R = { x: 142, y: 182 };
+const SH_L = { x: 58, y: 182 };
+const UPPER = 32;
 
 /* ---------------- Puntero compartido por todos los avatares ---------------- */
 const pointer = { x: 0, y: 0, t: 0 };
@@ -87,30 +107,49 @@ function bindPointer() {
   );
 }
 
-/** Boca abierta para hablar: `o` de 0 (cerrada) a 1 (muy abierta) */
+/** Boca para hablar: `o` de 0 (cerrada, una línea) a 1 (muy abierta) */
 function talkMouthPath(o: number) {
-  const w = 22 - 3 * o;
-  const h = 2.6 + 13 * o;
+  const w = 21 - 3 * o;
+  const h = 1.6 + 13 * o;
   const l = 100 - w / 2;
   const r = 100 + w / 2;
-  return `M${l} 131 Q100 129.6 ${r} 131 Q${r + 1.2} ${131 + h} 100 ${131 + h} Q${l - 1.2} ${131 + h} ${l} 131 Z`;
+  return `M${l} 132 Q100 ${131.2 - o} ${r} 132 Q${r + 1} ${132 + h} 100 ${132 + h} Q${l - 1} ${132 + h} ${l} 132 Z`;
 }
 
-const BROWS: Record<CoachExpression | 'talk', { l: [number, number]; r: [number, number] }> = {
+type BrowSet = { l: [number, number]; r: [number, number] };
+const BROWS: Record<CoachExpression | 'talk' | 'talkUp' | 'talkFocus', BrowSet> = {
   // [desplazamiento vertical, giro en grados]
   neutral: { l: [0, 0], r: [0, 0] },
-  happy: { l: [-3, -2], r: [-3, 2] },
+  happy: { l: [-2.5, -2], r: [-2.5, 2] },
+  grin: { l: [-3.5, -3], r: [-3.5, 3] },
   excited: { l: [-5, -4], r: [-5, 4] },
   thinking: { l: [-6, -9], r: [1, -6] },
   surprised: { l: [-7, 0], r: [-7, 0] },
   wink: { l: [-3, -2], r: [1, 6] },
-  talk: { l: [-2, 3], r: [-2, -3] },
+  smirk: { l: [1, 5], r: [-5, -7] },
+  curious: { l: [-6, -7], r: [0, 2] },
+  proud: { l: [-2, -5], r: [-2, 5] },
+  determined: { l: [1, 11], r: [1, -11] },
+  talk: { l: [-1.5, 2], r: [-1.5, -2] },
+  talkUp: { l: [-5, -3], r: [-5, 3] },
+  talkFocus: { l: [0.5, 8], r: [0.5, -8] },
 };
+
+/** Microexpresiones al azar según el estado de ánimo de base */
+const MICRO: Partial<Record<CoachExpression, CoachExpression[]>> = {
+  neutral: ['happy', 'smirk', 'curious', 'happy', 'proud'],
+  // La sonrisa abierta es la excepción: casi siempre sonríe con la boca cerrada
+  happy: ['proud', 'wink', 'smirk', 'curious', 'neutral', 'grin', 'proud'],
+};
+const TALK_BROWS: (keyof typeof BROWS)[] = ['talk', 'talkUp', 'talk', 'talkFocus', 'happy', 'curious'];
+
+const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
 /**
  * PERSONAJE DEL COACH (Pilo / Pila)
  * Ilustración vectorial plana: escala nítida en cualquier pantalla. Parpadea, mira alrededor
- * (o sigue al puntero), respira y gesticula. Con `talk` la boca sigue el nivel de la voz.
+ * (o sigue al puntero), respira, cambia de gesto y mueve los brazos (hombro y codo articulados).
+ * Con `talk` la boca sigue el nivel de la voz.
  */
 export const CoachAvatar: React.FC<CoachAvatarProps> = ({
   gender,
@@ -122,6 +161,7 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
   gestureKey = 0,
   talk = false,
   followPointer = true,
+  lively = true,
   className = '',
 }) => {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
@@ -133,19 +173,89 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
   const talkTeeth = useRef<SVGRectElement>(null);
   const voiceOn = useCoachSpeaking();
   const talking = talk && voiceOn;
-  const [activeGesture, setActiveGesture] = useState<CoachGesture | null>(null);
+  const showArms = crop === 'bust';
+  const [pose, setPose] = useState<Pose | null>(null);
+  const poseRef = useRef<Pose | null>(null);
+  poseRef.current = pose;
+  const [micro, setMicro] = useState<CoachExpression | null>(null);
+  const [talkBrow, setTalkBrow] = useState<keyof typeof BROWS>('talk');
 
   // Gesto de una sola vez (se repite cuando cambia gestureKey)
   useEffect(() => {
     if (!gesture || !gestureKey) return;
-    setActiveGesture(null);
-    const raf = requestAnimationFrame(() => setActiveGesture(gesture));
-    const t = setTimeout(() => setActiveGesture(null), GESTURE_MS[gesture] + 40);
+    setPose(null);
+    // Temporizadores encadenados (no requestAnimationFrame: en pestañas ocultas se pausa
+    // y el gesto podía quedarse puesto al volver)
+    let end: ReturnType<typeof setTimeout> | undefined;
+    const start = setTimeout(() => {
+      setPose(gesture);
+      end = setTimeout(() => setPose((p) => (p === gesture ? null : p)), POSE_MS[gesture]);
+    }, 30);
     return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
+      clearTimeout(start);
+      clearTimeout(end);
     };
   }, [gesture, gestureKey]);
+
+  // Gestos espontáneos: el tendero lanza una moneda y al hablar acompaña con la mano
+  useEffect(() => {
+    if (!showArms || !lively) return;
+    const kind: Pose | null = talking ? 'explain' : outfit === 'shop' ? 'coin' : null;
+    if (!kind) return;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = () => {
+      t = setTimeout(
+        () => {
+          if (!poseRef.current) {
+            setPose(kind);
+            t = setTimeout(() => {
+              setPose((p) => (p === kind ? null : p));
+              loop();
+            }, POSE_MS[kind]);
+          } else loop();
+        },
+        talking ? 1800 + Math.random() * 2600 : 4500 + Math.random() * 4000,
+      );
+    };
+    loop();
+    return () => {
+      clearTimeout(t);
+      setPose((p) => (p === kind ? null : p));
+    };
+  }, [showArms, lively, talking, outfit]);
+
+  // Microexpresiones en reposo: sonrisas, guiños, cejas curiosas… y vuelta al gesto de base
+  useEffect(() => {
+    setMicro(null);
+    const pool = MICRO[expression];
+    if (!lively || talking || !pool) return;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = () => {
+      t = setTimeout(() => {
+        setMicro(pick(pool));
+        t = setTimeout(() => {
+          setMicro(null);
+          loop();
+        }, 1000 + Math.random() * 1400);
+      }, 2600 + Math.random() * 4200);
+    };
+    loop();
+    return () => clearTimeout(t);
+  }, [expression, talking, lively]);
+
+  // Al hablar las cejas acompañan las frases
+  useEffect(() => {
+    if (!talking) return;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = () => {
+      t = setTimeout(() => {
+        setTalkBrow(pick(TALK_BROWS));
+        loop();
+      }, 900 + Math.random() * 1600);
+    };
+    loop();
+    return () => clearTimeout(t);
+  }, [talking]);
 
   // Parpadeo a intervalos irregulares (a veces doble)
   useEffect(() => {
@@ -167,21 +277,21 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
     return () => clearTimeout(t);
   }, []);
 
+  const face: CoachExpression = micro ?? expression;
+
   // Mirada: sigue al puntero si se mueve; si no, vistazos aleatorios. La expresión puede fijarla.
-  const lookRef = useRef({ x: 0, y: 0 });
   useEffect(() => {
     const apply = (x: number, y: number) => {
-      lookRef.current = { x, y };
       const tr = `translate(${(x * LOOK_MAX.x).toFixed(2)}px, ${(y * LOOK_MAX.y).toFixed(2)}px)`;
       if (pupilL.current) pupilL.current.style.transform = tr;
       if (pupilR.current) pupilR.current.style.transform = tr;
     };
 
-    if (expression === 'thinking') {
-      apply(0.65, -0.85);
+    if (face === 'thinking' || face === 'curious') {
+      apply(face === 'thinking' ? 0.65 : -0.5, -0.85);
       return;
     }
-    if (expression === 'surprised') {
+    if (face === 'surprised') {
       apply(0, 0);
       return;
     }
@@ -228,17 +338,17 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
       pointerSubs.delete(fromPointer);
       clearTimeout(idle);
     };
-  }, [expression, followPointer, crop, outfit, talking]);
+  }, [face, followPointer, crop, outfit, talking]);
 
   // Boca: sigue el nivel de la voz fotograma a fotograma sin re-renderizar
   useEffect(() => {
     if (!talking) return;
     const set = (level: number) => {
       const o = Math.min(1, Math.max(0, level));
-      const h = 2.6 + 13 * o;
+      const h = 1.6 + 13 * o;
       talkMouth.current?.setAttribute('d', talkMouthPath(o));
       if (talkTongue.current) {
-        talkTongue.current.setAttribute('cy', String(131 + h - 2.4));
+        talkTongue.current.setAttribute('cy', String(132 + h - 2.4));
         talkTongue.current.setAttribute('ry', String(Math.min(3.6, h * 0.32)));
         talkTongue.current.style.opacity = h > 6 ? '1' : '0';
       }
@@ -253,13 +363,12 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
 
   const isFemale = gender === 'female';
   const hair = isFemale ? C.hairF : C.hairM;
-  const brows = BROWS[talking && expression === 'neutral' ? 'talk' : expression];
-  const squint = expression === 'excited';
-  const wink = expression === 'wink';
+  const brows = BROWS[talking ? (face === 'neutral' || face === 'happy' ? talkBrow : face) : face];
+  const squint = face === 'excited' || face === 'proud';
+  const wink = face === 'wink';
   const idleClass = outfit === 'shop' ? 'ca-idle-shop' : outfit === 'lab' ? 'ca-idle-lab' : 'ca-idle-calm';
   const viewBox = crop === 'head' ? '28 8 144 144' : '0 0 200 210';
   const height = crop === 'head' ? size : (size * 210) / 200;
-  const showArms = crop === 'bust';
 
   const headClip = `ca-head-${uid}`;
   const mouthClip = `ca-mouth-${uid}`;
@@ -295,9 +404,13 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
         <ellipse cx={pos.x} cy={pos.y} rx={12.5} ry={14.5} fill={C.white} />
         <g clipPath={`url(#${clipId})`}>
           <g ref={ref} className="ca-pupil">
-            <circle cx={pos.x} cy={pos.y + 0.5} r={expression === 'surprised' ? 5.8 : 7.4} fill={C.eye} />
+            <circle cx={pos.x} cy={pos.y + 0.5} r={face === 'surprised' ? 5.8 : 7.4} fill={C.eye} />
             <circle cx={pos.x + 2.6} cy={pos.y - 2.6} r={2.4} fill={C.white} />
           </g>
+          {/* Párpado: entrecierra los ojos en las caras decididas o pícaras */}
+          {(face === 'determined' || face === 'smirk') && (
+            <rect x={pos.x - 14} y={pos.y - 17} width={28} height={face === 'determined' ? 11 : 9} fill={C.skin} />
+          )}
         </g>
         {isFemale && (
           <path
@@ -311,7 +424,7 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
     );
 
   const openMouth = (big: boolean) => {
-    const d = big ? 'M84 129 H116 Q116 148 100 148 Q84 148 84 129 Z' : 'M87 130 H113 Q113 145.5 100 145.5 Q87 145.5 87 130 Z';
+    const d = big ? 'M85 129.5 H115 Q115 147 100 147 Q85 147 85 129.5 Z' : 'M88 131 H112 Q112 144 100 144 Q88 144 88 131 Z';
     return (
       <g>
         <clipPath id={mouthClip}>
@@ -320,24 +433,30 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
         <path d={d} fill={C.mouth} />
         <g clipPath={`url(#${mouthClip})`}>
           <rect x={84} y={128} width={32} height={big ? 5 : 4.2} rx={2} fill={C.white} />
-          <ellipse cx={100} cy={big ? 146 : 143.5} rx={big ? 9 : 7} ry={big ? 4.6 : 3.6} fill={C.tongue} />
+          <ellipse cx={100} cy={big ? 145.5 : 142.5} rx={big ? 9 : 6.5} ry={big ? 4.6 : 3.4} fill={C.tongue} />
         </g>
       </g>
     );
   };
+
+  const line = (d: string, w = 3.8) => <path d={d} stroke={C.mouth} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" fill="none" />;
 
   const mouth = () => {
     if (talking)
       return (
         <g>
           <path ref={talkMouth} d={talkMouthPath(0)} fill={C.mouth} />
-          <rect ref={talkTeeth} x={91} y={131} width={18} height={0} rx={1.4} fill={C.white} style={{ opacity: 0 }} />
-          <ellipse ref={talkTongue} cx={100} cy={132} rx={5.4} ry={0} fill={C.tongue} style={{ opacity: 0 }} />
+          <rect ref={talkTeeth} x={91} y={132} width={18} height={0} rx={1.4} fill={C.white} style={{ opacity: 0 }} />
+          <ellipse ref={talkTongue} cx={100} cy={133} rx={5.2} ry={0} fill={C.tongue} style={{ opacity: 0 }} />
         </g>
       );
-    switch (expression) {
+    switch (face) {
       case 'happy':
       case 'wink':
+      case 'proud':
+        // Sonrisa amplia con la boca cerrada (media luna)
+        return <path d="M86 131 Q100 146 114 131 Q100 138.5 86 131 Z" fill={C.mouth} stroke={C.mouth} strokeWidth={2.4} strokeLinejoin="round" />;
+      case 'grin':
         return openMouth(false);
       case 'excited':
         return openMouth(true);
@@ -348,78 +467,77 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
             <ellipse cx={100} cy={141.5} rx={3.6} ry={2.2} fill={C.tongue} />
           </g>
         );
+      case 'curious':
+        return <ellipse cx={101} cy={136} rx={3.6} ry={4.2} fill={C.mouth} />;
+      case 'smirk':
+        return line('M90 136.5 Q99 138.5 112 131');
+      case 'determined':
+        return line('M91 135.5 Q100 138 109 135.5', 4);
       case 'thinking':
-        return <path d="M91 137 Q99 132.5 109 135.5" stroke={C.mouth} strokeWidth={3.6} strokeLinecap="round" fill="none" />;
+        return line('M91 137 Q99 132.5 109 135.5', 3.6);
       default:
-        return <path d="M89 132 Q100 141.5 111 132" stroke={C.mouth} strokeWidth={3.8} strokeLinecap="round" fill="none" />;
+        return line('M89 132.5 Q100 141 111 132.5');
     }
   };
 
-  /* ---------------- Torso según la ropa ---------------- */
+  /* ---------------- Torso según la ropa (más estrecho que la cabeza) ---------------- */
+  const TORSO = 'M38 210 C40 186 58 171 80 166 L120 166 C142 171 160 186 162 210 Z';
+  const sleeve = outfit === 'lab' ? C.coatShade : outfit === 'shop' ? C.creamShade : C.violetDark;
+
   const torso = () => {
     if (outfit === 'shop')
       return (
         <g>
-          <path d="M14 210 C16 182 40 166 72 162 L128 162 C160 166 184 182 186 210 Z" fill={C.cream} />
-          <path d="M14 210 C16 190 30 176 50 169 C40 182 36 196 36 210 Z" fill={C.creamShade} />
-          <path d="M186 210 C184 190 170 176 150 169 C160 182 164 196 164 210 Z" fill={C.creamShade} />
+          <path d={TORSO} fill={C.cream} />
           {/* Cuello de camisa */}
-          <path d="M80 158 L100 176 L92 184 L74 166 Z" fill={C.white} />
-          <path d="M120 158 L100 176 L108 184 L126 166 Z" fill={C.white} />
+          <path d="M82 161 L100 177 L93 184 L77 168 Z" fill={C.white} />
+          <path d="M118 161 L100 177 L107 184 L123 168 Z" fill={C.white} />
           {/* Delantal */}
-          <path d="M72 175 L84 160" stroke={C.teal} strokeWidth={6} strokeLinecap="round" />
-          <path d="M128 175 L116 160" stroke={C.teal} strokeWidth={6} strokeLinecap="round" />
-          <path d="M62 210 V184 Q62 175 71 175 H129 Q138 175 138 184 V210 Z" fill={C.tealLip} />
-          <path d="M62 207 V184 Q62 175 71 175 H129 Q138 175 138 184 V207 Z" fill={C.teal} />
-          <rect x={70} y={181} width={8} height={18} rx={4} fill={C.white} opacity={0.28} />
+          <path d="M76 178 L86 164" stroke={C.teal} strokeWidth={5.5} strokeLinecap="round" />
+          <path d="M124 178 L114 164" stroke={C.teal} strokeWidth={5.5} strokeLinecap="round" />
+          <path d="M70 210 V186 Q70 178 78 178 H122 Q130 178 130 186 V210 Z" fill={C.tealLip} />
+          <path d="M70 207 V186 Q70 178 78 178 H122 Q130 178 130 186 V207 Z" fill={C.teal} />
+          <rect x={76} y={184} width={7} height={16} rx={3.5} fill={C.white} opacity={0.28} />
           {/* Bolsillo con un regalito */}
-          <rect x={88} y={186} width={24} height={18} rx={5} fill={C.tealLip} />
-          <rect x={93} y={189} width={14} height={10} rx={2.5} fill={C.amber} />
-          <rect x={98.5} y={189} width={3} height={10} fill={C.amberLip} />
-          <path d="M100 189 C96 184 92 186 95 189 Z M100 189 C104 184 108 186 105 189 Z" fill={C.amberLip} />
+          <rect x={89} y={188} width={22} height={17} rx={5} fill={C.tealLip} />
+          <rect x={93.5} y={191} width={13} height={9.5} rx={2.5} fill={C.amber} />
+          <rect x={98.5} y={191} width={3} height={9.5} fill={C.amberLip} />
+          <path d="M100 191 C96 186 92 188 95 191 Z M100 191 C104 186 108 188 105 191 Z" fill={C.amberLip} />
         </g>
       );
     if (outfit === 'lab')
       return (
         <g>
-          <path d="M14 210 C16 182 40 166 72 162 L128 162 C160 166 184 182 186 210 Z" fill={C.coat} />
-          <path d="M14 210 C16 190 30 176 50 169 C40 182 36 196 36 210 Z" fill={C.coatShade} />
-          <path d="M186 210 C184 190 170 176 150 169 C160 182 164 196 164 210 Z" fill={C.coatShade} />
+          <path d={TORSO} fill={C.coat} />
           {/* Camiseta violeta por dentro */}
-          <path d="M82 162 L118 162 L106 210 L94 210 Z" fill={C.violet} />
-          <path d="M86 162 Q100 174 114 162 Z" fill={C.skinShade} />
+          <path d="M84 166 L116 166 L105 210 L95 210 Z" fill={C.violet} />
+          <path d="M87 165 Q100 176 113 165 Z" fill={C.skinShade} />
           {/* Solapas */}
-          <path d="M78 159 L96 196 L90 210 L70 170 Z" fill={C.coatShade} />
-          <path d="M122 159 L104 196 L110 210 L130 170 Z" fill={C.coatShade} />
+          <path d="M80 163 L96 197 L91 210 L73 172 Z" fill={C.coatShade} />
+          <path d="M120 163 L104 197 L109 210 L127 172 Z" fill={C.coatShade} />
           {/* Bolsillo con bolígrafos */}
-          <rect x={134} y={180} width={22} height={6} rx={2} fill={C.coatShade} />
-          <rect x={138} y={170} width={4} height={13} rx={2} fill={C.violetLight} />
-          <rect x={145} y={172} width={4} height={11} rx={2} fill={C.amber} />
-          <rect x={150} y={174} width={3.5} height={9} rx={1.75} fill={C.teal} />
+          <rect x={113} y={186} width={18} height={5} rx={2} fill={C.coatShade} />
+          <rect x={116} y={177} width={3.5} height={12} rx={1.75} fill={C.violetLight} />
+          <rect x={121.5} y={179} width={3.5} height={10} rx={1.75} fill={C.amber} />
+          <rect x={127} y={181} width={3} height={8} rx={1.5} fill={C.teal} />
         </g>
       );
     return (
       <g>
-        <path d="M14 210 C16 182 40 166 72 162 L128 162 C160 166 184 182 186 210 Z" fill={C.violet} />
-        <path d="M14 210 C16 190 30 176 50 169 C40 182 36 196 36 210 Z" fill={C.violetDark} />
-        <path d="M186 210 C184 190 170 176 150 169 C160 182 164 196 164 210 Z" fill={C.violetDark} />
-        {/* Franjas blancas del chándal */}
-        <path d="M27 204 C34 186 50 174 70 167 L73 174 C56 180 43 190 37 206 Z" fill={C.white} opacity={0.92} />
-        <path d="M173 204 C166 186 150 174 130 167 L127 174 C144 180 157 190 163 206 Z" fill={C.white} opacity={0.92} />
+        <path d={TORSO} fill={C.violet} />
         {/* Cuello alto y cremallera */}
-        <path d="M77 157 L100 177 L100 188 L72 167 Z" fill={C.violetLight} />
-        <path d="M123 157 L100 177 L100 188 L128 167 Z" fill={C.violetLight} />
-        <rect x={98.6} y={182} width={2.8} height={28} fill={C.white} opacity={0.75} />
+        <path d="M79 160 L100 178 L100 189 L74 170 Z" fill={C.violetLight} />
+        <path d="M121 160 L100 178 L100 189 L126 170 Z" fill={C.violetLight} />
+        <rect x={98.6} y={183} width={2.8} height={27} fill={C.white} opacity={0.75} />
         {/* Silbato */}
-        <path d="M86 165 Q90 186 106 196" stroke={C.amber} strokeWidth={2.6} fill="none" strokeLinecap="round" />
-        <path d="M116 165 Q116 184 108 195" stroke={C.amber} strokeWidth={2.6} fill="none" strokeLinecap="round" />
+        <path d="M87 167 Q91 186 105 196" stroke={C.amber} strokeWidth={2.6} fill="none" strokeLinecap="round" />
+        <path d="M114 167 Q114 184 107 195" stroke={C.amber} strokeWidth={2.6} fill="none" strokeLinecap="round" />
         <g className="ca-whistle">
-          <rect x={100} y={193} width={20} height={12} rx={6} fill="#94A3B8" />
-          <rect x={100} y={192} width={20} height={10.5} rx={5.25} fill="#E2E8F0" />
-          <rect x={116} y={193.5} width={8} height={5} rx={2} fill="#E2E8F0" />
-          <circle cx={106} cy={197} r={2.2} fill="#64748B" />
+          <rect x={99} y={193} width={19} height={11.5} rx={5.75} fill="#94A3B8" />
+          <rect x={99} y={192} width={19} height={10} rx={5} fill="#E2E8F0" />
+          <rect x={114} y={193.5} width={7} height={5} rx={2} fill="#E2E8F0" />
+          <circle cx={105} cy={197} r={2.1} fill="#64748B" />
         </g>
-        <rect x={44} y={186} width={7} height={16} rx={3.5} fill={C.white} opacity={0.18} />
       </g>
     );
   };
@@ -512,43 +630,50 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
     );
   };
 
-  /* ---------------- Brazos (solo del pecho hacia arriba) ---------------- */
-  const armRight = () => (
-    <g className="ca-arm ca-arm-r" style={{ transformOrigin: '160px 206px' }}>
-      <path d="M160 208 L176 152" stroke={outfit === 'lab' ? C.coat : outfit === 'shop' ? C.cream : C.violet} strokeWidth={24} strokeLinecap="round" />
-      {outfit === 'coach' && <path d="M165 192 L171 170" stroke={C.white} strokeWidth={5} strokeLinecap="round" opacity={0.9} />}
-      <g className="ca-hand-r" style={{ transformOrigin: '177px 146px' }}>
-        <rect x={165} y={126} width={25} height={26} rx={11} fill={C.skin} />
-        <rect x={160} y={137} width={10} height={8} rx={4} fill={C.skin} />
-        <rect x={168} y={126} width={6} height={10} rx={3} fill={C.skinShade} opacity={0.5} />
-        <rect x={175} y={125} width={6} height={10} rx={3} fill={C.skinShade} opacity={0.5} />
+  /* ---------------- Brazos articulados (hombro → codo → mano) ----------------
+     Se dibujan colgando hacia abajo desde el hombro, dentro del contorno del torso:
+     en reposo son la manga del costado y, al levantarse, giran desde el hombro y el codo
+     sin aparecer ni desvanecerse. */
+  const arm = (side: 'r' | 'l') => {
+    const sh = side === 'r' ? SH_R : SH_L;
+    const elbowY = sh.y + UPPER;
+    const out = side === 'r' ? 1 : -1; // hacia fuera del cuerpo
+    return (
+      <g className={`ca-up ca-up-${side}`} style={{ transformOrigin: `${sh.x}px ${sh.y}px` }}>
+        <path d={`M${sh.x} ${sh.y} L${sh.x} ${elbowY}`} stroke={sleeve} strokeWidth={21} strokeLinecap="round" />
+        {outfit === 'coach' && (
+          <path d={`M${sh.x + 6.5 * out} ${sh.y + 2} L${sh.x + 6.5 * out} ${elbowY + 2}`} stroke={C.white} strokeWidth={3.4} strokeLinecap="round" opacity={0.9} />
+        )}
+        <g className={`ca-fore ca-fore-${side}`} style={{ transformOrigin: `${sh.x}px ${elbowY}px` }}>
+          <path d={`M${sh.x} ${elbowY} L${sh.x} ${elbowY + 25}`} stroke={sleeve} strokeWidth={19} strokeLinecap="round" />
+          <rect x={sh.x - 10.5} y={elbowY + 22} width={21} height={6} rx={3} fill={outfit === 'coach' ? C.white : C.skinShade} opacity={outfit === 'coach' ? 0.9 : 0.6} />
+          <g className={`ca-hand ca-hand-${side}`} style={{ transformOrigin: `${sh.x}px ${elbowY + 28}px` }}>
+            <rect x={sh.x - 11} y={elbowY + 27} width={22} height={22} rx={10} fill={C.skin} />
+            <rect x={sh.x - 11 * out - 4} y={elbowY + 30} width={8} height={10} rx={4} fill={C.skin} />
+            <rect x={sh.x - 6} y={elbowY + 41} width={5} height={7} rx={2.5} fill={C.skinShade} opacity={0.55} />
+            <rect x={sh.x + 1} y={elbowY + 41} width={5} height={7} rx={2.5} fill={C.skinShade} opacity={0.55} />
+            {side === 'r' && outfit === 'shop' && (
+              <g className="ca-coin" style={{ transformOrigin: `${sh.x}px ${elbowY + 60}px` }}>
+                <circle cx={sh.x} cy={elbowY + 60} r={9.5} fill={C.amberLip} />
+                <circle cx={sh.x} cy={elbowY + 59} r={8.2} fill={C.amber} />
+                <path d={`M${sh.x + 1.5} ${elbowY + 54} l-4.5 6.5 h3.5 l-1.5 4.5 l5 -7 h-3.5 Z`} fill={C.amberLip} />
+              </g>
+            )}
+          </g>
+        </g>
       </g>
-      {outfit === 'shop' && (
-        <g className="ca-coin" style={{ transformOrigin: '178px 112px' }}>
-          <circle cx={178} cy={112} r={10} fill={C.amberLip} />
-          <circle cx={178} cy={111} r={8.6} fill={C.amber} />
-          <path d="M179.5 106 L175 112.5 H178.5 L177 117 L182 110 H178.5 Z" fill={C.amberLip} />
-        </g>
-      )}
-    </g>
-  );
+    );
+  };
 
-  const armLeft = () => (
-    <g className="ca-arm ca-arm-l" style={{ transformOrigin: '40px 206px' }}>
-      <path d="M40 210 L64 186" stroke={outfit === 'lab' ? C.coatShade : outfit === 'shop' ? C.creamShade : C.violetDark} strokeWidth={24} strokeLinecap="round" />
-      {outfit === 'lab' && (
-        <g className="ca-flask" style={{ transformOrigin: '72px 196px' }}>
-          <path d="M66 150 H80 V162 L92 190 Q94 198 86 198 H60 Q52 198 54 190 L66 162 Z" fill="#E0F2FE" opacity={0.95} />
-          <path d="M59 182 H87 L91 191 Q92 196 86 196 H60 Q54 196 55 191 Z" fill={C.teal} />
-          <circle className="ca-bubble b1" cx={68} cy={188} r={2.4} fill={C.white} opacity={0.8} />
-          <circle className="ca-bubble b2" cx={76} cy={190} r={1.8} fill={C.white} opacity={0.8} />
-          <circle className="ca-bubble b3" cx={72} cy={186} r={1.5} fill={C.white} opacity={0.8} />
-          <rect x={64} y={146} width={18} height={6} rx={3} fill={C.coatShade} />
-          <path d="M70 166 L62 186" stroke={C.white} strokeWidth={2.6} strokeLinecap="round" opacity={0.6} />
-        </g>
-      )}
-      <rect x={56} y={176} width={22} height={20} rx={9} fill={C.skin} />
-      <rect x={70} y={174} width={9} height={9} rx={4} fill={C.skin} />
+  const flask = () => (
+    <g className="ca-flask" style={{ transformOrigin: '70px 196px' }}>
+      <path d="M64 152 H77 V164 L88 190 Q90 198 82 198 H59 Q51 198 53 190 L64 164 Z" fill="#E0F2FE" opacity={0.95} />
+      <path d="M57 182 H84 L88 191 Q89 196 82 196 H59 Q53 196 54 191 Z" fill={C.teal} />
+      <circle className="ca-bubble b1" cx={65} cy={188} r={2.3} fill={C.white} opacity={0.8} />
+      <circle className="ca-bubble b2" cx={74} cy={190} r={1.7} fill={C.white} opacity={0.8} />
+      <circle className="ca-bubble b3" cx={70} cy={186} r={1.4} fill={C.white} opacity={0.8} />
+      <rect x={62} y={148} width={17} height={6} rx={3} fill={C.coatShade} />
+      <path d="M68 168 L61 186" stroke={C.white} strokeWidth={2.4} strokeLinecap="round" opacity={0.6} />
     </g>
   );
 
@@ -558,9 +683,9 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
     `ca-${gender}`,
     `ca-outfit-${outfit}`,
     idleClass,
-    `ca-expr-${expression}`,
+    `ca-expr-${face}`,
     talking ? 'is-talking' : '',
-    activeGesture ? `ca-g-${activeGesture}` : '',
+    pose ? `ca-g-${pose}` : '',
     className,
   ]
     .filter(Boolean)
@@ -585,9 +710,11 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
       <g className="ca-rig">
         <g className="ca-body" style={{ transformOrigin: '100px 210px' }}>
           {/* Cuello */}
-          <rect x={84} y={136} width={32} height={34} rx={8} fill={C.skinShade} />
+          <rect x={86} y={136} width={28} height={34} rx={8} fill={C.skinShade} />
           {torso()}
-          {showArms && armLeft()}
+          {showArms && outfit === 'lab' && flask()}
+          {showArms && arm('l')}
+          {showArms && arm('r')}
         </g>
 
         <g className="ca-head" style={{ transformOrigin: '100px 150px' }}>
@@ -610,14 +737,12 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
           {brow(EYE_R.x, brows.r)}
           {eye(EYE_L, pupilL, eyeClipL, squint, 'l')}
           {eye(EYE_R, pupilR, eyeClipR, squint || wink, 'r')}
-          <ellipse cx={64} cy={125} rx={8} ry={5} fill={C.cheek} opacity={0.32} />
-          <ellipse cx={136} cy={125} rx={8} ry={5} fill={C.cheek} opacity={0.32} />
+          <ellipse className="ca-cheek" cx={64} cy={125} rx={8} ry={5} fill={C.cheek} opacity={squint || face === 'happy' || face === 'grin' ? 0.5 : 0.3} />
+          <ellipse className="ca-cheek" cx={136} cy={125} rx={8} ry={5} fill={C.cheek} opacity={squint || face === 'happy' || face === 'grin' ? 0.5 : 0.3} />
           <ellipse cx={100} cy={118} rx={5.6} ry={4.6} fill={C.skinDeep} />
           <ellipse cx={98.5} cy={116.6} rx={1.8} ry={1.3} fill={C.white} opacity={0.35} />
           <g className="ca-mouth">{mouth()}</g>
         </g>
-
-        {showArms && armRight()}
       </g>
     </svg>
   );

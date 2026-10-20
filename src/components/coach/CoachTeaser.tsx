@@ -108,7 +108,7 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, onOpen }) => 
       onMouseLeave={() => setHover(false)}
     >
       <div className="coach-teaser-figure" aria-hidden="true">
-        <CoachAvatar gender={persona.gender} crop="bust" size={116} expression={done ? 'happy' : 'excited'} gesture="wave" gestureKey={waveKey} />
+        <CoachAvatar gender={persona.gender} crop="bust" size={116} expression="happy" gesture="wave" gestureKey={waveKey} />
       </div>
       <div className="coach-teaser-bubble-wrap">
       <button
