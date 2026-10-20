@@ -2318,14 +2318,15 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   100% { opacity: 0; transform: translate(110px, -40px) rotate(48deg) scale(.85); }
 }
 
-/* Luz que se escapa por la rendija: crece con cada saltito y estalla al abrir */
+/* Luz que se escapa por la rendija: va detrás de la caja y la tapa, así solo asoma por el hueco cuando
+   la tapa se levanta y como resplandor en los bordes. Crece con cada saltito y estalla al abrir */
 .reward-crack {
-  position: absolute; left: 50%; bottom: 124px; width: 140px; height: 6px; margin-left: -70px; z-index: 4; border-radius: 999px;
+  position: absolute; left: 50%; bottom: 120px; width: 144px; height: 12px; margin-left: -72px; z-index: 1; border-radius: 999px;
   background: var(--glow); box-shadow: 0 0 14px 4px var(--glow-soft); pointer-events: none;
   animation: crackGlow 1.66s ease-in-out .9s both, crackBurst .6s ease-out 2.56s forwards;
 }
 .reward-crack-halo {
-  position: absolute; left: 50%; bottom: 92px; width: 250px; height: 70px; margin-left: -125px; z-index: 4; border-radius: 50%;
+  position: absolute; left: 50%; bottom: 92px; width: 250px; height: 70px; margin-left: -125px; z-index: 1; border-radius: 50%;
   background: radial-gradient(ellipse at center, var(--glow-soft) 0%, rgba(0, 0, 0, 0) 70%);
   mix-blend-mode: screen; pointer-events: none;
   animation: haloGlow 1.66s ease-in-out .9s both, haloBurst .7s ease-out 2.56s forwards;
