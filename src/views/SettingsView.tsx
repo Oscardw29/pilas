@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
-import { AiPlatform, UserGender } from '../types';
+import { AiPlatform, TtsPlatform, UserGender } from '../types';
 import { personaFor } from '../components/coach/coachPersona';
 import {
   Save,
@@ -17,8 +17,11 @@ import {
   CheckCircle2,
   RefreshCw,
   Sliders,
+  Mic,
+  Headphones,
   Check,
   ChevronDown,
+  X,
   Bell,
   Clock,
   Flame,
@@ -37,12 +40,76 @@ import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
 import { fetchAvailableModels, PRESET_MODELS, ModelOption } from '../lib/gemini';
 import { playSound } from '../lib/sound';
+import { PRESET_TTS_MODELS } from '../lib/ttsPresets';
 import {
   getNotificationPermission,
   requestNotificationPermission,
   triggerTestNotification,
   NotificationType,
 } from '../lib/notifications';
+
+interface VoicePresetItem {
+  id: string;
+  name: string;
+  gender?: string;
+  desc?: string;
+}
+
+interface VoicePresetGroup {
+  groupName: string;
+  flag?: string;
+  voices: VoicePresetItem[];
+}
+
+const VOICE_PRESETS: Record<string, VoicePresetGroup[]> = {
+  fish_audio: [
+    {
+      groupName: 'Español',
+      flag: '🇪🇸',
+      voices: [
+        { id: 'bfed5c0810a347dbb62e8ccce7f59c48', name: 'Mujer Adulta', gender: 'Femenina', desc: 'bfed5c08...' },
+        { id: '60a33602dacc4d899cb671b024e66d8c', name: 'Hombre Adulto', gender: 'Masculina', desc: '60a33602...' },
+        { id: '1fb9a295ef7047eb9ae334b779567f9d', name: 'Chico Joven', gender: 'Masculina', desc: '1fb9a295...' },
+        { id: '35929683c49c4ec0bf779dc07d22620b', name: 'Chica Joven', gender: 'Femenina', desc: '35929683...' },
+      ],
+    },
+    {
+      groupName: 'English',
+      flag: '🇬🇧',
+      voices: [
+        { id: '933563129e564b19a115bedd57b7406a', name: 'Adult Woman', gender: 'Female', desc: '93356312...' },
+        { id: 'd8a1340984ee4b63ad1ffae27a6a4339', name: 'Adult Man', gender: 'Male', desc: 'd8a13409...' },
+        { id: '802e3bc2b27e49c2995d23ef70e6ac89', name: 'Young Boy', gender: 'Male', desc: '802e3bc2...' },
+        { id: 'c2623f0c075b4492ac367989aee1576f', name: 'Young Girl', gender: 'Female', desc: 'c2623f0c...' },
+      ],
+    },
+  ],
+  openai: [
+    {
+      groupName: 'Voces OpenAI',
+      voices: [
+        { id: 'nova', name: 'Nova', gender: 'Femenina', desc: 'Cálida y natural' },
+        { id: 'alloy', name: 'Alloy', gender: 'Neutra', desc: 'Equilibrada y versátil' },
+        { id: 'echo', name: 'Echo', gender: 'Masculina', desc: 'Clara y confiable' },
+        { id: 'fable', name: 'Fable', gender: 'Expresiva', desc: 'Narrativa británica' },
+        { id: 'onyx', name: 'Onyx', gender: 'Masculina', desc: 'Profunda y formal' },
+        { id: 'shimmer', name: 'Shimmer', gender: 'Femenina', desc: 'Clara y brillante' },
+      ],
+    },
+  ],
+  elevenlabs: [
+    {
+      groupName: 'Voces Populares ElevenLabs',
+      voices: [
+        { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'Femenina', desc: 'Calmada y amigable' },
+        { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', gender: 'Masculina', desc: 'Profunda y autoritaria' },
+        { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', gender: 'Masculina', desc: 'Equilibrada y profesional' },
+        { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', gender: 'Femenina', desc: 'Suave y expresiva' },
+        { id: 'piTKgcLEGmPE4e6mEKli', name: 'Nicole', gender: 'Femenina', desc: 'Lectura pausada' },
+      ],
+    },
+  ],
+};
 
 /**
  * El formulario copia los ajustes a estado local al montarse. Tras importar o reiniciar datos se vuelve a montar
@@ -79,12 +146,76 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const [geminiModel, setGeminiModel] = useState(settings.geminiModel || 'gemini-3.5-flash-lite');
   const [backupModel, setBackupModel] = useState(settings.backupModel || 'gemini-3.1-flash');
 
+  // Voz (TTS & STT)
+  const [ttsPlatform, setTtsPlatform] = useState<TtsPlatform>(settings.ttsPlatform || 'fish_audio');
+  const keyForTtsPlatform = (p: TtsPlatform | undefined) =>
+    (p === 'elevenlabs'
+      ? secrets.elevenLabsApiKey
+      : p === 'openai'
+      ? secrets.openaiTtsApiKey
+      : p === 'native'
+      ? ''
+      : secrets.fishAudioApiKey) || secrets.ttsApiKey;
+  const [ttsApiKey, setTtsApiKey] = useState(() => keyForTtsPlatform(settings.ttsPlatform || 'fish_audio'));
+  const [ttsModel, setTtsModel] = useState(settings.ttsModel || 's2.1-pro-free');
+  const [ttsVoiceId, setTtsVoiceId] = useState(settings.ttsVoiceId || '');
+  const [deepgramApiKey, setDeepgramApiKey] = useState(secrets.deepgramApiKey);
+
   // Al desbloquear las claves cifradas, rellenar los campos con los valores descifrados
   useEffect(() => {
     if (secretsLocked) return;
     setGeminiApiKey(secrets.geminiApiKey);
+    setDeepgramApiKey(secrets.deepgramApiKey);
+    setTtsApiKey(keyForTtsPlatform(ttsPlatform));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secretsLocked]);
+
+
+  // Estado para edición de ID de voz custom
+  const [isEditingCustomVoice, setIsEditingCustomVoice] = useState(false);
+
+  // Identificar si el ID actual coincide con algún preset para mostrar badge visual
+  const currentPresetVoice = useMemo(() => {
+    if (!ttsVoiceId.trim()) return null;
+    const groups = VOICE_PRESETS[ttsPlatform] || [];
+    for (const group of groups) {
+      for (const v of group.voices) {
+        if (v.id.toLowerCase() === ttsVoiceId.trim().toLowerCase()) {
+          return { ...v, flag: group.flag, groupName: group.groupName };
+        }
+      }
+    }
+    return null;
+  }, [ttsVoiceId, ttsPlatform]);
+
+  const voiceSelectOptions = useMemo(() => {
+    const groups = VOICE_PRESETS[ttsPlatform] || [];
+    const opts = [
+      {
+        value: '',
+        label: 'Voz base del modelo (Predeterminada)',
+        sublabel: 'Voz estándar sin referencia',
+      },
+    ];
+
+    groups.forEach((g) => {
+      g.voices.forEach((v) => {
+        opts.push({
+          value: v.id,
+          label: `${g.flag ? g.flag + ' ' : ''}${v.name} ${v.gender ? `(${v.gender})` : ''}`,
+          sublabel: `${g.groupName} · ${v.desc || (v.id.length > 12 ? v.id.slice(0, 10) + '...' : v.id)}`,
+        });
+      });
+    });
+
+    opts.push({
+      value: '__custom__',
+      label: 'Especificar ID o referencia personalizada...',
+      sublabel: 'Escribir o pegar un Voice ID propio',
+    });
+
+    return opts;
+  }, [ttsPlatform]);
 
   const [availableModels, setAvailableModels] = useState<ModelOption[]>(
     PRESET_MODELS[settings.aiPlatform || 'gemini'] || PRESET_MODELS.gemini
@@ -114,10 +245,28 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     return list;
   }, [availableModels, backupModel]);
 
+  const ttsModelOptions = useMemo(() => {
+    const models = PRESET_TTS_MODELS[ttsPlatform] || [];
+    const opts = models.map((m) => ({
+      value: m.id,
+      label: m.name,
+      sublabel: m.id,
+    }));
+    if (ttsModel && !models.some((m) => m.id === ttsModel)) {
+      opts.push({
+        value: ttsModel,
+        label: `${ttsModel} (Personalizado)`,
+        sublabel: 'Ingresado manualmente',
+      });
+    }
+    return opts;
+  }, [ttsPlatform, ttsModel]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsLoadedStatus, setModelsLoadedStatus] = useState<string | null>(null);
   const [isTestingAi, setIsTestingAi] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showTtsKey, setShowTtsKey] = useState(false);
+  const [showDeepgramKey, setShowDeepgramKey] = useState(false);
 
   // Sonidos
   const [soundEnabled, setSoundEnabled] = useState(settings.soundEnabled ?? true);
@@ -202,6 +351,18 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     playSound.pop();
   };
 
+  // Cambio de plataforma TTS
+  const handleTtsPlatformChange = (p: TtsPlatform) => {
+    setTtsPlatform(p);
+    const presets = PRESET_TTS_MODELS[p] || [];
+    if (presets.length > 0) {
+      setTtsModel(presets[0].id);
+      setTtsVoiceId(presets[0].defaultVoice || '');
+    }
+    setTtsApiKey(p === 'native' ? '' : keyForTtsPlatform(p));
+    playSound.pop();
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings({
@@ -212,6 +373,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       aiPlatform,
       geminiModel: geminiModel.trim(),
       backupModel: backupModel.trim(),
+      ttsPlatform,
+      ttsModel: ttsModel.trim(),
+      ttsVoiceId: ttsVoiceId.trim(),
       soundEnabled,
       soundVolume,
       notifications: {
@@ -237,7 +401,14 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       return;
     }
     try {
-      await setKeys({ geminiApiKey: geminiApiKey.trim() });
+      await setKeys({
+        geminiApiKey: geminiApiKey.trim(),
+        ttsApiKey: ttsApiKey.trim(),
+        ...(ttsPlatform === 'fish_audio' ? { fishAudioApiKey: ttsApiKey.trim() } : {}),
+        ...(ttsPlatform === 'elevenlabs' ? { elevenLabsApiKey: ttsApiKey.trim() } : {}),
+        ...(ttsPlatform === 'openai' ? { openaiTtsApiKey: ttsApiKey.trim() } : {}),
+        deepgramApiKey: deepgramApiKey.trim(),
+      });
       playSound.pop();
       showToast('Configuraciones guardadas con éxito', 'success');
     } catch (err: unknown) {
@@ -706,6 +877,265 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
+        {/* VOZ Y DICTADO NEURONAL (TTS Y STT) */}
+        <div className="card">
+          <div className="card-head">
+            <div className="row">
+              <Headphones size={18} style={{ color: 'var(--accent-2)' }} />
+              <div>
+                <div className="card-title">Voz Neuronal y Dictado (TTS & STT)</div>
+                <div className="card-sub">Claves y preferencias de voz y transcripción, guardadas en este navegador</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="form">
+            {/* PLATAFORMA TTS & API KEY */}
+            <div className="grid-2" style={{ gap: 14 }}>
+              {/* Plataforma proveedora de TTS */}
+              <div className="field">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <Volume2 size={14} style={{ color: '#06b6d4' }} />
+                    Plataforma de Voz (TTS)
+                  </span>
+                  <span className="badge" style={{ fontSize: 10, background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
+                    Lectura
+                  </span>
+                </div>
+                <CustomSelect<TtsPlatform>
+                  value={ttsPlatform}
+                  onChange={(val) => handleTtsPlatformChange(val)}
+                  options={[
+                    { value: 'fish_audio', label: 'Fish Audio', sublabel: 'Neuronal ultra-realista' },
+                    { value: 'elevenlabs', label: 'ElevenLabs', sublabel: 'Voces humanas premium' },
+                    { value: 'openai', label: 'OpenAI TTS', sublabel: 'Nova, Alloy, Echo...' },
+                    { value: 'native', label: 'Síntesis nativa del navegador', sublabel: 'Sin costo (motor local)' },
+                  ]}
+                />
+                <span className="hint">
+                  Selecciona qué proveedor generará las respuestas habladas de tu asistente.
+                </span>
+              </div>
+
+              {/* API Key de TTS */}
+              <div className="field">
+                <div className="row-between">
+                  <span className="label">
+                    {ttsPlatform === 'fish_audio'
+                      ? 'Fish Audio API Key'
+                      : ttsPlatform === 'elevenlabs'
+                      ? 'ElevenLabs API Key'
+                      : ttsPlatform === 'openai'
+                      ? 'OpenAI API Key (Audio)'
+                      : 'API Key no requerida'}
+                  </span>
+                  {ttsPlatform === 'fish_audio' && (
+                    <a href="https://fish.audio" target="_blank" rel="noreferrer" className="small accent" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      fish.audio <ExternalLink size={12} />
+                    </a>
+                  )}
+                  {ttsPlatform === 'elevenlabs' && (
+                    <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" className="small accent" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      elevenlabs.io <ExternalLink size={12} />
+                    </a>
+                  )}
+                  {ttsPlatform === 'openai' && (
+                    <a href="https://platform.openai.com" target="_blank" rel="noreferrer" className="small accent" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      openai.com <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type={showTtsKey ? 'text' : 'password'}
+                    name="constancia_tts_token_field"
+                    autoComplete="new-password"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
+                    spellCheck={false}
+                    className="input"
+                    disabled={ttsPlatform === 'native' || secretsLocked}
+                    value={ttsPlatform === 'native' ? 'No se requiere clave' : ttsApiKey}
+                    onChange={(e) => setTtsApiKey(e.target.value)}
+                    style={{ paddingRight: ttsPlatform !== 'native' ? 40 : undefined }}
+                    placeholder={
+                      ttsPlatform === 'fish_audio'
+                        ? 'fish_...'
+                        : ttsPlatform === 'elevenlabs'
+                        ? 'sk_...'
+                        : ttsPlatform === 'openai'
+                        ? 'sk-proj-...'
+                        : 'Síntesis local sin costo'
+                    }
+                  />
+                  {ttsPlatform !== 'native' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTtsKey((p) => !p)}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 4,
+                      }}
+                      title={showTtsKey ? 'Ocultar clave' : 'Mostrar clave'}
+                      aria-label={showTtsKey ? 'Ocultar clave' : 'Mostrar clave'}
+                    >
+                      {showTtsKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  )}
+                </div>
+                <span className="hint">
+                  {ttsPlatform === 'native'
+                    ? 'Usa el motor de voz del sistema operativo de tu dispositivo.'
+                    : 'Clave privada almacenada únicamente en tu navegador.'}
+                </span>
+              </div>
+            </div>
+
+            {/* MODELO DE VOZ & ID DE VOZ */}
+            <div className="grid-2" style={{ gap: 14 }}>
+              {/* Modelo de TTS */}
+              <div className="field">
+                <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Layers size={14} style={{ color: 'var(--accent)' }} />
+                  Modelo de Voz
+                </span>
+                <CustomSelect
+                  value={ttsModel}
+                  onChange={(val) => setTtsModel(val)}
+                  options={ttsModelOptions}
+                  disabled={ttsPlatform === 'native'}
+                />
+                <span className="hint">
+                  {ttsPlatform === 'fish_audio'
+                    ? 'Modelos de última generación: S2.1 Pro Free (gratuito), S2 Pro y S1 con máxima fidelidad y emoción.'
+                    : ttsPlatform === 'elevenlabs'
+                    ? 'Multilingual v2 está optimizado para español nativo.'
+                    : ttsPlatform === 'openai'
+                    ? 'tts-1 ofrece baja latencia para conversaciones dinámicas.'
+                    : 'Voz estándar en español de tu navegador.'}
+                </span>
+              </div>
+
+              {/* ID de Voz - Campo de escritura limpio */}
+              <div className="field">
+                <div className="row-between" style={{ marginBottom: 4 }}>
+                  <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <Mic size={14} style={{ color: 'var(--accent)' }} />
+                    ID de Voz
+                  </span>
+                </div>
+
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    disabled={ttsPlatform === 'native'}
+                    value={ttsVoiceId}
+                    onChange={(e) => setTtsVoiceId(e.target.value)}
+                    placeholder="ID personalizado (opcional)"
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: 12.5,
+                      flex: 1,
+                      paddingRight: ttsVoiceId ? 36 : undefined,
+                    }}
+                  />
+                  {ttsVoiceId && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost sm"
+                      onClick={() => {
+                        setTtsVoiceId('');
+                        playSound.pop();
+                      }}
+                      style={{ position: 'absolute', right: 6, padding: 4 }}
+                      title="Limpiar ID de voz"
+                      aria-label="Limpiar ID de voz"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <span className="hint">
+                  {ttsPlatform === 'native'
+                    ? 'Usa la síntesis de voz nativa del dispositivo.'
+                    : 'ID de referencia para la síntesis de voz.'}
+                </span>
+              </div>
+            </div>
+
+            {/* STT DEDICADO: DEEPGRAM (OBLIGATORIO FIJO) */}
+            <div className="field" style={{ marginTop: 4 }}>
+              <div className="row-between">
+                <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Mic size={14} style={{ color: '#10b981' }} />
+                  Deepgram API Key (Dictado y Reconocimiento de Voz - STT)
+                </span>
+                <a
+                  href="https://console.deepgram.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="small accent"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  console.deepgram.com <ExternalLink size={12} />
+                </a>
+              </div>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showDeepgramKey ? 'text' : 'password'}
+                  name="constancia_stt_token_field"
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
+                  spellCheck={false}
+                  className="input"
+                  style={{ paddingRight: 40 }}
+                  disabled={secretsLocked}
+                  value={deepgramApiKey}
+                  onChange={(e) => setDeepgramApiKey(e.target.value)}
+                  placeholder="dg_..."
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDeepgramKey((p) => !p)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 4,
+                  }}
+                  title={showDeepgramKey ? 'Ocultar clave' : 'Mostrar clave'}
+                  aria-label={showDeepgramKey ? 'Ocultar clave' : 'Mostrar clave'}
+                >
+                  {showDeepgramKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <span className="hint">
+                Proveedor fijo de STT. Modelo Nova-3 con transcripción ultrarrápida y puntuación automática en español. Si no se configura, se utiliza el reconocimiento de voz nativo del navegador.
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* EFECTOS DE SONIDO EN LA INTERFAZ */}
         <div className="card">
           <div className="card-head">
@@ -1168,7 +1598,11 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       <AnimationTestCard />
 
       <ApiKeySecurityCard
-        onKeysForgotten={() => setGeminiApiKey('')}
+        onKeysForgotten={() => {
+          setGeminiApiKey('');
+          setTtsApiKey('');
+          setDeepgramApiKey('');
+        }}
       />
 
       {/* Acciones destructivas / Restablecer datos */}

@@ -125,7 +125,7 @@ export const BackupCard: React.FC<{ onDataReplaced: () => void }> = ({ onDataRep
           onClose={() => setPendingImport(null)}
           onConfirm={confirmImport}
           title="¿Restaurar este respaldo?"
-          message={`Se reemplazarán todos tus datos actuales por los del respaldo (${pendingImport?.summary ?? ''}). Tus claves de API y preferencias de IA se conservan. Esta acción no se puede deshacer.`}
+          message={`Se reemplazarán todos tus datos actuales por los del respaldo (${pendingImport?.summary ?? ''}). Tus claves de API y preferencias de voz/IA se conservan. Esta acción no se puede deshacer.`}
           confirmLabel="Restaurar respaldo"
           confirmVariant="warning"
           zIndex={1300}
