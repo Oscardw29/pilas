@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Maximize2, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 import { useStore, selectData } from '@/store/useStore';
-import { executeCoachAction, type ParsedAction } from '@/lib/coachActions';
+import { coachChoiceMessage, executeCoachAction, type ParsedAction } from '@/lib/coachActions';
 import { playSound } from '@/lib/sound';
 import { speakCoach, stopCoachVoice, unlockCoachVoice } from '@/lib/coachVoice';
 import { useToast } from '@/components/ui/ToastContext';
@@ -91,12 +91,24 @@ export const FloatingCoachChat: React.FC = () => {
   }, [open]);
 
   // Móvil: la burbuja se esconde al bajar por la página (para no tapar botones) y vuelve al subir.
+  // Solo en móvil: en escritorio la burbuja nunca se esconde y no debe bloquear los avisos.
   const [tucked, setTucked] = useState(false);
+  /** Tras sacarla a la fuerza (aviso de prueba) el scroll que aún esté en marcha no la vuelve a esconder */
+  const untuckHoldUntil = useRef(0);
+  const untuck = () => {
+    untuckHoldUntil.current = Date.now() + 1500;
+    setTucked(false);
+  };
   useEffect(() => {
     if (open) { setTucked(false); return; }
+    const mobile = window.matchMedia('(max-width: 639.98px)');
     const last = new WeakMap<object, number>();
     if (document.scrollingElement) last.set(document.scrollingElement, document.scrollingElement.scrollTop);
     const onScroll = (e: Event) => {
+      if (!mobile.matches) {
+        setTucked(false);
+        return;
+      }
       const t = e.target;
       const el = t === document || t === window ? document.scrollingElement : (t as HTMLElement);
       // Solo cuenta el scroll de la página, no el de listas o paneles internos.
@@ -104,7 +116,7 @@ export const FloatingCoachChat: React.FC = () => {
       const y = el.scrollTop;
       const prev = last.get(el) ?? 0;
       last.set(el, y);
-      if (Math.abs(y - prev) < 4) return;
+      if (Math.abs(y - prev) < 4 || Date.now() < untuckHoldUntil.current) return;
       setTucked(y > prev && y > 80);
     };
     window.addEventListener('scroll', onScroll, { capture: true, passive: true });
@@ -216,6 +228,12 @@ export const FloatingCoachChat: React.FC = () => {
     );
   };
 
+  /** Lo elegido en la propuesta se envía como mensaje y el coach contesta (si no está ya respondiendo) */
+  const reportActionChoice = (msgId: string, action: ParsedAction, actionStatus: 'applied' | 'dismissed') => {
+    setActionStatus(msgId, actionStatus);
+    if (!loading) void handleSend(coachChoiceMessage(action, actionStatus));
+  };
+
   const handleExecuteAction = (msgId: string, action: ParsedAction) => {
     const target = messages.find((m) => m.id === msgId);
     if (target?.actionStatus) return;
@@ -228,10 +246,15 @@ export const FloatingCoachChat: React.FC = () => {
       if (action.action === 'delete_habit') playSound.delete();
       else playSound.pop();
       toast(result.message, action.action === 'delete_habit' ? 'info' : 'success');
-      setActionStatus(msgId, 'applied');
+      reportActionChoice(msgId, action, 'applied');
     } catch (err: any) {
       toast(`Error aplicando acción: ${err?.message || 'Error desconocido'}`, 'error');
     }
+  };
+
+  const handleDismissAction = (msgId: string, action: ParsedAction) => {
+    if (messages.find((m) => m.id === msgId)?.actionStatus) return;
+    reportActionChoice(msgId, action, 'dismissed');
   };
 
   return (
@@ -293,7 +316,7 @@ export const FloatingCoachChat: React.FC = () => {
                         action={parsed.action}
                         status={m.actionStatus || 'pending'}
                         onConfirm={() => handleExecuteAction(m.id, parsed.action!)}
-                        onDismiss={() => setActionStatus(m.id, 'dismissed')}
+                        onDismiss={() => handleDismissAction(m.id, parsed.action!)}
                       />
                     )}
                   </div>
@@ -353,7 +376,7 @@ export const FloatingCoachChat: React.FC = () => {
         </div>
       )}
 
-      <CoachTeaser blocked={open || tucked} onOpen={openFromTeaser} />
+      <CoachTeaser blocked={open} tucked={tucked} onUntuck={untuck} onOpen={openFromTeaser} />
 
       <button
         type="button"

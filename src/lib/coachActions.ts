@@ -234,6 +234,15 @@ export function describeCoachAction(action: ParsedAction): CoachActionSummary {
   }
 }
 
+/** Mensaje que se envía al chat en nombre del usuario cuando responde a una propuesta con sus botones */
+export function coachChoiceMessage(action: ParsedAction, choice: 'applied' | 'dismissed'): string {
+  const { title, subject } = describeCoachAction(action);
+  const what = `${title.toLowerCase()} «${subject.trim()}»`;
+  return choice === 'applied'
+    ? `✅ Acepté tu propuesta de ${what}. Ya está aplicada.`
+    : `❌ Rechacé tu propuesta de ${what}.`;
+}
+
 /** Aplica una acción validada sobre el store. Devuelve el mensaje para el usuario. */
 export function executeCoachAction(action: ParsedAction): CoachActionResult {
   const store = useStore.getState();

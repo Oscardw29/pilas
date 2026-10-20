@@ -23,6 +23,9 @@ const MAX_SPEECH_CHARS = 2400;
 const FIRST_CHUNK_CHARS = 180;
 const CHUNK_CHARS = 460;
 const TTS_TIMEOUT_MS = 25_000;
+/** Peticiones de voz simultáneas: suficientes para ir por delante de lo que suena sin saturar la cuota */
+const MAX_PARALLEL_TTS = 3;
+const TTS_RETRY_DELAY_MS = 1200;
 
 const GEMINI_TTS_MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts'];
 const GEMINI_VOICES: Record<CoachGender, string> = { male: 'Puck', female: 'Zephyr' };
@@ -201,9 +204,11 @@ function pickProvider(): Provider | null {
 /* ---------------- Voz de IA (Gemini / OpenAI) ---------------- */
 
 /**
- * Reproduce los fragmentos uno tras otro, pidiendo el siguiente mientras suena el actual.
+ * Reproduce los fragmentos uno tras otro. Todos se piden desde el principio (hasta
+ * MAX_PARALLEL_TTS a la vez): si se pidieran de uno en uno, generar un fragmento largo tarda
+ * más de lo que dura el anterior y la voz se quedaría callada unos segundos a mitad de frase.
  * Si falla el primero lanza el error (la llamada pasa a la voz del navegador);
- * si falla uno posterior devuelve el texto que faltaba por leer.
+ * si falla uno posterior (tras reintentarlo) devuelve el texto que faltaba por leer.
  */
 async function speakWithApi(text: string, gender: CoachGender, provider: Provider, mySession: number): Promise<string | null> {
   const c = ensureCtx()!;
@@ -214,13 +219,41 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   gain.connect(analyser!);
   sessionGain = gain;
 
+  const cancelled = () => session !== mySession;
+  let inFlight = 0;
+  const waiting: (() => void)[] = [];
+  const acquire = () =>
+    inFlight < MAX_PARALLEL_TTS ? (inFlight++, Promise.resolve()) : new Promise<void>((r) => waiting.push(() => (inFlight++, r())));
+  const release = () => {
+    inFlight--;
+    waiting.shift()?.();
+  };
+
   const fetchChunk = (i: number) => {
-    const p = synthesize(chunks[i], gender, provider).then((bytes) => bytesToBuffer(c, bytes));
+    const p = acquire()
+      .then(async () => {
+        try {
+          if (cancelled()) throw new Error('Lectura cancelada');
+          try {
+            return await synthesize(chunks[i], gender, provider);
+          } catch (err) {
+            // El primero no se reintenta: si falla, la voz del navegador empieza cuanto antes
+            if (i === 0 || cancelled()) throw err;
+            await new Promise((r) => setTimeout(r, TTS_RETRY_DELAY_MS));
+            if (cancelled()) throw err;
+            return await synthesize(chunks[i], gender, provider);
+          }
+        } finally {
+          release();
+        }
+      })
+      .then((bytes) => bytesToBuffer(c, bytes));
     p.catch(() => {}); // se maneja al esperarla; evita avisos si la sesión se cancela antes
     return p;
   };
 
-  let pending = fetchChunk(0);
+  // En orden: los primeros fragmentos ocupan los huecos antes que los siguientes
+  const requests = chunks.map((_, i) => fetchChunk(i));
   let at = 0;
   let allQueued = false;
 
@@ -231,7 +264,7 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   for (let i = 0; i < chunks.length; i++) {
     let buffer: AudioBuffer;
     try {
-      buffer = await pending;
+      buffer = await requests[i];
     } catch (err) {
       if (i === 0) throw err;
       allQueued = true;
@@ -240,7 +273,6 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
       return session === mySession ? chunks.slice(i).join(' ') : null;
     }
     if (session !== mySession) return null;
-    if (i + 1 < chunks.length) pending = fetchChunk(i + 1);
 
     const src = c.createBufferSource();
     src.buffer = buffer;
@@ -366,8 +398,10 @@ function pickVoice(voices: SpeechSynthesisVoice[], gender: CoachGender): SpeechS
   const latam = (v: SpeechSynthesisVoice) => /es-(419|mx|us|co|ar|cl|pe|ve)/i.test(v.lang);
   const hint = gender === 'female' ? FEMALE_HINTS : MALE_HINTS;
   const other = gender === 'female' ? MALE_HINTS : FEMALE_HINTS;
+  // Las voces locales tienen prioridad: las remotas descargan cada frase al llegar a ella y dejan
+  // silencios de segundos entre frases
   const score = (v: SpeechSynthesisVoice) =>
-    (hint.test(v.name) ? 4 : 0) - (other.test(v.name) ? 3 : 0) + (latam(v) ? 2 : 0) + (v.localService ? 0 : 1);
+    (hint.test(v.name) ? 4 : 0) - (other.test(v.name) ? 3 : 0) + (latam(v) ? 2 : 0) + (v.localService ? 3 : 0);
   return [...spanish].sort((a, b) => score(b) - score(a))[0];
 }
 
@@ -479,13 +513,16 @@ export function cleanForSpeech(raw: string): string {
   return t;
 }
 
-/** Agrupa frases en fragmentos: el primero corto para que la voz empiece cuanto antes */
+/**
+ * Agrupa frases en fragmentos: el primero corto para que la voz empiece cuanto antes y el
+ * segundo intermedio, porque es el que menos margen tiene para generarse mientras suena el primero
+ */
 function splitChunks(text: string, first = FIRST_CHUNK_CHARS, rest = CHUNK_CHARS): string[] {
   const sentences = text.match(/[^.!?…]+[.!?…]+["»”)]?\s*|[^.!?…]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [text];
   const chunks: string[] = [];
   let current = '';
   for (const s of sentences) {
-    const limit = chunks.length === 0 ? first : rest;
+    const limit = chunks.length === 0 ? first : chunks.length === 1 ? Math.round((first + rest) / 2) : rest;
     if (current && current.length + s.length + 1 > limit) {
       chunks.push(current);
       current = s;
