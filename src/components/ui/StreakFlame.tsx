@@ -23,7 +23,9 @@ export type FlameTier =
   | 'solar'
   | 'supernova'
   | 'rising'
-  | 'mythic';
+  | 'mythic'
+  | 'eternal'
+  | 'immortal';
 
 export interface FlameLevel {
   tier: FlameTier;
@@ -48,6 +50,8 @@ export const FLAME_LEVELS: readonly FlameLevel[] = [
   { tier: 'supernova', minDays: 250, name: 'Supernova' },
   { tier: 'rising', minDays: 350, name: 'Fénix naciente' },
   { tier: 'mythic', minDays: 365, name: 'Fénix mítico' },
+  { tier: 'eternal', minDays: 500, name: 'Fénix eterno' },
+  { tier: 'immortal', minDays: 1000, name: 'Llama inmortal' },
 ];
 
 export function getFlameLevel(days: number): FlameLevel {
@@ -61,9 +65,14 @@ export function getFlameTier(days: number): FlameTier {
   return getFlameLevel(days).tier;
 }
 
-/** Potencia del nivel de 0 (sin racha) a 1 (fénix mítico): escala sonido, confeti y efectos */
+const MYTHIC_INDEX = FLAME_LEVELS.findIndex((l) => l.tier === 'mythic');
+
+/**
+ * Potencia del nivel de 0 (sin racha) a 1 (fénix mítico, 365 días): escala sonido, confeti y efectos.
+ * Los niveles posteriores solo cambian la llama; la celebración ya está al máximo.
+ */
 export function getFlamePower(days: number): number {
-  return FLAME_LEVELS.indexOf(getFlameLevel(days)) / (FLAME_LEVELS.length - 1);
+  return Math.min(1, FLAME_LEVELS.indexOf(getFlameLevel(days)) / MYTHIC_INDEX);
 }
 
 /* ---------- Paletas ---------- */
@@ -99,6 +108,8 @@ const WARM: Record<FlameTier, Palette> = {
   supernova: { o1: '#fef3c7', o2: '#f97316', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '253, 186, 116', ember: '#ffffff', accent: '#fff7ed' },
   rising: { o1: '#fde68a', o2: '#ea580c', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '249, 115, 22', ember: '#fde68a', accent: '#fbbf24' },
   mythic: { o1: '#fde68a', o2: '#ea580c', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '249, 115, 22', ember: '#fde68a', accent: '#fbbf24' },
+  eternal: { o1: '#fef3c7', o2: '#f97316', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '251, 146, 60', ember: '#ffffff', accent: '#fde68a' },
+  immortal: { o1: '#ffffff', o2: '#f59e0b', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '253, 224, 71', ember: '#ffffff', accent: '#fffbeb' },
 };
 
 /** Súper racha: la misma forma del nivel, de violeta a azul eléctrico */
@@ -117,6 +128,8 @@ const SUPER: Record<FlameTier, Palette> = {
   supernova: { o1: '#e0f2fe', o2: '#4f46e5', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '129, 140, 248', ember: '#ffffff', accent: '#cffafe' },
   rising: { o1: '#e0e7ff', o2: '#6366f1', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '99, 102, 241', ember: '#a5f3fc', accent: '#67e8f9' },
   mythic: { o1: '#e0e7ff', o2: '#6366f1', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '99, 102, 241', ember: '#a5f3fc', accent: '#67e8f9' },
+  eternal: { o1: '#e0f2fe', o2: '#4f46e5', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '129, 140, 248', ember: '#ffffff', accent: '#a5f3fc' },
+  immortal: { o1: '#ffffff', o2: '#6366f1', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '165, 180, 252', ember: '#ffffff', accent: '#ecfeff' },
 };
 
 /** Racha protegida: llama congelada (no parpadea) */
@@ -216,6 +229,8 @@ const SHAPES: Record<Exclude<FlameTier, 'dormant'>, Shape> = {
   supernova: { ...CROWN, scale: 1, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 25, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, orbit: true },
   rising: { ...CROWN, scale: 0.86, dur: 0.78, amp: 0.1, halo: { r: 24, cy: 26, a: 0.9 }, embers: 7, ring: true, rays: true, crown: true, wings: 'half' },
   mythic: { ...CROWN, scale: 0.84, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 26, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full' },
+  eternal: { ...CROWN, scale: 0.84, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 26, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full', orbit: true },
+  immortal: { ...CROWN, scale: 0.86, dur: 0.74, amp: 0.1, halo: { r: 24, cy: 25, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full', orbit: true },
 };
 
 /** Brasas que suben (el orden importa: los niveles bajos usan las primeras) */

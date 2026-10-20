@@ -1033,6 +1033,11 @@ ul, ol { list-style: none; }
   50% { opacity: .6; transform: translateY(-1px); }
 }
 
+/* Teléfonos: la llama parpadea y suelta brasas, pero rayos, anillos y órbita quedan quietos */
+@media (pointer: coarse) {
+  .streak-flame.is-animated .sf-rays, .streak-flame.is-animated .sf-ring, .streak-flame.is-animated .sf-orbit { animation: none; }
+}
+
 /* Movimiento reducido: sin parpadeo ni partículas, solo la forma estática del nivel */
 @media (prefers-reduced-motion: reduce) {
   .streak-flame * { animation: none !important; }
@@ -2163,6 +2168,11 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .is-streak .celebrate-rays { background: repeating-conic-gradient(from 0deg, rgba(251, 146, 60, 0.12) 0deg 7deg, transparent 7deg 22deg); animation-delay: .35s, .35s; }
 .celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(250, 204, 21, 0.11) 0deg 8deg, transparent 8deg 24deg); animation: raysIn .8s ease 2.6s both, raysSpin 24s linear 2.6s infinite; }
 .is-freeze .celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(56, 189, 248, 0.13) 0deg 8deg, transparent 8deg 24deg); }
+/* Teléfonos: sin desenfoque del fondo ni rayos girando en las celebraciones de racha (son lo más costoso) */
+@media (pointer: coarse) {
+  .celebrate-overlay.is-streak, .celebrate-overlay.is-super { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .is-streak .celebrate-rays, .is-super .celebrate-rays { animation: raysIn .8s ease .5s both; }
+}
 @keyframes raysIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes raysSpin { to { transform: rotate(360deg); } }
 

@@ -1,4 +1,5 @@
 import confetti from 'canvas-confetti';
+import { isLowPowerDevice } from './perf';
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -75,6 +76,9 @@ export function fireHabitPop(x = 0.5, y = 0.5) {
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
+/** En teléfonos, menos de la mitad de partículas (canvas-confetti dibuja cada una en el hilo principal) */
+const scaled = (n: number) => Math.max(6, Math.round(n * (isLowPowerDevice() ? 0.45 : 1)));
+
 /**
  * Racha encendida: brasas que suben desde la parte baja de la pantalla (gravedad negativa),
  * sincronizadas con la «ignición» del sonido. Con más `power` (0-1, ver getFlamePower) hay más
@@ -88,7 +92,7 @@ export function fireStreakEmbers(power = 0) {
     setTimeout(
       () =>
         confetti({
-          particleCount: Math.round(28 + p * 30),
+          particleCount: scaled(Math.round(28 + p * 30)),
           angle: 90,
           spread: 40 + p * 20,
           startVelocity: 38 + p * 14,
@@ -105,7 +109,7 @@ export function fireStreakEmbers(power = 0) {
       delay,
     );
   // De 3 a 7 columnas de brasas repartidas a lo ancho
-  const columns = 3 + Math.round(p * 4);
+  const columns = 3 + Math.round(p * (isLowPowerDevice() ? 2 : 4));
   for (let i = 0; i < columns; i++) {
     const x = columns === 1 ? 0.5 : 0.15 + (0.7 * i) / (columns - 1);
     shot(x, 250 + i * (300 / columns) + Math.random() * 80);
@@ -115,7 +119,7 @@ export function fireStreakEmbers(power = 0) {
   if (p >= 0.3) {
     setTimeout(() => {
       confetti({
-        particleCount: Math.round(30 + p * 70),
+        particleCount: scaled(Math.round(30 + p * 70)),
         spread: 360,
         startVelocity: 22 + p * 22,
         gravity: 0.5,
@@ -133,8 +137,8 @@ export function fireStreakEmbers(power = 0) {
   if (p >= 0.6) {
     setTimeout(() => {
       const count = Math.round(40 + p * 40);
-      confetti({ particleCount: count, angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: 2100 });
-      confetti({ particleCount: count, angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: 2100 });
+      confetti({ particleCount: scaled(count), angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: 2100 });
+      confetti({ particleCount: scaled(count), angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: 2100 });
     }, 650);
   }
   // Desde 250 días: lluvia de chispas doradas desde arriba
@@ -146,7 +150,7 @@ function rainFromTop(colors: string[], particleCount: number, delay: number) {
   setTimeout(() => {
     [0.2, 0.5, 0.8].forEach((x) =>
       confetti({
-        particleCount: Math.round(particleCount / 3),
+        particleCount: scaled(Math.round(particleCount / 3)),
         angle: 270,
         spread: 70,
         startVelocity: 18,
@@ -174,7 +178,7 @@ export function fireSuperStreakBurst(power = 0) {
   const colors = ['#c084fc', '#a855f7', '#818cf8', '#60a5fa', '#ffffff'];
   setTimeout(() => {
     confetti({
-      particleCount: Math.round(90 + p * 110),
+      particleCount: scaled(Math.round(90 + p * 110)),
       spread: 360,
       startVelocity: 42 + p * 14,
       gravity: 0.55,
@@ -189,15 +193,15 @@ export function fireSuperStreakBurst(power = 0) {
   }, 500);
   setTimeout(() => {
     const count = Math.round(60 + p * 60);
-    confetti({ particleCount: count, angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: 2100 });
-    confetti({ particleCount: count, angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: 2100 });
+    confetti({ particleCount: scaled(count), angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: 2100 });
+    confetti({ particleCount: scaled(count), angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: 2100 });
   }, 700);
 
   // Desde 50 días: segunda oleada (coincide con el segundo impacto del sonido)
   if (p >= 0.4) {
     setTimeout(() => {
       confetti({
-        particleCount: Math.round(50 + p * 70),
+        particleCount: scaled(Math.round(50 + p * 70)),
         spread: 360,
         startVelocity: 32 + p * 16,
         gravity: 0.6,
@@ -215,11 +219,11 @@ export function fireSuperStreakBurst(power = 0) {
   if (p >= 0.6) rainFromTop(['#c4b5fd', '#a5f3fc', '#ffffff'], Math.round(60 + p * 60), 1300);
   // Desde 200 días: fuegos artificiales en distintos puntos
   if (p >= 0.75) {
-    const bursts = 3 + Math.round((p - 0.75) * 12);
+    const bursts = isLowPowerDevice() ? 2 : 3 + Math.round((p - 0.75) * 12);
     for (let i = 0; i < bursts; i++) {
       setTimeout(() => {
         confetti({
-          particleCount: 45,
+          particleCount: scaled(45),
           spread: 360,
           startVelocity: 26,
           gravity: 0.5,

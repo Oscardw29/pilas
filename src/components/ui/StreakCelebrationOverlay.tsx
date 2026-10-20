@@ -4,6 +4,7 @@ import { Flame, Sparkles } from 'lucide-react';
 import { StreakFlame, getFlamePower } from './StreakFlame';
 import { fireStreakEmbers, fireSuperStreakBurst } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
+import { isLowPowerDevice } from '@/lib/perf';
 
 export interface StreakCelebrationPayload {
   days: number;
@@ -102,10 +103,12 @@ export const StreakCelebrationOverlay: React.FC = () => {
   }, []);
 
   const power = data ? getFlamePower(data.days) : 0;
-  const particles = useParticles((data?.isSuper ? 26 : 20) + Math.round(power * 34), data?.key ?? 0);
+  // En teléfonos, menos partículas y estrellas en órbita para no trabar la animación
+  const lite = isLowPowerDevice();
+  const particles = useParticles(Math.round((data?.isSuper ? 26 : 20) * (lite ? 0.6 : 1) + power * (lite ? 12 : 34)), data?.key ?? 0);
   // Ondas y estrellas en órbita también crecen con el nivel
   const ringCount = 3 + (power >= 0.45 ? 1 : 0) + (power >= 0.75 ? 1 : 0);
-  const orbitCount = 6 + Math.round(power * 6);
+  const orbitCount = 6 + Math.round(power * (lite ? 2 : 6));
 
   if (!data) return null;
 

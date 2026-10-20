@@ -1,4 +1,5 @@
 import { useStore } from '@/store/useStore';
+import { isLowPowerDevice } from './perf';
 
 /**
  * MOTOR DE SONIDOS PROCEDURALES (Web Audio API)
@@ -292,6 +293,8 @@ class SoundEngine {
    */
   public streak(power = 0) {
     const p = Math.min(1, Math.max(0, power));
+    // En teléfonos, una sierra por nota en vez de dos desafinadas (la mitad de osciladores)
+    const voices = isLowPowerDevice() ? [0] : [-8, 8];
     this.play(() => {
       // Ignición: ruido que sube de grave a agudo (más largo y fuerte con más días)
       this.noise({ dur: 0.42 + p * 0.25, gain: 0.2 + p * 0.08, attack: 0.18, filter: { type: 'bandpass', freq: 260, to: 3200 + p * 3000, q: 0.9 }, reverb: 0.2 + p * 0.2 });
@@ -317,7 +320,7 @@ class SoundEngine {
       // Desde 50 días: metales cálidos (Mi mayor con sierras desafinadas)
       if (p >= 0.45) {
         [164.81, 246.94, 329.63, 415.3].forEach((freq) =>
-          [-8, 8].forEach((detune) =>
+          voices.forEach((detune) =>
             this.tone({ type: 'sawtooth', freq, detune, at: 0.32, dur: 1 + p * 0.6, gain: 0.018 + p * 0.016, attack: 0.05, filter: { type: 'lowpass', freq: 2600, to: 600, q: 1 }, reverb: 0.45 }),
           ),
         );
@@ -351,6 +354,7 @@ class SoundEngine {
    */
   public superStreak(power = 0) {
     const p = Math.min(1, Math.max(0, power));
+    const voices = isLowPowerDevice() ? [0] : [-9, 9];
     this.play(() => {
       // 1. Riser: sierra filtrada que sube + ruido creciente (0 → 0.5 s)
       this.tone({ type: 'sawtooth', freq: 110, to: 440, dur: 0.5, gain: 0.07 + p * 0.03, attack: 0.4, filter: { type: 'lowpass', freq: 300, to: 4000 + p * 3000, q: 4 } });
@@ -364,7 +368,7 @@ class SoundEngine {
       // 3. Acorde de metales: Re3 La3 Re4 Fa#4 La4 Re5 (+ Fa#5 y La5 con más días), dos sierras desafinadas por nota
       const brass = [146.83, 220, 293.66, 369.99, 440, 587.33, 739.99, 880];
       brass.slice(0, 6 + Math.round(p * 2)).forEach((freq) => {
-        [-9, 9].forEach((detune) =>
+        voices.forEach((detune) =>
           this.tone({
             type: 'sawtooth',
             freq,
@@ -398,7 +402,7 @@ class SoundEngine {
       // 6. Desde 200 días: el acorde sube a Mi mayor y queda brillando
       if (p >= 0.75) {
         [164.81, 246.94, 329.63, 415.3, 493.88, 659.25].forEach((freq) =>
-          [-7, 7].forEach((detune) =>
+          voices.forEach((detune) =>
             this.tone({ type: 'sawtooth', freq, detune, at: 1.45, dur: 1.8, gain: 0.03, attack: 0.08, filter: { type: 'lowpass', freq: 3600, to: 900, q: 1 }, reverb: 0.7 }),
           ),
         );

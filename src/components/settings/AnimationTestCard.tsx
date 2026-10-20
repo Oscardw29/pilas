@@ -5,7 +5,8 @@ import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverl
 import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
 
 const MIN_DAYS = 1;
-const MAX_DAYS = 365;
+/** Diez años: la racha real no tiene tope */
+const MAX_DAYS = 3650;
 
 /** Hitos donde la llama cambia de nivel (ver FLAME_LEVELS) */
 const MILESTONES = FLAME_LEVELS.filter((l) => l.minDays > 0).map((l) => l.minDays);
