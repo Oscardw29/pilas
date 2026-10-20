@@ -280,6 +280,8 @@ export interface Reward {
   name: string;
   icon: string;
   cost: number;
+  /** Texto propio de la tarjeta; si falta se muestra uno genérico */
+  description?: string;
 }
 
 export interface Redemption {

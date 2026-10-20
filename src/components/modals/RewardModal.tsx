@@ -20,12 +20,14 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
   const [name, setName] = useState(rewardToEdit?.name ?? '');
   const [icon, setIcon] = useState(rewardToEdit?.icon ?? REWARD_ICONS[0]);
   const [cost, setCost] = useState(rewardToEdit?.cost ?? 150);
+  const [description, setDescription] = useState(rewardToEdit?.description ?? '');
 
   React.useEffect(() => {
     if (isOpen) {
       setName(rewardToEdit?.name ?? '');
       setIcon(rewardToEdit?.icon ?? REWARD_ICONS[0]);
       setCost(rewardToEdit?.cost ?? 150);
+      setDescription(rewardToEdit?.description ?? '');
     }
   }, [isOpen, rewardToEdit]);
 
@@ -34,10 +36,10 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
     if (!name.trim() || !(cost > 0)) return;
 
     if (rewardToEdit) {
-      updateReward(rewardToEdit.id, { name: name.trim(), icon, cost });
+      updateReward(rewardToEdit.id, { name: name.trim(), icon, cost, description: description.trim() || undefined });
       toast(`Recompensa «${name}» actualizada`, 'success');
     } else {
-      addReward({ name: name.trim(), icon, cost });
+      addReward({ name: name.trim(), icon, cost, description: description.trim() || undefined });
       toast(`Recompensa «${name}» creada`, 'success');
     }
     onClose();
@@ -56,6 +58,19 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
             onChange={(e) => setName(e.target.value)}
           />
         </div>
+
+        <label className="field">
+          <span className="label">Descripción (opcional)</span>
+          <textarea
+            className="textarea"
+            rows={2}
+            maxLength={160}
+            placeholder="Ej. Una tarde libre de videojuegos sin culpa, después de cumplir mis hábitos."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <span className="hint">Se muestra en la tarjeta del premio. Si la dejas vacía se usa un texto genérico.</span>
+        </label>
 
         <div className="field">
           <span className="label">Icono</span>
