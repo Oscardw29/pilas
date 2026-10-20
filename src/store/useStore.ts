@@ -122,7 +122,7 @@ const DATA_KEYS: (keyof AppData)[] = [
   'recommendationFeedback', 'dismissedInsights', 'conversations', 'activeConversationId', 'settings', 'hasStreakFreeze', 'streakFreezes',
 ];
 
-const STORE_VERSION = 4;
+const STORE_VERSION = 5;
 
 /** true si en este navegador aún no había datos guardados (primer uso): se muestra la bienvenida */
 export const isFirstRun = (() => {
@@ -235,10 +235,11 @@ function migrateData(state: any, version: number, adoptSecrets: boolean): any {
       useSecrets.getState().importLegacy(legacy);
     }
     state.settings = stripSecrets(state.settings);
-    // v4: Fish Audio era la plataforma de voz por defecto sin que nadie la eligiera; la voz por
-    // defecto vuelve a ser la original del coach (Gemini: Puck / Zephyr)
-    if (version < 4 && (!state.settings.ttsPlatform || state.settings.ttsPlatform === 'fish_audio')) {
-      state.settings.ttsPlatform = 'ai_voice';
+    // v5: se retiró la plataforma de voz «Voz original del coach» (ai_voice) que la v4 ponía por
+    // defecto; quien la tenga vuelve a Fish Audio, la predeterminada
+    if (state.settings.ttsPlatform === 'ai_voice') {
+      state.settings.ttsPlatform = 'fish_audio';
+      if (!state.settings.ttsModel) state.settings.ttsModel = 's2.1-pro-free';
     }
     if (!state.settings.geminiModel || state.settings.geminiModel === 'gemini-3.8-flash') {
       state.settings.geminiModel = 'gemini-3.5-flash-lite';
