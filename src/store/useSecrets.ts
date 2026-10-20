@@ -14,16 +14,12 @@ const PBKDF2_ITERATIONS = 250_000;
 
 export const emptySecrets = (): Secrets => ({
   geminiApiKey: '',
+  ttsApiKey: '',
+  fishAudioApiKey: '',
+  elevenLabsApiKey: '',
+  openaiTtsApiKey: '',
+  deepgramApiKey: '',
 });
-
-/** Solo los campos actuales de `Secrets`: descarta claves de funciones retiradas (p. ej. las de voz) */
-const pickKnown = (raw: Record<string, unknown>): Secrets => {
-  const keys = emptySecrets();
-  for (const k of Object.keys(keys) as (keyof Secrets)[]) {
-    if (typeof raw[k] === 'string') keys[k] = raw[k] as string;
-  }
-  return keys;
-};
 
 type StoredSecrets =
   | { v: 1; mode: 'plain'; keys: Partial<Secrets> }
@@ -105,10 +101,7 @@ const hasAnyKey = (k: Partial<Secrets>) => Object.values(k).some((v) => typeof v
 function initialState(): Pick<SecretsState, 'keys' | 'mode' | 'locked'> {
   const stored = readStored();
   if (stored?.mode === 'enc') return { keys: emptySecrets(), mode: 'enc', locked: true };
-  const keys = pickKnown(stored?.keys || {});
-  // Reescribe sin las claves retiradas para que no queden guardadas en el navegador
-  if (stored && Object.keys(stored.keys || {}).length !== Object.keys(keys).length) writeStored({ v: 1, mode: 'plain', keys });
-  return { keys, mode: 'plain', locked: false };
+  return { keys: { ...emptySecrets(), ...(stored?.keys || {}) }, mode: 'plain', locked: false };
 }
 
 export const useSecrets = create<SecretsState>()((set, get) => ({
@@ -155,10 +148,8 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
       const salt = fromB64(stored.salt);
       const key = await deriveKey(password, salt);
       const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(stored.iv) as BufferSource }, key, fromB64(stored.data) as BufferSource);
-      const raw = JSON.parse(new TextDecoder().decode(plain)) as Record<string, unknown>;
-      const keys = pickKnown(raw);
+      const keys = { ...emptySecrets(), ...JSON.parse(new TextDecoder().decode(plain)) } as Secrets;
       sessionKey = { key, salt };
-      if (Object.keys(raw).length !== Object.keys(keys).length) writeStored(await encryptKeys(keys, key, salt));
       set({ keys, locked: false });
       return true;
     } catch {
@@ -187,7 +178,7 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
 /** Acceso a las claves desde código no-React (lib/gemini) */
 export const getSecrets = (): Secrets => useSecrets.getState().keys;
 
-/** Campos de claves que versiones antiguas guardaban dentro de `settings` (incluye las de voz, ya retiradas) */
-export const LEGACY_SECRET_FIELDS: string[] = [
+/** Campos de claves que versiones antiguas guardaban dentro de `settings` */
+export const LEGACY_SECRET_FIELDS: (keyof Secrets)[] = [
   'geminiApiKey', 'ttsApiKey', 'fishAudioApiKey', 'elevenLabsApiKey', 'openaiTtsApiKey', 'deepgramApiKey',
 ];

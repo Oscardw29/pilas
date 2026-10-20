@@ -146,7 +146,7 @@ export const ApiKeySecurityCard: React.FC<{ onKeysForgotten: () => void }> = ({ 
           onClose={() => setShowForgetConfirm(false)}
           onConfirm={confirmForgetSecrets}
           title="¿Olvidar todas las claves de API?"
-          message="Se borrará de este navegador la clave de IA (y su cifrado, si lo tenías). Tendrás que volver a introducirla para usar el Coach con IA."
+          message="Se borrarán de este navegador las claves de IA, voz y transcripción (y su cifrado, si lo tenías). Tendrás que volver a introducirlas para usar el Coach con IA y las voces externas."
           confirmLabel="Olvidar claves"
           confirmVariant="danger"
           zIndex={1300}
