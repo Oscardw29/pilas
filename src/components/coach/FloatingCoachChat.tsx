@@ -212,7 +212,11 @@ export const FloatingCoachChat: React.FC = () => {
       setConversationMessages(convId, [...readMessages(convId), botMsg]);
       playSound.messageIn();
       // Lee la respuesta en voz alta (salvo silencio o si el chat ya se cerró)
-      if (!useStore.getState().settings.coachMuted && panelRef.current) void speakCoach(response, persona.gender);
+      if (!useStore.getState().settings.coachMuted && panelRef.current) {
+        void speakCoach(response, persona.gender).then((r) => {
+          if (r === 'failed') toast(`La voz de ${persona.name} no respondió (límite de la API o conexión). La respuesta sigue en el chat.`, 'warning');
+        });
+      }
     } catch (error: any) {
       toast('Error al generar respuesta: ' + (error?.message || 'Inténtalo de nuevo'), 'warning');
     } finally {

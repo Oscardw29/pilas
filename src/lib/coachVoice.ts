@@ -10,7 +10,8 @@ import type { CoachGender } from '@/components/coach/coachPersona';
  *
  * 1. Con clave de Gemini (o de OpenAI) usa su modelo de texto a voz y reproduce el audio con
  *    Web Audio: así el silencio puede hacerse con un fundido de 0,5 s y la boca sigue la señal real.
- * 2. Sin clave, o si falla, recurre a la voz del navegador (speechSynthesis). Esa voz no admite
+ *    Si falla se reintenta y, si sigue fallando, se calla: nunca cambia a la voz del sistema.
+ * 2. Sin clave usa la voz del navegador (speechSynthesis). Esa voz no admite
  *    bajar el volumen a mitad de frase: al silenciarla se corta y la boca se cierra suavemente.
  */
 
@@ -24,8 +25,11 @@ const FIRST_CHUNK_CHARS = 180;
 const CHUNK_CHARS = 460;
 const TTS_TIMEOUT_MS = 25_000;
 /** Peticiones de voz simultáneas: suficientes para ir por delante de lo que suena sin saturar la cuota */
-const MAX_PARALLEL_TTS = 3;
+const MAX_PARALLEL_TTS = 2;
+/** Intentos por fragmento antes de rendirse (la voz nunca cambia a la del sistema a mitad) */
+const TTS_ATTEMPTS = 4;
 const TTS_RETRY_DELAY_MS = 1200;
+const TTS_MAX_RETRY_DELAY_MS = 15_000;
 
 const GEMINI_TTS_MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts'];
 const GEMINI_VOICES: Record<CoachGender, string> = { male: 'Puck', female: 'Zephyr' };
@@ -171,25 +175,31 @@ export function stopCoachVoice({ fade = true }: { fade?: boolean } = {}) {
   }
 }
 
-/** Lee el texto con la voz del coach. Corta cualquier lectura anterior. */
-export async function speakCoach(text: string, gender: CoachGender): Promise<void> {
+/**
+ * Lee el texto con la voz del coach. Corta cualquier lectura anterior.
+ * Con clave de IA nunca cambia a la voz del sistema: si la de IA falla tras reintentarlo,
+ * se calla y devuelve 'failed' para que la vista avise (el texto sigue en el chat).
+ */
+export async function speakCoach(text: string, gender: CoachGender): Promise<'ok' | 'failed'> {
   stopCoachVoice({ fade: false });
   const mySession = session;
   const clean = cleanForSpeech(text);
-  if (!clean) return;
+  if (!clean) return 'ok';
 
   const provider = pickProvider();
   if (provider && ensureCtx()) {
     try {
-      const rest = await speakWithApi(clean, gender, provider, mySession);
-      if (rest && session === mySession) speakWithBrowser(rest, gender, mySession);
-      return;
+      await speakWithApi(clean, gender, provider, mySession);
+      return 'ok';
     } catch (err) {
-      if (session !== mySession) return;
-      console.warn('[coachVoice] Voz de IA no disponible, uso la del navegador:', err);
+      if (session !== mySession) return 'ok';
+      console.warn('[coachVoice] Voz de IA no disponible:', err);
+      return 'failed';
     }
   }
+  // Sin clave de IA la voz del coach es la del navegador
   if (session === mySession) speakWithBrowser(clean, gender, mySession);
+  return 'ok';
 }
 
 function pickProvider(): Provider | null {
@@ -207,10 +217,9 @@ function pickProvider(): Provider | null {
  * Reproduce los fragmentos uno tras otro. Todos se piden desde el principio (hasta
  * MAX_PARALLEL_TTS a la vez): si se pidieran de uno en uno, generar un fragmento largo tarda
  * más de lo que dura el anterior y la voz se quedaría callada unos segundos a mitad de frase.
- * Si falla el primero lanza el error (la llamada pasa a la voz del navegador);
- * si falla uno posterior (tras reintentarlo) devuelve el texto que faltaba por leer.
+ * Si un fragmento falla tras sus reintentos, termina lo ya programado y lanza el error.
  */
-async function speakWithApi(text: string, gender: CoachGender, provider: Provider, mySession: number): Promise<string | null> {
+async function speakWithApi(text: string, gender: CoachGender, provider: Provider, mySession: number): Promise<void> {
   const c = ensureCtx()!;
   if (c.state === 'suspended') await c.resume().catch(() => {});
   const chunks = splitChunks(text);
@@ -219,7 +228,9 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   gain.connect(analyser!);
   sessionGain = gain;
 
-  const cancelled = () => session !== mySession;
+  /** Un fragmento falló del todo: los que esperan turno ya no se piden */
+  let gaveUp = false;
+  const cancelled = () => gaveUp || session !== mySession;
   let inFlight = 0;
   const waiting: (() => void)[] = [];
   const acquire = () =>
@@ -233,15 +244,17 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
     const p = acquire()
       .then(async () => {
         try {
-          if (cancelled()) throw new Error('Lectura cancelada');
-          try {
-            return await synthesize(chunks[i], gender, provider);
-          } catch (err) {
-            // El primero no se reintenta: si falla, la voz del navegador empieza cuanto antes
-            if (i === 0 || cancelled()) throw err;
-            await new Promise((r) => setTimeout(r, TTS_RETRY_DELAY_MS));
-            if (cancelled()) throw err;
-            return await synthesize(chunks[i], gender, provider);
+          for (let attempt = 1; ; attempt++) {
+            if (cancelled()) throw new Error('Lectura cancelada');
+            try {
+              return await synthesize(chunks[i], gender, provider);
+            } catch (err) {
+              if (attempt >= TTS_ATTEMPTS || !isRetryable(err)) {
+                gaveUp = true;
+                throw err;
+              }
+              await new Promise((r) => setTimeout(r, retryDelayMs(err, attempt)));
+            }
           }
         } finally {
           release();
@@ -266,13 +279,13 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
     try {
       buffer = await requests[i];
     } catch (err) {
-      if (i === 0) throw err;
+      // Se termina la frase en curso con la misma voz y se para (sin cambiar a la del sistema)
       allQueued = true;
-      // Lo que falta se lee con la voz del navegador cuando acabe lo ya programado
+      maybeFinish();
       await waitUntilDrained(mySession);
-      return session === mySession ? chunks.slice(i).join(' ') : null;
+      throw err;
     }
-    if (session !== mySession) return null;
+    if (session !== mySession) return;
 
     const src = c.createBufferSource();
     src.buffer = buffer;
@@ -289,7 +302,20 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   }
   allQueued = true;
   maybeFinish();
-  return null;
+}
+
+/** Clave inválida, sin permiso o petición mal formada: reintentar no arregla nada */
+function isRetryable(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return !/\b(400|401|403|404)\b|API key not valid|PERMISSION_DENIED|INVALID_ARGUMENT/i.test(msg);
+}
+
+/** Espera antes de reintentar: la que pida la API en un 429 («retry in 7s») o una creciente */
+function retryDelayMs(err: unknown, attempt: number): number {
+  const msg = err instanceof Error ? err.message : String(err);
+  const asked = msg.match(/retry(?:Delay)?["':\s]*(?:in\s*)?"?(\d+(?:\.\d+)?)\s*s/i);
+  const ms = asked ? Number(asked[1]) * 1000 + 250 : TTS_RETRY_DELAY_MS * 2 ** (attempt - 1);
+  return Math.min(ms, TTS_MAX_RETRY_DELAY_MS);
 }
 
 function waitUntilDrained(mySession: number): Promise<void> {

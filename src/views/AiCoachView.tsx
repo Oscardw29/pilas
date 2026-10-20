@@ -266,7 +266,11 @@ export const AiCoachView: React.FC = () => {
     }
 
     // El coach lee la respuesta (salvo que esté silenciado)
-    if (!useStore.getState().settings.coachMuted) void speakCoach(fullText, persona.gender);
+    if (!useStore.getState().settings.coachMuted) {
+      void speakCoach(fullText, persona.gender).then((r) => {
+        if (r === 'failed') toast(`La voz de ${persona.name} no respondió (límite de la API o conexión). La respuesta sigue en el chat.`, 'warning');
+      });
+    }
 
     finishStream();
     const words = fullText.split(' ');
