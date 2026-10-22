@@ -1,5 +1,5 @@
 import type { AppData, FailReason, Habit, Insight } from '@/types';
-import { addDaysKey, diffDays, hourOf, rangeKeys, todayKey, weekdayIndex } from './dates';
+import { addDaysKey, diffDays, hourOf, rangeKeys, todayKey, toKey, weekdayIndex } from './dates';
 import { consistency, getLog, habitStart, isDoneLog, periodConsistency } from './metrics';
 
 /**
@@ -300,7 +300,18 @@ export interface AbandonmentAlert {
   weeksData: number[];
 }
 
+/** Clave en dismissedInsights con la que se omite la alerta de abandono */
+export const ABANDONMENT_DISMISS_ID = 'abandonment';
+/** Días que la alerta queda en silencio tras omitirla o responder el chequeo */
+const ABANDONMENT_SNOOZE_DAYS = 7;
+
 export function detectAbandonment(data: AppData, ref = todayKey()): AbandonmentAlert | null {
+  // Si el usuario la omitió o ya respondió el chequeo hace poco, no se vuelve a mostrar
+  const lastSeen = [data.dismissedInsights[ABANDONMENT_DISMISS_ID], ...data.checkins.map((c) => c.at)]
+    .filter(Boolean)
+    .map((iso) => toKey(new Date(iso!)));
+  if (lastSeen.some((k) => diffDays(k, ref) < ABANDONMENT_SNOOZE_DAYS)) return null;
+
   const activeHabits = data.habits.filter((h) => h.status === 'active');
   if (activeHabits.length === 0) return null;
 

@@ -56,7 +56,7 @@ import {
 import { celebrateStreakChange, streakSnapshot } from '@/lib/streakCelebration';
 import { todayKey, toKey, longDate, startOfWeekKey, addDaysKey, DAY_SHORT, formatMinutes } from '@/lib/dates';
 import { recommendWhatToDo } from '@/lib/recommendations';
-import { detectAbandonment } from '@/lib/insights';
+import { ABANDONMENT_DISMISS_ID, detectAbandonment } from '@/lib/insights';
 import { FailReasonModal } from '@/components/modals/FailReasonModal';
 import { AbandonmentModal } from '@/components/modals/AbandonmentModal';
 import { HabitProgressModal } from '@/components/modals/HabitProgressModal';
@@ -204,6 +204,7 @@ export const DashboardView: React.FC = () => {
   // Modales interactivos
   const [failModalHabit, setFailModalHabit] = useState<Habit | null>(null);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
+  const dismissInsight = useStore((s) => s.dismissInsight);
   const [progressModalHabit, setProgressModalHabit] = useState<Habit | null>(null);
 
   // Cálculos principales
@@ -467,7 +468,21 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
           </div>
-          <button className="btn btn-secondary sm">Revisar</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="btn btn-secondary sm">Revisar</button>
+            <button
+              type="button"
+              className="btn btn-ghost sm"
+              aria-label="Omitir aviso"
+              title="Omitir"
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissInsight(ABANDONMENT_DISMISS_ID);
+              }}
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
       )}
 
