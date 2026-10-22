@@ -335,7 +335,8 @@ async function requestCompletion(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${trimmedKey}`,
-      ...(platform === 'openrouter' ? { 'HTTP-Referer': window.location.origin, 'X-Title': 'Pilas' } : {}),
+      // Sin HTTP-Referer: no se comparte el origen de la app con OpenRouter
+      ...(platform === 'openrouter' ? { 'X-Title': 'Pilas' } : {}),
     },
     body: JSON.stringify({ model: modelName, messages, temperature }),
     signal: AbortSignal.timeout(AI_TIMEOUT_MS),

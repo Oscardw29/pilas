@@ -38,8 +38,8 @@ const relayProxy: Record<string, ProxyOptions> = Object.fromEntries(
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com https://api.groq.com https://openrouter.ai https://api.elevenlabs.io https://api.fish.audio https://api.deepgram.com",
@@ -62,7 +62,8 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    // Solo en este equipo por defecto. Para probar desde el móvil en la red local: `npm run dev:lan`
+    // Solo en este equipo por defecto. Para probar desde el móvil en la red local: `npm run dev:lan`.
+    // Ojo: dev:lan también expone el reenvío de voz a toda la red; úsalo solo en redes de confianza.
     host: 'localhost',
     port: 5173,
     open: false,

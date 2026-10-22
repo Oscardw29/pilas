@@ -43,8 +43,6 @@ import { speakWithTts, speakNative, PRESET_TTS_MODELS } from '../lib/voice';
 import {
   getNotificationPermission,
   requestNotificationPermission,
-  triggerTestNotification,
-  NotificationType,
 } from '../lib/notifications';
 
 interface VoicePresetItem {
@@ -434,25 +432,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     }
   };
 
-  const handleTestNotification = async (type: NotificationType) => {
-    let perm = getNotificationPermission();
-    if (perm !== 'granted') {
-      perm = await requestNotificationPermission();
-      setNotifPermission(perm);
-      if (perm !== 'granted') {
-        showToast('Debes conceder permisos en el navegador para recibir notificaciones del sistema.', 'warning');
-        return;
-      }
-    }
-    playSound.pop();
-    const sampleHabit = useStore.getState().habits.find((h) => h.status === 'active');
-    const res = await triggerTestNotification(type, userName, sampleHabit);
-    if (res.success) {
-      showToast(res.message, 'success');
-    } else {
-      showToast(res.message, 'error');
-    }
-  };
 
   // Prueba de síntesis de voz
   const handleTestVoice = async () => {
@@ -1359,13 +1338,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                       </span>
                     </label>
 
-                    <button
-                      type="button"
-                      className="btn btn-secondary sm"
-                      onClick={() => handleTestNotification('habit')}
-                    >
-                      <Bell size={12} /> Probar en el sistema
-                    </button>
                   </div>
                   <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
                     Dispara una notificación del sistema a la hora programada en cada hábito si aún no lo has completado hoy. Cada recordatorio rota entre distintas frases para evitar la monotonía.
@@ -1404,13 +1376,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                           align="right"
                         />
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-secondary sm"
-                        onClick={() => handleTestNotification('streak')}
-                      >
-                        <Flame size={12} style={{ color: 'var(--warning)' }} /> Probar
-                      </button>
                     </div>
                   </div>
                   <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
@@ -1450,13 +1415,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                           align="right"
                         />
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-secondary sm"
-                        onClick={() => handleTestNotification('coach')}
-                      >
-                        <Sparkles size={12} style={{ color: 'var(--accent-2)' }} /> Probar
-                      </button>
                     </div>
                   </div>
                   <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
@@ -1497,14 +1455,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             align="left"
                           />
                         </div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost sm"
-                          onClick={() => handleTestNotification('morning')}
-                          style={{ fontSize: 11 }}
-                        >
-                          Probar
-                        </button>
                       </div>
                     </div>
 
@@ -1535,14 +1485,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             align="left"
                           />
                         </div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost sm"
-                          onClick={() => handleTestNotification('midday')}
-                          style={{ fontSize: 11 }}
-                        >
-                          Probar
-                        </button>
                       </div>
                     </div>
 
@@ -1573,14 +1515,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             align="left"
                           />
                         </div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost sm"
-                          onClick={() => handleTestNotification('night')}
-                          style={{ fontSize: 11 }}
-                        >
-                          Probar
-                        </button>
                       </div>
                     </div>
                   </div>

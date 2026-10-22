@@ -12,8 +12,6 @@ export interface NotificationPayload {
   data?: Record<string, unknown>;
 }
 
-export type NotificationType = 'habit' | 'streak' | 'coach' | 'morning' | 'midday' | 'night';
-
 // Clave en localStorage para recordar notificaciones ya enviadas hoy
 const SENT_STORAGE_KEY = 'constancia_sent_notifications_v1';
 
@@ -457,87 +455,4 @@ async function checkReminders(now: Date): Promise<void> {
     const variant = pickVariant(r.variants());
     await sendOnce(r.key, { title: variant.title, body: variant.body, tag: `${r.tag}-${today}` });
   }
-}
-
-/* =========================================================================
-   6. DISPARADORES DE PRUEBA INMEDIATA (PARA WINDOWS Y CELULARES)
-   ========================================================================= */
-
-export async function triggerTestNotification(
-  type: NotificationType,
-  userName: string,
-  sampleHabit?: Habit
-): Promise<{ success: boolean; message: string }> {
-  let perm = getNotificationPermission();
-  if (perm !== 'granted') {
-    perm = await requestNotificationPermission();
-    if (perm !== 'granted') {
-      return {
-        success: false,
-        message: 'Debes conceder permisos de notificación en el navegador para que aparezcan en el sistema operativo.',
-      };
-    }
-  }
-
-  let variant: { title: string; body: string };
-
-  switch (type) {
-    case 'habit': {
-      const fallbackHabit: Habit = sampleHabit || {
-        id: 'test-habit',
-        name: 'Hacer ejercicio matutino',
-        icon: '🏃',
-        color: '#34d399',
-        days: [0, 1, 2, 3, 4, 5, 6],
-        points: 20,
-        priority: 3,
-        preferredTime: 'morning',
-        reminderTime: '08:00',
-        goals: [],
-        createdAt: todayKey(),
-        status: 'active',
-        targetMinutes: 30,
-      };
-      variant = pickVariant(getHabitVariants(fallbackHabit, userName));
-      break;
-    }
-    case 'streak': {
-      variant = pickVariant(getStreakVariants(userName, 2, 5));
-      break;
-    }
-    case 'coach': {
-      variant = pickVariant(getCoachVariants(userName));
-      break;
-    }
-    case 'morning': {
-      variant = pickVariant(getMorningVariants(userName));
-      break;
-    }
-    case 'midday': {
-      variant = pickVariant(getMiddayVariants(userName));
-      break;
-    }
-    case 'night': {
-      variant = pickVariant(getNightVariants(userName));
-      break;
-    }
-    default:
-      variant = {
-        title: '🔔 Notificación de prueba de ¡Pilas!',
-        body: `${userName || 'Usuario'}, las notificaciones del sistema están funcionando correctamente en tu equipo.`,
-      };
-  }
-
-  const ok = await showSystemNotification({
-    title: variant.title,
-    body: variant.body,
-    tag: `test-${type}-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-  });
-
-  return {
-    success: ok,
-    message: ok
-      ? `Notificación de prueba enviada al sistema con éxito (${type}).`
-      : 'No se pudo enviar la notificación al sistema.',
-  };
 }
