@@ -1,0 +1,205 @@
+import React, { useEffect, useState } from 'react';
+import { Cloud, KeyRound, LogOut, RefreshCw, Trash2 } from 'lucide-react';
+import { useSession } from '@/store/useSession';
+import { supabase } from '@/sync/supabase';
+import { changePassword, deleteAccount, passwordProblem, regenerateRecoveryCode } from '@/account/account';
+import { afterAccountDeleted, pendingChanges, signOut, syncNow } from '@/account/runtime';
+import { RecoveryCodeStep } from '@/components/auth/AuthGate';
+import { useToast } from '@/components/ui/ToastContext';
+import { SyncPill } from '@/components/auth/SyncPill';
+
+type Panel = null | 'password' | 'recovery' | 'signout' | 'delete';
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Algo salió mal.');
+
+function relative(ts?: number) {
+  if (!ts) return 'todavía no';
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return 'hace un momento';
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  return new Date(ts).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/**
+ * Cuenta y sincronización: estado, cambiar contraseña, nuevo código de recuperación,
+ * cerrar sesión y eliminar la cuenta.
+ */
+export const AccountCard: React.FC = () => {
+  const { user, lastSyncedAt, syncError } = useSession();
+  const { showToast } = useToast();
+  const [panel, setPanel] = useState<Panel>(null);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [next2, setNext2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [newCode, setNewCode] = useState<string | null>(null);
+  const [forgetKeys, setForgetKeys] = useState(true);
+  const [pending, setPending] = useState(0);
+  const [, tick] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (panel === 'signout') void pendingChanges().then(setPending);
+  }, [panel]);
+
+  if (!user) return null;
+
+  const open = (p: Panel) => {
+    setPanel(panel === p ? null : p);
+    setCurrent('');
+    setNext('');
+    setNext2('');
+    setError(null);
+    setNewCode(null);
+  };
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (next !== next2) return setError('Las contraseñas nuevas no coinciden.');
+    const problem = passwordProblem(next);
+    if (problem) return setError(problem);
+    void run(async () => {
+      await changePassword(supabase(), user.id, user.email, current, next);
+      showToast('Contraseña cambiada', 'success', 'Tus datos siguen cifrados con la misma clave de cuenta.');
+      setPanel(null);
+    });
+  };
+
+  const onRegenerate = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run(async () => setNewCode(await regenerateRecoveryCode(supabase(), user.id, user.email, current)));
+  };
+
+  const onDelete = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      await deleteAccount(supabase(), user.id, user.email, current);
+      await afterAccountDeleted();
+    });
+  };
+
+  const field = (label: string, value: string, set: (v: string) => void, autoComplete: string) => (
+    <label className="field">
+      <span className="label">{label}</span>
+      <input className="input" type="password" autoComplete={autoComplete} required value={value} onChange={(e) => set(e.target.value)} />
+    </label>
+  );
+
+  return (
+    <div className="card" style={{ borderTop: '3px solid var(--accent)' }}>
+      <div className="card-head">
+        <div className="row">
+          <Cloud size={18} style={{ color: 'var(--accent-2)' }} />
+          <div>
+            <div className="card-title">Cuenta y sincronización</div>
+            <div className="card-sub">{user.email}</div>
+          </div>
+        </div>
+        <SyncPill />
+      </div>
+
+      <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 14, lineHeight: 1.55 }}>
+        Tus datos se guardan en este dispositivo y se sincronizan <strong>cifrados de extremo a extremo</strong> con tus otros
+        dispositivos: en la nube solo hay datos ilegibles sin tu contraseña. Las claves API no se sincronizan. Última
+        sincronización: {relative(lastSyncedAt)}.
+      </p>
+      {syncError && <p className="form-error" style={{ marginBottom: 12 }}>{syncError}</p>}
+
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="btn btn-secondary sm" onClick={() => void syncNow()}>
+          <RefreshCw aria-hidden /> Sincronizar ahora
+        </button>
+        <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'password'} onClick={() => open('password')}>
+          <KeyRound aria-hidden /> Cambiar contraseña
+        </button>
+        <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'recovery'} onClick={() => open('recovery')}>
+          Nuevo código de recuperación
+        </button>
+        <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'signout'} onClick={() => open('signout')}>
+          <LogOut aria-hidden /> Cerrar sesión
+        </button>
+        <button type="button" className="btn btn-ghost sm" style={{ color: 'var(--danger)' }} aria-expanded={panel === 'delete'} onClick={() => open('delete')}>
+          <Trash2 aria-hidden /> Eliminar cuenta
+        </button>
+      </div>
+
+      {panel === 'password' && (
+        <form className="form mt" onSubmit={onChangePassword}>
+          {field('Contraseña actual', current, setCurrent, 'current-password')}
+          {field('Contraseña nueva', next, setNext, 'new-password')}
+          {field('Repite la contraseña nueva', next2, setNext2, 'new-password')}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? 'Guardando…' : 'Cambiar contraseña'}
+          </button>
+        </form>
+      )}
+
+      {panel === 'recovery' && !newCode && (
+        <form className="form mt" onSubmit={onRegenerate}>
+          <p className="small muted">El código anterior dejará de servir.</p>
+          {field('Contraseña', current, setCurrent, 'current-password')}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? 'Generando…' : 'Generar código nuevo'}
+          </button>
+        </form>
+      )}
+      {panel === 'recovery' && newCode && (
+        <div className="mt">
+          <RecoveryCodeStep code={newCode} doneLabel="Listo" onDone={() => setPanel(null)} />
+        </div>
+      )}
+
+      {panel === 'signout' && (
+        <div className="form mt">
+          <p className="small" style={{ color: 'var(--text-2)' }}>
+            Se borrarán los datos de este dispositivo (siguen en tu cuenta). Para volver a entrar necesitarás tu contraseña.
+          </p>
+          {pending > 0 && (
+            <p className="form-error">
+              Hay {pending} cambios que aún no se subieron. Si no hay conexión al cerrar sesión, se perderán.
+            </p>
+          )}
+          <label className="checkbox">
+            <input type="checkbox" checked={forgetKeys} onChange={(e) => setForgetKeys(e.target.checked)} />
+            Olvidar también las claves API de este dispositivo
+          </label>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void run(() => signOut({ forgetApiKeys: forgetKeys }))}>
+            {busy ? 'Cerrando sesión…' : 'Cerrar sesión'}
+          </button>
+        </div>
+      )}
+
+      {panel === 'delete' && (
+        <form className="form mt" onSubmit={onDelete}>
+          <p className="form-error">
+            Se borrarán tu cuenta y todos tus datos en la nube y en este dispositivo. No se puede deshacer.
+          </p>
+          {field('Contraseña para confirmar', current, setCurrent, 'current-password')}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="btn btn-danger-solid" type="submit" disabled={busy}>
+            {busy ? 'Eliminando…' : 'Eliminar mi cuenta para siempre'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+};

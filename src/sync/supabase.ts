@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { deviceDelete, deviceGet, deviceSet } from '@/db/localDb';
+import { deviceDb, deviceDelete, deviceGet, deviceSet } from '@/db/localDb';
 
 /**
  * CLIENTE DE SUPABASE
@@ -33,4 +33,18 @@ export function supabase(): SupabaseClient {
     },
   });
   return client;
+}
+
+/**
+ * Cierra la sesión en este dispositivo y borra los tokens guardados. Se borran a mano además de
+ * llamar a signOut: si había una renovación de token en curso (p. ej. sin red), podría volver a guardarlos.
+ */
+export async function clearLocalSession(): Promise<void> {
+  if (isSupabaseConfigured) {
+    await Promise.race([
+      supabase().auth.signOut({ scope: 'local' }).catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 2_000)),
+    ]);
+  }
+  await deviceDb().kv.where('key').startsWith('auth:').delete();
 }

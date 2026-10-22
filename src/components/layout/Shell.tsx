@@ -40,6 +40,7 @@ import { FloatingCoachChat } from '@/components/coach/FloatingCoachChat';
 import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
 import { CoachIcon } from '@/components/ui/icons';
 import { useCoachPersona } from '@/components/coach/coachPersona';
+import { SyncPill } from '@/components/auth/SyncPill';
 
 interface NavItem {
   to: string;
@@ -163,6 +164,7 @@ export const Shell: React.FC = () => {
           >
             <Zap size={16} />
           </button>
+          <SyncPill compact />
         </div>
 
         <div className="level-card" aria-label={`Nivel ${levelInfo.level}, ${pts.balance} puntos`}>
@@ -206,6 +208,7 @@ export const Shell: React.FC = () => {
             <span className="mobile-topbar-title">{currentItem?.label ?? '¡Pilas!'}</span>
           </div>
           <div className="row" style={{ gap: 6 }}>
+            <SyncPill compact />
             <button
               type="button"
               className={`icon-btn energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}

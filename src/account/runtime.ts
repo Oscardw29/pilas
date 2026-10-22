@@ -8,7 +8,7 @@ import { initSecrets, useSecrets } from '@/store/useSecrets';
 import { useSession, type SessionUser } from '@/store/useSession';
 import { syncOnce } from '@/sync/engine';
 import { supabaseRemote, type Remote } from '@/sync/remote';
-import { isSupabaseConfigured, supabase } from '@/sync/supabase';
+import { clearLocalSession, isSupabaseConfigured, supabase } from '@/sync/supabase';
 import { forgetAccountKeys, loadAccountKeys, type SignedIn } from './account';
 
 /**
@@ -21,7 +21,8 @@ import { forgetAccountKeys, loadAccountKeys, type SignedIn } from './account';
 
 const SYNC_DEBOUNCE_MS = 3_000;
 const SYNC_INTERVAL_MS = 120_000;
-const SIGN_OUT_SYNC_TIMEOUT_MS = 8_000;
+const SIGN_OUT_SYNC_TIMEOUT_MS = 5_000;
+const GET_SESSION_TIMEOUT_MS = 3_000;
 
 interface Active {
   user: SessionUser;
@@ -40,7 +41,18 @@ const session = () => useSession.getState();
 
 /* ---------------- Arranque ---------------- */
 
-export async function boot(): Promise<void> {
+let booting: Promise<void> | null = null;
+
+/** Arranque (idempotente: React en modo estricto monta dos veces en desarrollo) */
+export function boot(): Promise<void> {
+  booting ??= doBoot().catch((err) => {
+    console.error('[Arranque]', err);
+    session().set({ status: 'signedOut' });
+  });
+  return booting;
+}
+
+async function doBoot(): Promise<void> {
   await initSecrets().catch((err) => console.warn('[Arranque] Claves API:', err));
   void requestPersistentStorage();
 
@@ -79,8 +91,14 @@ export async function boot(): Promise<void> {
  */
 async function storedUser(): Promise<SessionUser | null> {
   try {
-    const { data } = await supabase().auth.getSession();
-    if (data.session?.user) return { id: data.session.user.id, email: data.session.user.email ?? '' };
+    // Con el token caducado y sin red, getSession reintenta la renovación durante mucho tiempo:
+    // no se espera más de unos segundos para abrir la app
+    const result = await Promise.race([
+      supabase().auth.getSession(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), GET_SESSION_TIMEOUT_MS)),
+    ]);
+    const user = result?.data.session?.user;
+    if (user) return { id: user.id, email: user.email ?? '' };
   } catch {
     /* sin red: se mira la copia local */
   }
@@ -97,6 +115,16 @@ async function storedUser(): Promise<SessionUser | null> {
 /* ---------------- Entrar a la cuenta (tras iniciar sesión o registrarse) ---------------- */
 
 export async function enterAccount(signed: SignedIn): Promise<void> {
+  try {
+    await doEnterAccount(signed);
+  } catch (err) {
+    console.error('[Cuenta] No se pudo abrir la cuenta:', err);
+    session().set({ status: 'signedOut' });
+    throw err;
+  }
+}
+
+async function doEnterAccount(signed: SignedIn): Promise<void> {
   session().set({ status: 'loading' });
   const db = openUserDb(signed.user.id);
   const remote = supabaseRemote(supabase());
@@ -219,7 +247,8 @@ async function syncPass() {
       syncError: result.undecryptable ? `${result.undecryptable} registros de la nube no se pudieron descifrar` : undefined,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const raw = err instanceof Error ? err.message : String(err);
+    const message = /failed to fetch|network|load failed/i.test(raw) ? 'No se pudo conectar con el servidor. Se reintentará solo.' : raw;
     session().set({ sync: navigator.onLine ? 'error' : 'offline', syncError: message });
   }
 }
@@ -245,7 +274,7 @@ export async function signOut({ forgetApiKeys }: { forgetApiKeys: boolean }): Pr
     }
     stopActive();
     pendingLegacy = null;
-    await supabase().auth.signOut({ scope: 'local' }).catch(() => undefined);
+    await clearLocalSession();
     if (a) {
       await forgetAccountKeys(a.user.id);
       await deleteUserDb(a.user.id);
@@ -264,7 +293,7 @@ export async function afterAccountDeleted(): Promise<void> {
   signingOut = true;
   try {
     stopActive();
-    await supabase().auth.signOut({ scope: 'local' }).catch(() => undefined);
+    await clearLocalSession();
     if (a) {
       await forgetAccountKeys(a.user.id);
       await deleteUserDb(a.user.id);

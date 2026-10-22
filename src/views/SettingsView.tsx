@@ -36,6 +36,7 @@ import {
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
 import { BackupCard } from '../components/settings/BackupCard';
+import { AccountCard } from '../components/settings/AccountCard';
 import { AnimationTestCard } from '../components/settings/AnimationTestCard';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
@@ -1677,6 +1678,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </button>
         </div>
       </form>
+
+      <AccountCard />
 
       <BackupCard onDataReplaced={onDataReplaced} />
 

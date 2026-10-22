@@ -1118,6 +1118,11 @@ export const AiCoachView: React.FC = () => {
               <Send size={16} /> <span className="chat-send-label">Enviar</span>
             </button>
           </form>
+          {/* Privacidad: el coach necesita contexto, pero el usuario debe saber qué sale del dispositivo */}
+          <p className="faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.45 }}>
+            Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA
+            que elegiste en Ajustes, con tu propia clave.
+          </p>
         </div>
       </div>
 

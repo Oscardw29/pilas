@@ -65,7 +65,7 @@ export const WelcomeModal: React.FC = () => {
           <BrandMark size={44} className="welcome-logo" />
           <p style={{ color: 'var(--text-2)', lineHeight: 1.55 }}>
             Construye hábitos con versiones mínimas, rachas que perdonan días libres y un coach que analiza tus datos.
-            Todo se guarda solo en este dispositivo.
+            Tus datos se guardan en este dispositivo y viajan cifrados a tus otros dispositivos.
           </p>
         </div>
 
