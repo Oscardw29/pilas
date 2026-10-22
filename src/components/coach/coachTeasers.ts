@@ -14,6 +14,8 @@ export interface CoachTeaserMsg {
   text: string;
   /** Pregunta que se envía al abrir la página del coach desde el aviso */
   prompt: string;
+  /** Texto del enlace bajo el mensaje (por defecto «Toca para verlo →») */
+  cta?: string;
 }
 
 export const TEASER_EVENT = 'constancia:coach-teaser';
@@ -84,6 +86,17 @@ const GENERIC: CoachTeaserMsg[] = [
   { text: 'Hice cuentas y… tienes que ver esto 📊', prompt: 'Resume mi progreso reciente con números y dime qué destaca.' },
 ];
 
+/** Por debajo de este número de hábitos aún no hay datos que analizar: avisos para arrancar */
+const NEWCOMER_MAX_HABITS = 2;
+
+const NEWCOMER: CoachTeaserMsg[] = [
+  { text: '¡Hola! ¿Empezamos con tu primer hábito? 🌱', prompt: 'Soy nuevo en la app. Ayúdame a elegir un primer hábito sencillo y a configurarlo.', cta: 'Toca para empezar →' },
+  { text: 'Tengo un truco para que tu primer hábito sí dure 💡', prompt: '¿Cuál es el truco para que mi primer hábito dure? Dame consejos para empezar pequeño.', cta: 'Toca para saberlo →' },
+  { text: '¿Qué te gustaría mejorar? Te ayudo a convertirlo en hábito', prompt: 'Quiero mejorar algo en mi vida. Hazme un par de preguntas y ayúdame a convertirlo en un hábito concreto.', cta: 'Toca para hablarlo →' },
+  { text: 'Con 2 minutos al día basta para arrancar ⏱️', prompt: '¿Cómo empiezo un hábito con solo 2 minutos al día? Dame ideas concretas para mí.', cta: 'Toca para ver ideas →' },
+  { text: 'Cuantos más hábitos registres, más cosas te podré contar 👀', prompt: '¿Qué hábitos me recomiendas registrar para empezar y qué podrás contarme cuando tenga datos?', cta: 'Toca para verlo →' },
+];
+
 /** Elige un aviso: primero los que dependen del día del usuario, si no uno genérico distinto al anterior */
 export function pickTeaser(): CoachTeaserMsg {
   const state = useStore.getState();
@@ -91,6 +104,15 @@ export function pickTeaser(): CoachTeaserMsg {
   const hour = new Date().getHours();
   const log = readLog();
   const options: CoachTeaserMsg[] = [];
+
+  // Recién llegados: sin hábitos suficientes, los avisos sobre «tus datos» no tendrían nada detrás
+  const habitCount = (state.habits || []).filter((h) => h.status !== 'archived').length;
+  if (habitCount < NEWCOMER_MAX_HABITS) {
+    let idx = Math.floor(Math.random() * NEWCOMER.length);
+    if (idx === log.lastIdx) idx = (idx + 1) % NEWCOMER.length;
+    writeLog({ ...log, lastIdx: idx });
+    return NEWCOMER[idx];
+  }
 
   try {
     const pending = (state.habits || []).filter(
