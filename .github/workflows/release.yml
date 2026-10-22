@@ -1,0 +1,87 @@
+# Publica una versión: al subir una etiqueta v* (p. ej. `git tag v2.0.0 && git push --tags`)
+# compila Windows (.exe/.msi), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
+# borrador de GitHub Release. Gratis en repos públicos (2000 min/mes en privados).
+#
+# Secretos del repositorio (Settings → Secrets and variables → Actions):
+#   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY   proyecto de Supabase (públicos por diseño)
+#   ANDROID_KEYSTORE_BASE64                            el .jks en base64
+#   ANDROID_KEYSTORE_PASS, ANDROID_KEY_ALIAS, ANDROID_KEY_PASS
+name: Publicar versión
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Dependencias de Linux
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - run: npm test
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '¡Pilas! ${{ github.ref_name }}'
+          releaseBody: 'Descarga el instalador para tu sistema. iOS y macOS: usa la app web (Añadir a pantalla de inicio / Añadir al Dock).'
+          releaseDraft: true
+
+  android:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/pilas-release.jks"
+      - name: APK firmado
+        env:
+          PILAS_KEYSTORE_PATH: ${{ runner.temp }}/pilas-release.jks
+          PILAS_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          PILAS_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PILAS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+        run: npm run android:apk
+      - name: Nombre del APK
+        run: cp android/app/build/outputs/apk/release/*.apk "Pilas-${{ github.ref_name }}.apk"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: Pilas-${{ github.ref_name }}.apk
+      - name: Borrar keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/pilas-release.jks"

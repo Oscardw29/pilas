@@ -13,7 +13,10 @@
     "build:android": "tsc --noEmit && vite build --mode capacitor && cap sync android",
     "android:open": "cap open android",
     "android:apk": "node scripts/build-apk.mjs",
-    "android:icons": "capacitor-assets generate --android --iconBackgroundColor \"#0c0c10\" --splashBackgroundColor \"#0c0c10\""
+    "android:icons": "capacitor-assets generate --android --iconBackgroundColor \"#0c0c10\" --splashBackgroundColor \"#0c0c10\"",
+    "build:tauri-web": "tsc --noEmit && vite build --mode tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

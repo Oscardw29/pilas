@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos de la ventana principal: notificaciones del sistema y fetch nativo solo hacia Fish Audio (su API no admite CORS)",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://api.fish.audio/*" }]
+    }
+  ]
+}

@@ -53,4 +53,3 @@ src-tauri/*.key.pub
 
 # Builds nativos
 src-tauri/target/
-src-tauri/gen/

@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Scripts de shell siempre con LF (si no, fallan en Linux/macOS)
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
