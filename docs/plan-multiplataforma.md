@@ -1,6 +1,27 @@
 # Plan de implementación: ¡Pilas! multiplataforma + cuentas sincronizadas
 
-> Estado: **propuesta** (2026-10-19). Presupuesto: **0 USD**.
+> Estado: **en implementación** (revisado el 2026-10-21 tras integrar `main`). Presupuesto: **0 USD**.
+
+## Ajustes tras revisar los cambios de `main` (2026-10-21)
+
+Los 46 commits nuevos (coach Pilo/Pila, Laboratorio, Tienda, racha, voz) **no chocan con el plan**. Ajustes:
+
+| Cambio en `main` | Ajuste en el plan |
+|---|---|
+| `api/relay.ts` se eliminó; ahora solo existe `api/fish-tts.ts` (`_fishRelay.ts`), con comprobación de `Origin`, modelo y límite de texto | S1 queda resuelto por ese relay. En nativo, Fish Audio se llama **directo** con HTTP nativo (misma petición que el relay) |
+| Se eliminaron el asistente de voz y el dictado (`voice.ts`, `voiceInput.ts`, `useDictation`) | Se quita `speechRecognition` de la capa de plataforma y el permiso `RECORD_AUDIO` de Android |
+| La voz vive en `lib/coachVoice.ts`; ElevenLabs y OpenAI se llaman directo (permiten CORS) | Solo Fish Audio necesita `platform.http` (TTS y saldo en `voiceCheck.ts`) |
+| La bienvenida usa `isFirstRun` (miraba `localStorage['constancia-v2']`) y se empieza siempre desde cero | «Primer uso» = la cuenta no tiene datos ni en local ni en la nube tras la primera sincronización |
+| Nuevos ajustes `userGender` y `coachMuted` | Se sincronizan con el resto de `settings` |
+| Más usos de `localStorage` (avisos del coach, guía del mapa, notificaciones enviadas) | Son preferencias de interfaz del dispositivo, sin datos sensibles: se quedan en `localStorage` |
+| La fase 0 ya estaba hecha en esta rama | Integrada con `main` (se añadió el peso 800 de Inter que usa el diseño nuevo) |
+
+Decisiones de implementación:
+- Se reemplaza el middleware `persist` de Zustand por un **suscriptor propio** (`src/db/persistence.ts`) que compara referencias y JSON por registro: no se tocan las acciones del store.
+- El router es `HashRouter` en Capacitor y Tauri y `BrowserRouter` en la web.
+- En Tauri no se inyecta el CSP `<meta>` de Vite (bloquearía el IPC); se usa el de `tauri.conf.json`.
+- Al cerrar sesión, la casilla «olvidar también las claves API» viene **marcada** por defecto (equipos compartidos).
+
 
 ## Decisiones tomadas
 
