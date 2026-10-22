@@ -52,22 +52,42 @@
 @keyframes caExplainL { from { rotate: 0deg; } to { rotate: 10deg; } }
 @keyframes caExplainR { from { rotate: 0deg; } to { rotate: -10deg; } }
 
-/* Tienda: se balancea y de vez en cuando lanza una moneda y la atrapa */
+/* Con la mano en alto la palma mira al frente: se refleja para que el pulgar quede hacia la cabeza */
+.coach-avatar.ca-g-wave .ca-hand-r,
+.coach-avatar.ca-g-cheer .ca-hand-r,
+.coach-avatar.ca-g-coin .ca-hand-r,
+.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-hand-l,
+.coach-avatar.ca-g-explain.ca-outfit-lab .ca-hand-r,
+.coach-avatar.ca-outfit-lab .ca-hand-l { transform: scaleX(-1); }
+
+/* Tienda: se balancea y de vez en cuando lanza una moneda al aire y la atrapa con la misma mano.
+   Los giros del brazo deben coincidir con COIN_UP / COIN_FORE de CoachAvatar.tsx */
 .ca-idle-shop .ca-rig { animation: caSway 3.6s ease-in-out infinite; }
 .coach-avatar.ca-g-coin .ca-up-r { transform: rotate(-112deg); }
 .coach-avatar.ca-g-coin .ca-fore-r { transform: rotate(-64deg); }
-.coach-avatar .ca-coin { transform-box: fill-box; transform-origin: center; }
-.coach-avatar.ca-g-coin .ca-coin { animation: caCoinToss 1.5s ease-in-out .7s both; }
 @keyframes caSway { 0%, 100% { transform: translateX(0) rotate(0deg); } 30% { transform: translateX(-2px) rotate(-1.2deg); } 70% { transform: translateX(2px) rotate(1.2deg); } }
-/* El antebrazo apunta hacia arriba: en sus coordenadas «arriba» es +Y */
-@keyframes caCoinToss {
-  0% { transform: translateY(0) scaleX(1); }
-  22% { transform: translateY(30px) scaleX(-1); }
-  32% { transform: translateY(38px) scaleX(1); }
-  44% { transform: translateY(30px) scaleX(-1); }
-  62% { transform: translateY(0) scaleX(1); }
-  70% { transform: translateY(-2px) scaleX(1); }
-  100% { transform: translateY(0) scaleX(1); }
+/* La moneda de la mano solo se ve al lanzarla; mientras vuela se oculta y la sustituye la del aire,
+   que sube y baja en vertical justo sobre la mano */
+.coach-avatar .ca-coin-hand { opacity: 0; transition: opacity .2s; }
+.coach-avatar.ca-g-coin .ca-coin-hand { opacity: 1; animation: caCoinHandHide 1.5s linear .7s forwards; }
+.coach-avatar .ca-coin-fly { opacity: 0; }
+.coach-avatar.ca-g-coin .ca-coin-fly { animation: caCoinFly 1.5s .7s forwards; }
+.coach-avatar .ca-coin-spin { transform-box: fill-box; transform-origin: center; }
+.coach-avatar.ca-g-coin .ca-coin-spin { animation: caCoinSpin .3s linear .7s 4; }
+.coach-avatar.ca-g-coin .ca-hand-r { animation: caCoinFlick 1.5s ease-in-out .7s; }
+@keyframes caCoinHandHide { 0%, 89.9% { opacity: 0; } 90%, 100% { opacity: 1; } }
+@keyframes caCoinFly {
+  0% { opacity: 1; transform: translateY(0); animation-timing-function: cubic-bezier(.25, .7, .45, 1); }
+  45% { opacity: 1; transform: translateY(-46px); animation-timing-function: cubic-bezier(.55, 0, .75, .3); }
+  89.9% { opacity: 1; transform: translateY(0); }
+  90%, 100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes caCoinSpin { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
+/* Impulso de la mano al lanzar y pequeño amortiguado al atraparla (el brazo apunta arriba: en su marco «arriba» es +Y) */
+@keyframes caCoinFlick {
+  0%, 14%, 86%, 100% { translate: 0 0; }
+  6% { translate: 0 3px; }
+  92% { translate: 0 -2.5px; }
 }
 
 /* Laboratorio: sujeta el matraz frente al pecho, lo agita y lo examina */
