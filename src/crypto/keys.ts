@@ -45,26 +45,33 @@ const importAes = (raw: BufferSource, extractable = false) =>
 
 /* ---------------- Cifrado simétrico ---------------- */
 
-/** Cifra bytes con AES-GCM. Formato: base64(iv[12] ‖ ciphertext) */
-export async function sealBytes(key: CryptoKey, plain: Uint8Array<ArrayBuffer>): Promise<string> {
+/**
+ * Cifra bytes con AES-GCM. Formato: base64(iv[12] ‖ ciphertext).
+ * `aad` (datos asociados): se autentican sin cifrar; descifrar con otro `aad` falla.
+ */
+export async function sealBytes(key: CryptoKey, plain: Uint8Array<ArrayBuffer>, aad?: string): Promise<string> {
   const iv = randomBytes(12);
-  const ct = new Uint8Array(await subtle().encrypt({ name: 'AES-GCM', iv }, key, plain));
+  const ct = new Uint8Array(await subtle().encrypt({ name: 'AES-GCM', iv, ...(aad ? { additionalData: enc.encode(aad) } : {}) }, key, plain));
   const out = new Uint8Array(iv.length + ct.length);
   out.set(iv);
   out.set(ct, iv.length);
   return toB64(out);
 }
 
-export async function openBytes(key: CryptoKey, sealed: string): Promise<Uint8Array<ArrayBuffer>> {
+export async function openBytes(key: CryptoKey, sealed: string, aad?: string): Promise<Uint8Array<ArrayBuffer>> {
   const all = fromB64(sealed);
-  const plain = await subtle().decrypt({ name: 'AES-GCM', iv: all.subarray(0, 12) }, key, all.subarray(12));
+  const plain = await subtle().decrypt(
+    { name: 'AES-GCM', iv: all.subarray(0, 12), ...(aad ? { additionalData: enc.encode(aad) } : {}) },
+    key,
+    all.subarray(12),
+  );
   return new Uint8Array(plain);
 }
 
-export const sealJson = (key: CryptoKey, value: unknown) => sealBytes(key, enc.encode(JSON.stringify(value)));
+export const sealJson = (key: CryptoKey, value: unknown, aad?: string) => sealBytes(key, enc.encode(JSON.stringify(value)), aad);
 
-export async function openJson<T>(key: CryptoKey, sealed: string): Promise<T> {
-  return JSON.parse(dec.decode(await openBytes(key, sealed))) as T;
+export async function openJson<T>(key: CryptoKey, sealed: string, aad?: string): Promise<T> {
+  return JSON.parse(dec.decode(await openBytes(key, sealed, aad))) as T;
 }
 
 /* ---------------- Contraseña → claves ---------------- */

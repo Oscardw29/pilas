@@ -34,7 +34,7 @@ Decisiones de implementación:
 | F4 · Android | ✅ Proyecto listo, **sin compilar** (falta Android Studio / JDK 21) | `android/`, `capacitor.config.ts`, [android.md](android.md) |
 | F5 · Windows / Linux | ✅ Proyecto listo, **sin compilar** (falta Rust + C++ Build Tools) | `src-tauri/`, [desktop.md](desktop.md) |
 | F6 · PWA y distribución | ✅ Hecho | `/descargar`, `.github/workflows/release.yml` |
-| F7 · Verificación | 🟡 Pruebas automáticas (13) y revisión en navegador hechas; faltan la prueba real con Supabase y entre dispositivos | — |
+| F7 · Verificación | 🟡 15 pruebas automáticas, revisión en navegador y revisión de seguridad hechas; faltan la prueba real con Supabase y entre dispositivos | `tests/` |
 
 Lo que tienes que hacer tú: [supabase.md](supabase.md) (crear el proyecto y pegar el SQL), y para generar `.apk` / `.exe`, instalar las herramientas de [android.md](android.md) y [desktop.md](desktop.md).
 
@@ -266,7 +266,24 @@ Lo que **ya está bien**: las claves van en cabeceras (nunca en la URL), están 
 | S16 | Sin conexión y con el token caducado, la app se quedaba en «Abriendo…» (Supabase reintenta la renovación) | Medio (nuevo) | Límite de 3 s y sesión guardada (F2) ✅ |
 | S17 | Al cerrar sesión con una renovación de token en curso, los tokens podían quedar guardados | Medio (nuevo) | Borrado explícito de `auth:*` (F2) ✅ |
 
-**Estado:** S1–S8 y S10–S17 resueltos. S9 (el coach envía un resumen de hábitos a la IA) es inherente a usar IA en la nube: se añadió el aviso bajo el chat; el contexto no incluye notas personales.
+### Revisión de seguridad del código nuevo (2026-10-21)
+
+| # | Hallazgo | Riesgo | Arreglo |
+|---|---|---|---|
+| S18 | Cambiar la contraseña no era atómico: si fallaba a medias, ni la vieja ni la nueva abrían la cuenta | Alto | Se guarda primero la clave con la contraseña nueva conservando la anterior (`wrapped_dek_pw_prev`), luego se cambia en Supabase; si falla se deshace y, si no, se repara al entrar ✅ |
+| S19 | Al aplicar cambios de otro dispositivo se recargaba todo el store y se podían perder ediciones recientes | Alto | Solo se actualizan los registros que llegaron, tras guardar lo pendiente (`applyRemoteKeys`) ✅ |
+| S20 | Si fallaba la primera descarga, un dispositivo nuevo subía sus valores por defecto y pisaba la cuenta | Medio-alto | Sin una primera descarga correcta no se entra (se muestra el error) ✅ |
+| S21 | El servidor podía marcar registros como borrados o «más nuevos» (esos campos no estaban cifrados) | Medio | Fecha y borrado van dentro del contenido cifrado y autenticado, con el id opaco como datos asociados ✅ |
+| S22 | Recargar en la pantalla del código de recuperación o de datos antiguos se saltaba el paso; los datos antiguos podían importarse sin preguntar en la cuenta de otra persona | Medio | Las claves se guardan solo al terminar; los datos antiguos siempre se preguntan ✅ |
+| S23 | Tras «restablecer sin código», otros dispositivos seguían subiendo con la clave vieja | Medio | `key_id` en `user_keys`: si cambia se pide iniciar sesión; además se cierran las demás sesiones ✅ |
+| S24 | Crear las claves con `upsert` podía sobrescribir las existentes (dos dispositivos a la vez) | Medio-bajo | Inserción simple; si ya existen se usan esas ✅ |
+| S25 | Cerrar sesión borraba cambios sin subir si fallaba la subida | Bajo-medio | Se cuentan tras el intento y hay que confirmar «Cerrar sesión y perderlos» ✅ |
+| S26 | Sesión revocada en el servidor: quedaban en el equipo la base y las claves | Bajo | Se borran las claves de cifrado y la sesión; la base solo se conserva si tiene cambios sin subir ✅ |
+| S27 | Cuota por número de registros (no por tamaño); fetch nativo de Android sin lista de hosts; `workflow_dispatch` con nombre de rama como etiqueta | Bajo | Cuota de 50 MB por cuenta, fetch nativo solo a `api.fish.audio`, se quitó `workflow_dispatch` ✅ |
+
+Pendiente de comprobar con un proyecto real: que `delete_my_account` (`security definer`) puede borrar de `auth.users` en tu proyecto de Supabase. Las acciones de GitHub están fijadas por etiqueta, no por SHA.
+
+**Estado:** S1–S8 y S10–S27 resueltos. S9 (el coach envía un resumen de hábitos a la IA) es inherente a usar IA en la nube: se añadió el aviso bajo el chat; el contexto no incluye notas personales.
 
 ---
 

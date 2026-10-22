@@ -85,6 +85,7 @@ const AuthScreen: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const notice = useSession((s) => s.notice);
   /** Cuenta abierta que aún tiene que guardar su código de recuperación */
   const [pending, setPending] = useState<{ signed: SignedIn; cloudReset: boolean } | null>(null);
 
@@ -211,6 +212,13 @@ const AuthScreen: React.FC = () => {
     <div className="auth-screen">
       <div className="card auth-card">
         <Brand />
+
+        {notice && mode === 'signin' && (
+          <div className="callout attention" role="status">
+            <KeyRound aria-hidden />
+            <div className="detail">{notice}</div>
+          </div>
+        )}
 
         {(mode === 'signin' || mode === 'signup') && (
           <div className="segmented auth-tabs" role="tablist" aria-label="Acceso">
@@ -473,10 +481,35 @@ export const RecoveryCodeStep: React.FC<{ code: string; onDone: () => void; busy
 
 const LegacyChoice: React.FC = () => {
   const [busy, setBusy] = useState(false);
+  const accountHasData = useSession((s) => s.legacyAccountHasData);
   const choose = (c: Parameters<typeof resolveLegacy>[0]) => {
     setBusy(true);
     void resolveLegacy(c).finally(() => setBusy(false));
   };
+  if (!accountHasData) {
+    return (
+      <div className="auth-screen">
+        <div className="card auth-card">
+          <Brand />
+          <div>
+            <h2 className="auth-title">Este dispositivo tiene datos sin cuenta</h2>
+            <p className="auth-lead">
+              Encontramos hábitos guardados en este dispositivo de antes de usar cuentas. Si son tuyos, puedes subirlos a tu
+              cuenta. Si son de otra persona que usa este dispositivo, descártalos.
+            </p>
+          </div>
+          <div className="form">
+            <button className="btn btn-primary block" disabled={busy} onClick={() => choose('replace')}>
+              Subir estos datos a mi cuenta
+            </button>
+            <button className="btn btn-ghost block" disabled={busy} onClick={() => choose('discard')}>
+              Empezar de cero (descartarlos)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="auth-screen">
       <div className="card auth-card">

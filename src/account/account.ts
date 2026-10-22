@@ -15,8 +15,12 @@ export const MIN_PASSWORD_LENGTH = 10;
 
 interface UserKeysRow {
   user_id: string;
+  /** Cambia cada vez que se crea una clave de cuenta nueva (restablecer sin código) */
+  key_id: string;
   kdf: { alg: 'PBKDF2-SHA256'; iterations: number; version: number };
   wrapped_dek_pw: string;
+  /** Copia envuelta con la contraseña anterior mientras un cambio de contraseña está a medias */
+  wrapped_dek_pw_prev?: string | null;
   wrapped_dek_recovery: string;
 }
 
@@ -62,10 +66,15 @@ export function passwordProblem(password: string): string | null {
 
 /* ---------------- Claves guardadas en el dispositivo ---------------- */
 
+export interface StoredAccountKeys extends AccountKeys {
+  keyId: string;
+}
+
 const accountKeysKey = (userId: string) => `account:${userId}`;
 
-export const loadAccountKeys = (userId: string) => deviceGet<AccountKeys>(accountKeysKey(userId));
-const storeAccountKeys = (userId: string, keys: AccountKeys) => deviceSet(accountKeysKey(userId), keys);
+export const loadAccountKeys = (userId: string) => deviceGet<StoredAccountKeys>(accountKeysKey(userId));
+/** Se guardan solo al terminar de entrar (tras el código de recuperación / la elección de datos) */
+export const storeAccountKeys = (userId: string, keys: StoredAccountKeys) => deviceSet(accountKeysKey(userId), keys);
 export const forgetAccountKeys = (userId: string) => deviceDelete(accountKeysKey(userId));
 
 /* ---------------- user_keys en Supabase ---------------- */
@@ -76,48 +85,117 @@ async function fetchUserKeys(sb: SupabaseClient, userId: string): Promise<UserKe
   return (data as UserKeysRow | null) ?? null;
 }
 
-/** Crea la clave de la cuenta (primera vez). Devuelve el código de recuperación para mostrarlo una sola vez. */
-async function createUserKeys(sb: SupabaseClient, user: User, kek: CryptoKey): Promise<{ keys: AccountKeys; recoveryCode: string }> {
+/** Id de la clave de cuenta vigente (para detectar que otro dispositivo la restableció) */
+export async function currentKeyId(sb: SupabaseClient, userId: string): Promise<string | null> {
+  const { data, error } = await sb.from('user_keys').select('key_id').eq('user_id', userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { key_id?: string } | null)?.key_id ?? null;
+}
+
+const isUniqueViolation = (err: { code?: string } | null) => err?.code === '23505';
+
+/**
+ * Crea la clave de la cuenta (primera vez). Devuelve el código de recuperación para mostrarlo una sola vez.
+ * Inserción simple (nunca sobrescribe): si otro dispositivo la creó a la vez, devuelve null y se usa la suya.
+ */
+async function createUserKeys(
+  sb: SupabaseClient,
+  user: User,
+  kek: CryptoKey,
+): Promise<{ keys: AccountKeys; keyId: string; recoveryCode: string } | null> {
   const root = generateRootKey();
   const recoveryCode = generateRecoveryCode();
   const row: UserKeysRow = {
     user_id: user.id,
+    key_id: crypto.randomUUID(),
     kdf: { alg: 'PBKDF2-SHA256', iterations: PBKDF2_ITERATIONS, version: KDF_VERSION },
     wrapped_dek_pw: await wrapRootKey(root, kek),
     wrapped_dek_recovery: await wrapRootKey(root, await recoveryKek(recoveryCode)),
   };
-  const { error } = await sb.from('user_keys').upsert(row);
+  const { error } = await sb.from('user_keys').insert(row);
+  if (isUniqueViolation(error)) return null;
   if (error) throw authError(error);
   const keys = await deriveAccountKeys(root);
   root.fill(0);
-  return { keys, recoveryCode };
+  return { keys, keyId: row.key_id, recoveryCode };
 }
 
 export interface SignedIn {
   user: { id: string; email: string };
   keys: AccountKeys;
+  keyId: string;
   /** Solo si la cuenta acaba de crear sus claves: mostrarlo y pedir que lo guarde */
   recoveryCode?: string;
 }
 
-/** Con sesión iniciada: obtiene (o crea la primera vez) las claves de la cuenta y las guarda en el dispositivo */
-async function unlockAccount(sb: SupabaseClient, user: User, kek: CryptoKey): Promise<SignedIn> {
-  const row = await fetchUserKeys(sb, user.id);
-  let keys: AccountKeys;
-  let recoveryCode: string | undefined;
-  if (!row) {
-    ({ keys, recoveryCode } = await createUserKeys(sb, user, kek));
-  } else {
-    try {
-      const root = await unwrapRootKey(row.wrapped_dek_pw, kek);
-      keys = await deriveAccountKeys(root);
-      root.fill(0);
-    } catch {
-      throw new AccountError('No se pudieron abrir las claves de la cuenta con esta contraseña.', 'invalid_credentials');
-    }
+const wrongPassword = () => new AccountError('No se pudieron abrir las claves de la cuenta con esta contraseña.', 'invalid_credentials');
+
+/**
+ * Abre la clave raíz con la contraseña. Si un cambio de contraseña quedó a medias, la copia
+ * anterior también sirve y se repara en el momento.
+ */
+async function openWithPassword(sb: SupabaseClient, row: UserKeysRow, kek: CryptoKey): Promise<Uint8Array<ArrayBuffer>> {
+  try {
+    return await unwrapRootKey(row.wrapped_dek_pw, kek);
+  } catch {
+    if (!row.wrapped_dek_pw_prev) throw wrongPassword();
   }
-  await storeAccountKeys(user.id, keys);
-  return { user: { id: user.id, email: user.email ?? '' }, keys, recoveryCode };
+  let root: Uint8Array<ArrayBuffer>;
+  try {
+    root = await unwrapRootKey(row.wrapped_dek_pw_prev, kek);
+  } catch {
+    throw wrongPassword();
+  }
+  // La contraseña con la que se pudo entrar es esta: vuelve a ser la vigente
+  await sb
+    .from('user_keys')
+    .update({ wrapped_dek_pw: await wrapRootKey(root, kek), wrapped_dek_pw_prev: null, updated_at: new Date().toISOString() })
+    .eq('user_id', row.user_id);
+  return root;
+}
+
+/** Con sesión iniciada: obtiene (o crea la primera vez) las claves de la cuenta */
+async function unlockAccount(sb: SupabaseClient, user: User, kek: CryptoKey): Promise<SignedIn> {
+  const signedUser = { id: user.id, email: user.email ?? '' };
+  let row = await fetchUserKeys(sb, user.id);
+  if (!row) {
+    const created = await createUserKeys(sb, user, kek);
+    if (created) return { user: signedUser, ...created };
+    row = await fetchUserKeys(sb, user.id);
+    if (!row) throw new AccountError('No se pudieron crear las claves de la cuenta. Inténtalo de nuevo.');
+  }
+  const root = await openWithPassword(sb, row, kek);
+  const keys = await deriveAccountKeys(root);
+  root.fill(0);
+  return { user: signedUser, keys, keyId: row.key_id };
+}
+
+/**
+ * Cambia la contraseña sin riesgo de dejar la cuenta inaccesible:
+ * 1) se guarda la clave envuelta con la nueva contraseña, conservando la copia anterior;
+ * 2) se cambia la contraseña en Supabase;
+ * 3) se borra la copia anterior.
+ * Si el paso 2 falla, la contraseña antigua sigue abriendo la cuenta.
+ */
+async function rewrapAndChangePassword(
+  sb: SupabaseClient,
+  row: UserKeysRow,
+  root: Uint8Array<ArrayBuffer>,
+  next: { authSecret: string; kek: CryptoKey },
+) {
+  const { error: keyError } = await sb
+    .from('user_keys')
+    .update({ wrapped_dek_pw: await wrapRootKey(root, next.kek), wrapped_dek_pw_prev: row.wrapped_dek_pw, updated_at: new Date().toISOString() })
+    .eq('user_id', row.user_id);
+  if (keyError) throw authError(keyError);
+
+  const { error: pwError } = await sb.auth.updateUser({ password: next.authSecret });
+  if (pwError) {
+    // Deshacer: la contraseña sigue siendo la anterior (si esto también falla, openWithPassword lo repara al entrar)
+    await sb.from('user_keys').update({ wrapped_dek_pw: row.wrapped_dek_pw, wrapped_dek_pw_prev: null }).eq('user_id', row.user_id);
+    throw authError(pwError);
+  }
+  await sb.from('user_keys').update({ wrapped_dek_pw_prev: null }).eq('user_id', row.user_id);
 }
 
 /* ---------------- Flujos ---------------- */
@@ -189,35 +267,30 @@ export async function completePasswordReset(
     } catch {
       throw new AccountError('El código de recuperación no es correcto.', 'wrong_recovery_code');
     }
-    const { error: pwError } = await sb.auth.updateUser({ password: next.authSecret });
-    if (pwError) throw authError(pwError);
-    const { error: keyError } = await sb
-      .from('user_keys')
-      .update({ wrapped_dek_pw: await wrapRootKey(root, next.kek), updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
-    if (keyError) throw authError(keyError);
+    await rewrapAndChangePassword(sb, row, root, next);
     const keys = await deriveAccountKeys(root);
     root.fill(0);
-    await storeAccountKeys(user.id, keys);
-    return { user: { id: user.id, email: user.email ?? '' }, keys };
+    return { user: { id: user.id, email: user.email ?? '' }, keys, keyId: row.key_id };
   }
 
   const { error: resetError } = await sb.rpc('reset_my_data');
   if (resetError) throw authError(resetError);
   const { error: pwError } = await sb.auth.updateUser({ password: next.authSecret });
   if (pwError) throw authError(pwError);
-  const { keys, recoveryCode: fresh } = await createUserKeys(sb, user, next.kek);
-  await storeAccountKeys(user.id, keys);
-  return { user: { id: user.id, email: user.email ?? '' }, keys, recoveryCode: fresh };
+  // Los demás dispositivos tenían la clave anterior: se cierran sus sesiones
+  await sb.auth.signOut({ scope: 'others' }).catch(() => undefined);
+  const created = await createUserKeys(sb, user, next.kek);
+  if (!created) throw new AccountError('No se pudieron crear las claves nuevas. Inténtalo de nuevo.');
+  return { user: { id: user.id, email: user.email ?? '' }, ...created };
 }
 
-/** Comprueba la contraseña actual y devuelve la clave raíz (para cambiar contraseña o código) */
+/** Comprueba la contraseña actual y devuelve la fila de claves y la clave raíz */
 async function rootFromPassword(sb: SupabaseClient, userId: string, email: string, password: string) {
   const row = await fetchUserKeys(sb, userId);
   if (!row) throw new AccountError('Esta cuenta no tiene claves guardadas.', 'keys_missing');
   const { kek } = await derivePasswordKeys(email, password);
   try {
-    return await unwrapRootKey(row.wrapped_dek_pw, kek);
+    return { row, root: await openWithPassword(sb, row, kek) };
   } catch {
     throw new AccountError('La contraseña actual no es correcta.', 'invalid_credentials');
   }
@@ -226,21 +299,17 @@ async function rootFromPassword(sb: SupabaseClient, userId: string, email: strin
 export async function changePassword(sb: SupabaseClient, userId: string, email: string, current: string, next: string): Promise<void> {
   const problem = passwordProblem(next);
   if (problem) throw new AccountError(problem);
-  const root = await rootFromPassword(sb, userId, email, current);
-  const derived = await derivePasswordKeys(email, next);
-  const { error } = await sb.auth.updateUser({ password: derived.authSecret });
-  if (error) throw authError(error);
-  const { error: keyError } = await sb
-    .from('user_keys')
-    .update({ wrapped_dek_pw: await wrapRootKey(root, derived.kek), updated_at: new Date().toISOString() })
-    .eq('user_id', userId);
-  root.fill(0);
-  if (keyError) throw authError(keyError);
+  const { row, root } = await rootFromPassword(sb, userId, email, current);
+  try {
+    await rewrapAndChangePassword(sb, row, root, await derivePasswordKeys(email, next));
+  } finally {
+    root.fill(0);
+  }
 }
 
 /** Genera un código de recuperación nuevo (el anterior deja de servir) */
 export async function regenerateRecoveryCode(sb: SupabaseClient, userId: string, email: string, password: string): Promise<string> {
-  const root = await rootFromPassword(sb, userId, email, password);
+  const { root } = await rootFromPassword(sb, userId, email, password);
   const code = generateRecoveryCode();
   const { error } = await sb
     .from('user_keys')
@@ -253,7 +322,7 @@ export async function regenerateRecoveryCode(sb: SupabaseClient, userId: string,
 
 /** Borra la cuenta y todos sus datos en la nube (pide la contraseña para confirmar) */
 export async function deleteAccount(sb: SupabaseClient, userId: string, email: string, password: string): Promise<void> {
-  (await rootFromPassword(sb, userId, email, password)).fill(0);
+  (await rootFromPassword(sb, userId, email, password)).root.fill(0);
   const { error } = await sb.rpc('delete_my_account');
   if (error) throw authError(error);
 }

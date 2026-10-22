@@ -40,8 +40,16 @@ function headersToObject(headers?: HeadersInit): Record<string, string> {
 
 const fromB64 = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
+/**
+ * El fetch nativo se salta CORS y el CSP: solo se permite hacia los proveedores que lo necesitan
+ * (igual que la lista de src-tauri/capabilities/default.json).
+ */
+const NATIVE_FETCH_HOSTS = new Set(['api.fish.audio']);
+
 export const capacitorBridge: NativeBridge = {
   async fetch(url, init) {
+    const host = new URL(url).host;
+    if (!NATIVE_FETCH_HOSTS.has(host)) throw new Error(`Host no permitido para fetch nativo: ${host}`);
     const headers = headersToObject(init.headers);
     const body = typeof init.body === 'string' ? init.body : undefined;
     const res = await CapacitorHttp.request({

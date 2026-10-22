@@ -94,7 +94,7 @@ export const ApiKeySecurityCard: React.FC<{ onKeysForgotten: () => void }> = ({ 
                 className="input"
                 style={{ flex: '1 1 220px' }}
                 autoComplete={secretsLocked ? 'current-password' : 'new-password'}
-                placeholder={secretsLocked ? 'Contraseña de las claves' : 'Nueva contraseña (mín. 6 caracteres)'}
+                placeholder={secretsLocked ? 'Contraseña de las claves' : 'Nueva contraseña (mín. 8 caracteres)'}
                 aria-label={secretsLocked ? 'Contraseña de las claves' : 'Nueva contraseña para cifrar las claves'}
                 value={secPassword}
                 onChange={(e) => setSecPassword(e.target.value)}

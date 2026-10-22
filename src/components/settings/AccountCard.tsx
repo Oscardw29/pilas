@@ -36,6 +36,8 @@ export const AccountCard: React.FC = () => {
   const [newCode, setNewCode] = useState<string | null>(null);
   const [forgetKeys, setForgetKeys] = useState(true);
   const [pending, setPending] = useState(0);
+  /** Tras intentar subirlos, quedaron cambios sin subir: hay que confirmar que se pierden */
+  const [unsynced, setUnsynced] = useState(0);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -56,7 +58,14 @@ export const AccountCard: React.FC = () => {
     setNext2('');
     setError(null);
     setNewCode(null);
+    setUnsynced(0);
   };
+
+  const onSignOut = (force: boolean) =>
+    void run(async () => {
+      const { pending: left } = await signOut({ forgetApiKeys: forgetKeys, force });
+      if (left > 0) setUnsynced(left);
+    });
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -182,9 +191,25 @@ export const AccountCard: React.FC = () => {
             <input type="checkbox" checked={forgetKeys} onChange={(e) => setForgetKeys(e.target.checked)} />
             Olvidar también las claves API de este dispositivo
           </label>
-          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void run(() => signOut({ forgetApiKeys: forgetKeys }))}>
-            {busy ? 'Cerrando sesión…' : 'Cerrar sesión'}
-          </button>
+          {unsynced > 0 ? (
+            <>
+              <p className="form-error" role="alert">
+                No se pudieron subir {unsynced} cambios. Si cierras sesión ahora, se perderán.
+              </p>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => onSignOut(false)}>
+                  Reintentar
+                </button>
+                <button className="btn btn-danger-solid" type="button" disabled={busy} onClick={() => onSignOut(true)}>
+                  Cerrar sesión y perderlos
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => onSignOut(false)}>
+              {busy ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </button>
+          )}
         </div>
       )}
 

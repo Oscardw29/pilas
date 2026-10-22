@@ -78,4 +78,22 @@ describe('sincronización', () => {
     expect(res.undecryptable).toBe(1);
     expect(await intruder.records.count()).toBe(0);
   });
+
+  it('un servidor manipulado no puede borrar ni mover registros', async () => {
+    const keys = await deriveAccountKeys(generateRootKey());
+    const remote = memoryRemote();
+    const a = newDb();
+    await a.records.bulkPut([rec('habits:h1', { name: 'Leer' }, T + 1000), rec('habits:h2', { name: 'Correr' }, T + 1000)]);
+    await syncOnce(a, keys, remote);
+    const [r1, r2] = [...remote.rows.values()];
+    // Marca «borrado» y una fecha futura sin poder tocar el contenido cifrado
+    remote.rows.set(r1.rid, { ...r1, deleted: true, client_updated_at: new Date(T + 99_000).toISOString(), server_updated_at: '2030-01-01T00:00:00.000Z' });
+    // Copia el texto cifrado de un registro en otro
+    remote.rows.set(r2.rid, { ...r2, ciphertext: r1.ciphertext, server_updated_at: '2030-01-01T00:00:00.000Z' });
+    const b = newDb();
+    const res = await syncOnce(b, keys, remote);
+    expect(res.undecryptable).toBe(1);
+    expect((await b.records.get('habits:h1'))?.deleted).toBe(0);
+    expect((await b.records.get('habits:h1'))?.value).toEqual({ name: 'Leer' });
+  });
 });

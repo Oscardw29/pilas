@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { UserDb } from '@/db/localDb';
-import { attachPersistence, detachPersistence, flushNow, hydrateFromDb } from '@/db/persistence';
+import { applyRemoteKeys, attachPersistence, detachPersistence, flushNow, hydrateFromDb } from '@/db/persistence';
 import { useStore } from '@/store/useStore';
 
 describe('persistencia del store', () => {
@@ -32,5 +32,23 @@ describe('persistencia del store', () => {
     await hydrateFromDb(db);
     expect(useStore.getState().settings.userName).toBe('Ana');
     expect(useStore.getState().goals).toHaveLength(0);
+  });
+
+  it('aplicar cambios remotos no pisa ediciones locales sin guardar', async () => {
+    const db = new UserDb(`persist-remote-${Math.random()}`);
+    await hydrateFromDb(db);
+    attachPersistence(db);
+    await flushNow();
+    const goal = useStore.getState().addGoal({
+      name: 'Local', description: '', category: 'x', icon: '🎯', color: '#fff', startDate: '2026-10-01', status: 'active', priority: 1,
+    });
+    // Llega de otro dispositivo un ajuste nuevo mientras el objetivo aún no se guardó
+    await db.records.put({ key: 'single:hasStreakFreeze', value: true, updatedAt: Date.now() + 5000, deleted: 0, dirty: 0 });
+    await applyRemoteKeys(['single:hasStreakFreeze']);
+    expect(useStore.getState().hasStreakFreeze).toBe(true);
+    expect(useStore.getState().goals.some((g) => g.id === goal.id)).toBe(true);
+    await flushNow();
+    expect((await db.records.get(`goals:${goal.id}`))?.dirty).toBe(1);
+    detachPersistence();
   });
 });

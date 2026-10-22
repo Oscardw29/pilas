@@ -169,18 +169,39 @@ async function writeChanges() {
 }
 
 /**
- * Tras aplicar cambios llegados de otro dispositivo a la base: recarga el store sin marcar nada
- * como pendiente (lo recargado ya coincide con lo guardado).
+ * Tras aplicar cambios llegados de otro dispositivo a la base: cambia en el store SOLO esos registros.
+ * Antes se guardan las ediciones locales pendientes, y el resto del estado (incluido lo que el
+ * usuario esté editando ahora mismo) se conserva tal cual.
  */
-export async function reloadFromDb(): Promise<void> {
+export async function applyRemoteKeys(keys: string[]): Promise<void> {
   const target = db;
-  if (!target) return;
-  const all = await target.records.toArray();
-  const live = all.filter((r) => !r.deleted);
-  const data = loadData(live);
-  remember(all);
-  const { activeTimer } = useStore.getState();
-  useStore.setState({ ...data, activeTimer });
+  if (!target || !keys.length) return;
+  await flushNow();
+  const changed = await target.records.bulkGet(keys);
+  if (db !== target) return;
+
+  // Desde aquí, sin esperas: nada puede cambiar el store entre la lectura y la escritura
+  const current = selectData(useStore.getState());
+  const records = toRecords(current);
+  const orders = recordOrders(current);
+  for (const rec of changed) {
+    if (!rec) continue;
+    savedTs.set(rec.key, rec.updatedAt);
+    if (rec.deleted) {
+      records.delete(rec.key);
+      savedRef.delete(rec.key);
+      savedJson.delete(rec.key);
+      savedOrder.delete(rec.key);
+      continue;
+    }
+    records.set(rec.key, rec.value);
+    orders.set(rec.key, rec.order ?? orders.get(rec.key) ?? Number.MAX_SAFE_INTEGER);
+    savedRef.set(rec.key, rec.value);
+    savedJson.set(rec.key, JSON.stringify(rec.value));
+    savedOrder.set(rec.key, rec.order);
+  }
+  const data = loadData([...records].map(([key, value]) => ({ key, value, order: orders.get(key), updatedAt: 0, deleted: 0, dirty: 0 })));
+  useStore.setState({ ...data, activeTimer: current.activeTimer });
   // migrateData puede completar campos (p. ej. la conversación principal): se guardan si cambió algo
   schedule();
 }

@@ -9,8 +9,12 @@
 -- ---------------------------------------------------------------------------
 create table if not exists public.user_keys (
   user_id uuid primary key references auth.users (id) on delete cascade,
+  -- Cambia al crear una clave nueva (restablecer sin código): los demás dispositivos lo detectan
+  key_id uuid not null,
   kdf jsonb not null,
   wrapped_dek_pw text not null check (octet_length(wrapped_dek_pw) < 512),
+  -- Copia con la contraseña anterior mientras un cambio de contraseña está a medias
+  wrapped_dek_pw_prev text check (octet_length(wrapped_dek_pw_prev) < 512),
   wrapped_dek_recovery text not null check (octet_length(wrapped_dek_recovery) < 512),
   updated_at timestamptz not null default now()
 );
@@ -21,7 +25,7 @@ create table if not exists public.user_keys (
 create table if not exists public.records (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   rid text not null check (char_length(rid) between 16 and 64),
-  ciphertext text not null check (octet_length(ciphertext) < 2000000),
+  ciphertext text not null check (octet_length(ciphertext) < 1000000),
   client_updated_at timestamptz not null,
   deleted boolean not null default false,
   server_updated_at timestamptz not null default clock_timestamp(),
@@ -96,9 +100,10 @@ begin
   if jsonb_typeof(rows) <> 'array' or jsonb_array_length(rows) > 500 then
     raise exception 'Lote no válido (máximo 500 registros)' using errcode = '22023';
   end if;
-  -- Cuota por cuenta para que nadie llene la base gratuita
-  if (select count(*) from public.records where user_id = uid) > 200000 then
-    raise exception 'La cuenta superó el límite de registros' using errcode = '54000';
+  -- Cuota por cuenta (registros y tamaño) para que nadie llene la base gratuita
+  if (select count(*) from public.records where user_id = uid) > 200000
+     or (select coalesce(sum(octet_length(ciphertext)), 0) from public.records where user_id = uid) > 50000000 then
+    raise exception 'La cuenta superó el espacio disponible' using errcode = '54000';
   end if;
 
   with input as (

@@ -32,6 +32,10 @@ interface SessionState {
   syncError?: string;
   /** ms epoch de la última sincronización completa */
   lastSyncedAt?: number;
+  /** Aviso para la pantalla de acceso (p. ej. la sesión se cerró desde el servidor) */
+  notice?: string;
+  /** En la elección de datos antiguos: ¿la cuenta ya tenía datos? */
+  legacyAccountHasData?: boolean;
   set: (patch: Partial<Omit<SessionState, 'set'>>) => void;
 }
 

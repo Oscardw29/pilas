@@ -131,7 +131,7 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
   },
 
   enableEncryption: async (password) => {
-    if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const key = await deriveKey(password, salt);
     sessionKey = { key, salt };
