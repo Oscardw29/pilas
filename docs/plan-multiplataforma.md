@@ -23,6 +23,21 @@ Decisiones de implementación:
 - Al cerrar sesión, la casilla «olvidar también las claves API» viene **marcada** por defecto (equipos compartidos).
 
 
+## Estado de implementación (2026-10-21)
+
+| Fase | Estado | Dónde |
+|---|---|---|
+| F0 · Limpieza | ✅ Hecho | sin pruebas de notificaciones, Inter local, sin `HTTP-Referer` |
+| F1 · Base local + plataforma | ✅ Hecho | `src/db/`, `src/platform/`, `src/store/useSecrets.ts` |
+| F2 · Cuentas E2E | ✅ Hecho (falta probar con tu Supabase) | `src/crypto/`, `src/account/`, `src/components/auth/`, `supabase/migrations/0001_init.sql` |
+| F3 · Sincronización | ✅ Hecho (probado con un servidor en memoria) | `src/sync/`, `tests/` |
+| F4 · Android | ✅ Proyecto listo, **sin compilar** (falta Android Studio / JDK 21) | `android/`, `capacitor.config.ts`, [android.md](android.md) |
+| F5 · Windows / Linux | ✅ Proyecto listo, **sin compilar** (falta Rust + C++ Build Tools) | `src-tauri/`, [desktop.md](desktop.md) |
+| F6 · PWA y distribución | ✅ Hecho | `/descargar`, `.github/workflows/release.yml` |
+| F7 · Verificación | 🟡 Pruebas automáticas (13) y revisión en navegador hechas; faltan la prueba real con Supabase y entre dispositivos | — |
+
+Lo que tienes que hacer tú: [supabase.md](supabase.md) (crear el proyecto y pegar el SQL), y para generar `.apk` / `.exe`, instalar las herramientas de [android.md](android.md) y [desktop.md](desktop.md).
+
 ## Decisiones tomadas
 
 | Tema | Decisión |
@@ -247,6 +262,11 @@ Lo que **ya está bien**: las claves van en cabeceras (nunca en la URL), están 
 | S12 | Las notificaciones muestran nombres de hábitos en la pantalla de bloqueo | Bajo | `visibility: private` en Android (F4) |
 | S13 | El CSP solo existe en la build web | Medio (nuevo) | CSP propio en `tauri.conf.json`; en Capacitor, el `<meta>` del build (F4/F5) |
 | S14 | El keystore de Android o la clave del *updater* se suben al repo por error | Alto (nuevo) | `.gitignore` + *secrets* de GitHub (F4) |
+| S15 | La copia de seguridad automática de Android subiría a Google Drive la base local, la sesión y las claves del dispositivo sin cifrar | Alto (nuevo) | `allowBackup=false` + reglas de extracción vacías (F4) ✅ |
+| S16 | Sin conexión y con el token caducado, la app se quedaba en «Abriendo…» (Supabase reintenta la renovación) | Medio (nuevo) | Límite de 3 s y sesión guardada (F2) ✅ |
+| S17 | Al cerrar sesión con una renovación de token en curso, los tokens podían quedar guardados | Medio (nuevo) | Borrado explícito de `auth:*` (F2) ✅ |
+
+**Estado:** S1–S8 y S10–S17 resueltos. S9 (el coach envía un resumen de hábitos a la IA) es inherente a usar IA en la nube: se añadió el aviso bajo el chat; el contexto no incluye notas personales.
 
 ---
 

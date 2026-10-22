@@ -9,6 +9,7 @@ import {
 } from '@/account/account';
 import { boot, enterAccount, enterAfterCloudReset, resolveLegacy } from '@/account/runtime';
 import { isNativeApp } from '@/platform';
+import { DownloadPage } from './DownloadPage';
 import './auth.css';
 
 /**
@@ -17,11 +18,14 @@ import './auth.css';
  */
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const status = useSession((s) => s.status);
+  const isDownloadPage = !isNativeApp && window.location.pathname.replace(/\/+$/, '') === '/descargar';
 
   useEffect(() => {
-    void boot();
-  }, []);
+    if (!isDownloadPage) void boot();
+  }, [isDownloadPage]);
 
+  // Página pública: se puede visitar sin cuenta
+  if (isDownloadPage) return <DownloadPage />;
   if (status === 'ready') return <>{children}</>;
   if (status === 'loading') return <Loading />;
   if (status === 'unconfigured') return <Unconfigured />;
@@ -180,8 +184,8 @@ const AuthScreen: React.FC = () => {
         className="input auth-code-input"
         inputMode="numeric"
         autoComplete="one-time-code"
-        pattern="[0-9]{6,8}"
-        maxLength={8}
+        pattern="[0-9]{6,10}"
+        maxLength={10}
         required
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
@@ -337,7 +341,17 @@ const AuthScreen: React.FC = () => {
           />
         )}
 
-        <p className="auth-foot">Tus claves API nunca salen de este dispositivo.</p>
+        <p className="auth-foot">
+          Tus claves API nunca salen de este dispositivo.
+          {!isNativeApp && (
+            <>
+              {' '}
+              <a className="auth-link" href="/descargar">
+                Descargar la app
+              </a>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

@@ -1744,7 +1744,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         onClose={() => setShowResetDemoConfirm(false)}
         onConfirm={confirmResetDemo}
         title="¿Cargar datos de ejemplo?"
-        message="Esta acción reemplazará los hábitos, sesiones e historiales actuales con el conjunto de datos de demostración de ~9 semanas. Tus claves de API y modelos se conservarán."
+        message="Esta acción reemplazará los hábitos, sesiones e historiales actuales con el conjunto de datos de demostración de ~9 semanas, en todos tus dispositivos (se sincroniza con tu cuenta). Tus claves de API y modelos se conservarán."
         confirmLabel="Cargar datos de ejemplo"
         confirmVariant="warning"
         zIndex={1300}
@@ -1756,7 +1756,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         onClose={() => setShowResetEmptyConfirm(false)}
         onConfirm={confirmResetEmpty}
         title="¿Empezar completamente de 0?"
-        message="Se eliminarán todos los hábitos, objetivos, retos, sesiones y registros de la aplicación. Esta acción no se puede deshacer. ¿Deseas continuar?"
+        message="Se eliminarán todos los hábitos, objetivos, retos, sesiones y registros de tu cuenta, también en tus otros dispositivos. Esta acción no se puede deshacer. ¿Deseas continuar?"
         confirmLabel="Sí, empezar de 0"
         confirmVariant="danger"
         zIndex={1300}

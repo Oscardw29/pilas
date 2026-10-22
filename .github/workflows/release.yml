@@ -76,7 +76,7 @@ jobs:
           PILAS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: npm run android:apk
       - name: Nombre del APK
-        run: cp android/app/build/outputs/apk/release/*.apk "Pilas-${{ github.ref_name }}.apk"
+        run: cp android/app/build/outputs/apk/release/*-signed.apk "Pilas-${{ github.ref_name }}.apk"
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
