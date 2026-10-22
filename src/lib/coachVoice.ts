@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getSecrets } from '@/store/useSecrets';
+import { fishTts } from '@/platform/fish';
 import { useStore } from '@/store/useStore';
 import type { CoachGender } from '@/components/coach/coachPersona';
 import type { Secrets, Settings } from '@/types';
@@ -429,12 +430,7 @@ async function synthesize(text: string, gender: CoachGender, provider: Provider)
   }
 
   if (provider.kind === 'fish') {
-    const res = await fetch('/api/fish-tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-fish-key': provider.key },
-      body: JSON.stringify({ text, model: provider.model, reference_id: provider.voice || FISH_VOICES[gender] }),
-      signal: AbortSignal.timeout(TTS_TIMEOUT_MS + 5_000),
-    });
+    const res = await fishTts(provider.key, { text, model: provider.model, reference_id: provider.voice || FISH_VOICES[gender] }, TTS_TIMEOUT_MS + 5_000);
     // El relay devuelve el código de Fish Audio (401 clave, 402 sin saldo, 429 límite…)
     if (!res.ok) throw new Error(`Fish Audio TTS HTTP ${res.status}`);
     return { data: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get('Content-Type') || 'audio/pcm;rate=24000' };

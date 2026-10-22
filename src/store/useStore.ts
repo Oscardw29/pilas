@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import type {
   AbandonmentCheckin, AiConversation, AppData, Challenge, DateKey, EnergyEntry, Experiment, FailReason, Goal, Habit,
@@ -124,14 +123,36 @@ const DATA_KEYS: (keyof AppData)[] = [
 
 const STORE_VERSION = 5;
 
-/** true si en este navegador aún no había datos guardados (primer uso): se muestra la bienvenida */
-export const isFirstRun = (() => {
+/** Clave del estado de versiones anteriores (todo en un JSON en localStorage), antes de las cuentas */
+export const LEGACY_STORAGE_KEY = 'constancia-v2';
+
+/**
+ * Datos guardados por versiones anteriores en este navegador (sin cuenta), ya migrados.
+ * Al iniciar sesión por primera vez se ofrecen para subirlos a la cuenta. null si no hay.
+ */
+export function readLegacyLocalData(): AppData | null {
   try {
-    return typeof localStorage !== 'undefined' && localStorage.getItem('constancia-v2') === null;
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { state?: unknown; version?: number };
+    if (!parsed?.state || typeof parsed.state !== 'object') return null;
+    const migrated = migrateData({ ...(parsed.state as object) }, parsed.version ?? 0, true) as AppData;
+    migrated.settings = mergeSettings(migrated.settings);
+    migrated.activeTimer = null;
+    return migrated;
   } catch {
-    return false;
+    return null;
   }
-})();
+}
+
+/** Una vez subidos a la cuenta, los datos antiguos se borran del navegador */
+export function clearLegacyLocalData() {
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    /* noop */
+  }
+}
 
 /** Minutos que valen como versión mínima de un hábito de tiempo */
 export function minimumMinutesFor(h: Habit, minimumRatio: number): number {
@@ -173,7 +194,7 @@ function stripSecrets(st: Partial<Settings>): Partial<Settings> {
 }
 
 /** Ajustes completos: valores por defecto + guardados (incluye el objeto anidado de notificaciones) */
-function mergeSettings(st?: Partial<Settings>): Settings {
+export function mergeSettings(st?: Partial<Settings>): Settings {
   const def = defaultSettings();
   const clean = stripSecrets(st ?? {});
   return { ...def, ...clean, notifications: { ...def.notifications!, ...(clean.notifications ?? {}) } };
@@ -183,7 +204,7 @@ function mergeSettings(st?: Partial<Settings>): Settings {
  * Migraciones del estado persistido o importado. Nunca reemplaza los datos del usuario por la demo.
  * `adoptSecrets`: mover claves antiguas al almacén de secretos (solo para el estado local, no para importaciones).
  */
-function migrateData(state: any, version: number, adoptSecrets: boolean): any {
+export function migrateData(state: any, version: number, adoptSecrets: boolean): any {
   if (!state || typeof state !== 'object') return createEmptyData();
 
   if (Array.isArray(state.habits)) {
@@ -249,36 +270,6 @@ function migrateData(state: any, version: number, adoptSecrets: boolean): any {
   return state;
 }
 
-let storageErrorNotified = false;
-/** localStorage que no rompe las acciones del store si se llena la cuota o no está disponible */
-const safeLocalStorage: StateStorage = {
-  getItem: (name) => {
-    try {
-      return localStorage.getItem(name);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (name, value) => {
-    try {
-      localStorage.setItem(name, value);
-    } catch (err) {
-      console.error('[Store] No se pudo guardar el estado:', err);
-      if (!storageErrorNotified && typeof window !== 'undefined') {
-        storageErrorNotified = true;
-        window.dispatchEvent(new CustomEvent('constancia:storage-error'));
-      }
-    }
-  },
-  removeItem: (name) => {
-    try {
-      localStorage.removeItem(name);
-    } catch {
-      /* noop */
-    }
-  },
-};
-
 /** Extrae solo los datos (sin acciones) del store */
 export function selectData(s: Store): AppData {
   const out: Partial<AppData> = {};
@@ -286,8 +277,11 @@ export function selectData(s: Store): AppData {
   return out as AppData;
 }
 
+/**
+ * Estado global. Se guarda en IndexedDB (ver db/persistence.ts) por cuenta: aquí no hay persistencia.
+ * Arranca vacío y se rellena al iniciar sesión.
+ */
 export const useStore = create<Store>()(
-  persist(
     (set, get) => ({
       // El primer uso empieza siempre vacío; los datos de ejemplo se cargan a mano desde Ajustes
       ...createEmptyData(),
@@ -661,19 +655,6 @@ export const useStore = create<Store>()(
           };
         }),
     }),
-    {
-      name: 'constancia-v2',
-      version: STORE_VERSION,
-      storage: createJSONStorage(() => safeLocalStorage),
-      migrate: (persisted: any, version: number) => migrateData(persisted ?? {}, version, true),
-      // Fusión profunda de settings: las claves nuevas reciben su valor por defecto en lugar de quedar undefined
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<AppData>;
-        return { ...current, ...p, settings: mergeSettings(p.settings) };
-      },
-      partialize: (s) => selectData(s),
-    },
-  ),
 );
 
 /**

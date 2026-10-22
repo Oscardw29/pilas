@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore';
 import { isScheduled, getLog, isDoneLog, calculateGlobalStreak } from '@/lib/metrics';
 import { todayKey } from '@/lib/dates';
 import { getCoachPersona } from '@/components/coach/coachPersona';
+import { isNativeApp, nativeBridge, type NotifyPermission } from '@/platform';
 
 export interface NotificationPayload {
   title: string;
@@ -30,16 +31,38 @@ function pickVariant<T>(list: T[]): T {
    1. REGISTRO DE SERVICE WORKER Y PERMISOS DEL SISTEMA
    ========================================================================= */
 
+/**
+ * En las apps nativas (Android / Tauri) los avisos van por el plugin del sistema; el permiso se
+ * consulta de forma asíncrona y se guarda aquí para poder leerlo de forma síncrona.
+ */
+let nativePermission: NotifyPermission = 'default';
+if (isNativeApp) {
+  void nativeBridge()
+    .then((b) => b.permission())
+    .then((p) => (nativePermission = p))
+    .catch(() => (nativePermission = 'unsupported'));
+}
+
 export function isNotificationSupported(): boolean {
+  if (isNativeApp) return nativePermission !== 'unsupported';
   return typeof window !== 'undefined' && 'Notification' in window;
 }
 
 export function getNotificationPermission(): NotificationPermission | 'unsupported' {
+  if (isNativeApp) return nativePermission;
   if (!isNotificationSupported()) return 'unsupported';
   return Notification.permission;
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
+  if (isNativeApp) {
+    try {
+      nativePermission = await (await nativeBridge()).requestPermission();
+    } catch {
+      nativePermission = 'unsupported';
+    }
+    return nativePermission;
+  }
   if (!isNotificationSupported()) return 'unsupported';
   try {
     const perm = await Notification.requestPermission();
@@ -54,7 +77,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+  // En las apps nativas los archivos ya están en el dispositivo y los avisos van por el plugin
+  if (isNativeApp || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
   try {
@@ -71,6 +95,13 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
    ========================================================================= */
 
 export async function showSystemNotification(payload: NotificationPayload): Promise<boolean> {
+  if (isNativeApp) {
+    try {
+      return await (await nativeBridge()).notify({ title: payload.title, body: payload.body, tag: payload.tag });
+    } catch {
+      return false;
+    }
+  }
   if (!isNotificationSupported()) {
     console.warn('[Pilas] Las notificaciones no están soportadas en este navegador.');
     return false;

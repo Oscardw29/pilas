@@ -1,5 +1,6 @@
 import type { TtsPlatform } from '@/types';
 import { PRESET_TTS_MODELS, type TtsModelOption } from './ttsPresets';
+import { platformFetch } from '@/platform';
 
 /**
  * COMPROBACIÓN DE CLAVES DE VOZ (Ajustes)
@@ -54,7 +55,9 @@ export async function checkTtsKey(platform: TtsPlatform, key: string): Promise<V
     }
 
     // Fish Audio: no tiene lista de modelos en su API (son fijos) pero el saldo sí se puede consultar
-    const res = await fetch('https://api.fish.audio/wallet/self/api-credit', {
+    // Fish Audio no admite CORS: en la web esta consulta falla (la clave se valida al probar la voz);
+    // en las apps nativas va por el fetch del sistema
+    const res = await platformFetch('https://api.fish.audio/wallet/self/api-credit', {
       headers: { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

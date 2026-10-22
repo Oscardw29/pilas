@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { useStore, isFirstRun } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
+import { useSession } from '@/store/useSession';
 import { playSound } from '@/lib/sound';
 import { CoachAvatar } from '@/components/coach/CoachAvatar';
 import { BrandMark } from '@/components/ui/BrandMark';
@@ -25,7 +26,8 @@ export function openWelcomePreview() {
  * (los datos de ejemplo se pueden cargar después desde Ajustes).
  */
 export const WelcomeModal: React.FC = () => {
-  const [open, setOpen] = useState(isFirstRun);
+  // Primer uso = la cuenta no tenía datos ni en este dispositivo ni en la nube al iniciar sesión
+  const [open, setOpen] = useState(() => useSession.getState().firstRun);
   const [preview, setPreview] = useState(false);
   const [name, setName] = useState('');
   const [gender, setGender] = useState<UserGender | undefined>(undefined);
@@ -51,6 +53,7 @@ export const WelcomeModal: React.FC = () => {
       return;
     }
     updateSettings({ userName: name.trim(), userGender: gender });
+    useSession.getState().set({ firstRun: false });
     playSound.celebration();
     setOpen(false);
   };

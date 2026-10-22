@@ -1,15 +1,21 @@
 import { create } from 'zustand';
 import type { Secrets } from '@/types';
+import { deviceDelete, deviceGet, deviceSet } from '@/db/localDb';
+import { generateDeviceKey, openJson, sealJson } from '@/crypto/keys';
 
 /**
  * ALMACÉN DE CLAVES DE API
- * - Vive en su propia entrada de localStorage (`constancia-secrets`), separada de los datos de la app,
- *   así los respaldos exportados nunca incluyen claves.
- * - Cifrado opcional con contraseña local: AES-GCM 256 con clave derivada por PBKDF2 (SHA-256).
- *   En modo cifrado las claves solo existen descifradas en memoria tras desbloquear.
+ * - Pertenecen a este dispositivo: nunca se sincronizan ni viajan en los respaldos.
+ * - Se guardan en IndexedDB (`pilas-device`) **siempre cifradas**: por defecto con una clave del
+ *   dispositivo AES-GCM no extraíble (el código puede usarla, pero nadie puede copiarla).
+ * - Cifrado adicional opcional con contraseña local: AES-GCM 256 con clave derivada por PBKDF2.
+ *   En ese modo las claves solo existen descifradas en memoria tras desbloquear.
  */
 
-const STORAGE_KEY = 'constancia-secrets';
+/** Versiones anteriores guardaban las claves aquí (texto plano o cifradas con contraseña) */
+const LEGACY_STORAGE_KEY = 'constancia-secrets';
+const SECRETS_KEY = 'secrets';
+const DEVICE_KEY = 'deviceKey';
 const PBKDF2_ITERATIONS = 250_000;
 
 export const emptySecrets = (): Secrets => ({
@@ -21,16 +27,16 @@ export const emptySecrets = (): Secrets => ({
   deepgramApiKey: '',
 });
 
-type StoredSecrets =
-  | { v: 1; mode: 'plain'; keys: Partial<Secrets> }
-  | { v: 1; mode: 'enc'; salt: string; iv: string; data: string };
+type PasswordSealed = { v: 1; mode: 'enc'; salt: string; iv: string; data: string };
+type StoredSecrets = { v: 2; mode: 'plain'; data: string } | PasswordSealed;
+type LegacyStored = { v: 1; mode: 'plain'; keys: Partial<Secrets> } | PasswordSealed;
 
 export type SecretsMode = 'plain' | 'enc';
 
 interface SecretsState {
   keys: Secrets;
   mode: SecretsMode;
-  /** true si las claves están cifradas y aún no se han desbloqueado */
+  /** true si las claves están cifradas con contraseña y aún no se han desbloqueado */
   locked: boolean;
   setKeys: (patch: Partial<Secrets>) => Promise<void>;
   forgetAll: () => void;
@@ -42,7 +48,7 @@ interface SecretsState {
   importLegacy: (legacy: Partial<Secrets>) => void;
 }
 
-/* ---------------- Utilidades de cifrado ---------------- */
+/* ---------------- Utilidades de cifrado con contraseña ---------------- */
 
 const toB64 = (buf: ArrayBuffer | Uint8Array) => {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -64,10 +70,10 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   );
 }
 
-/** Clave derivada en memoria (nunca se persiste) y su salt, para volver a cifrar al editar */
+/** Clave derivada de la contraseña en memoria (nunca se persiste) y su salt, para volver a cifrar al editar */
 let sessionKey: { key: CryptoKey; salt: Uint8Array } | null = null;
 
-async function encryptKeys(keys: Secrets, key: CryptoKey, salt: Uint8Array): Promise<StoredSecrets> {
+async function encryptWithPassword(keys: Secrets, key: CryptoKey, salt: Uint8Array): Promise<PasswordSealed> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(keys)));
   return { v: 1, mode: 'enc', salt: toB64(salt), iv: toB64(iv), data: toB64(data) };
@@ -75,53 +81,52 @@ async function encryptKeys(keys: Secrets, key: CryptoKey, salt: Uint8Array): Pro
 
 /* ---------------- Persistencia ---------------- */
 
-function readStored(): StoredSecrets | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed?.mode === 'plain' || parsed?.mode === 'enc') return parsed as StoredSecrets;
-  } catch {
-    /* almacenamiento no disponible o corrupto */
-  }
-  return null;
+/** Copia en memoria de lo guardado (para desbloquear sin volver a leer la base) */
+let stored: StoredSecrets | null = null;
+/** Las escrituras van en cola para que nunca se adelante una versión vieja */
+let writes: Promise<void> = Promise.resolve();
+
+async function deviceKey(): Promise<CryptoKey> {
+  const existing = await deviceGet<CryptoKey>(DEVICE_KEY);
+  if (existing) return existing;
+  const key = await generateDeviceKey();
+  await deviceSet(DEVICE_KEY, key);
+  return key;
 }
 
-function writeStored(value: StoredSecrets | null) {
-  try {
-    if (value) localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch (err) {
-    console.warn('[Secrets] No se pudieron guardar las claves:', err);
-  }
+function persist(build: () => Promise<StoredSecrets | null>) {
+  writes = writes
+    .then(async () => {
+      const value = await build();
+      stored = value;
+      if (value) await deviceSet(SECRETS_KEY, value);
+      else await deviceDelete(SECRETS_KEY);
+    })
+    .catch((err) => console.warn('[Secrets] No se pudieron guardar las claves:', err));
+  return writes;
 }
+
+const sealPlain = async (keys: Secrets): Promise<StoredSecrets> => ({ v: 2, mode: 'plain', data: await sealJson(await deviceKey(), keys) });
 
 const hasAnyKey = (k: Partial<Secrets>) => Object.values(k).some((v) => typeof v === 'string' && v.trim() !== '');
 
-function initialState(): Pick<SecretsState, 'keys' | 'mode' | 'locked'> {
-  const stored = readStored();
-  if (stored?.mode === 'enc') return { keys: emptySecrets(), mode: 'enc', locked: true };
-  return { keys: { ...emptySecrets(), ...(stored?.keys || {}) }, mode: 'plain', locked: false };
-}
-
 export const useSecrets = create<SecretsState>()((set, get) => ({
-  ...initialState(),
+  keys: emptySecrets(),
+  mode: 'plain',
+  locked: false,
 
   setKeys: async (patch) => {
     const { mode, locked } = get();
     if (mode === 'enc' && locked) throw new Error('Las claves están bloqueadas. Desbloquéalas primero.');
     const keys = { ...get().keys, ...patch };
     set({ keys });
-    if (mode === 'enc' && sessionKey) {
-      writeStored(await encryptKeys(keys, sessionKey.key, sessionKey.salt));
-    } else {
-      writeStored({ v: 1, mode: 'plain', keys });
-    }
+    const pw = sessionKey;
+    await persist(() => (mode === 'enc' && pw ? encryptWithPassword(keys, pw.key, pw.salt) : sealPlain(keys)));
   },
 
   forgetAll: () => {
     sessionKey = null;
-    writeStored(null);
+    void persist(async () => null);
     set({ keys: emptySecrets(), mode: 'plain', locked: false });
   },
 
@@ -130,19 +135,20 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const key = await deriveKey(password, salt);
     sessionKey = { key, salt };
-    writeStored(await encryptKeys(get().keys, key, salt));
+    const keys = get().keys;
+    await persist(() => encryptWithPassword(keys, key, salt));
     set({ mode: 'enc', locked: false });
   },
 
   disableEncryption: () => {
     if (get().locked) return;
     sessionKey = null;
-    writeStored({ v: 1, mode: 'plain', keys: get().keys });
+    const keys = get().keys;
+    void persist(() => sealPlain(keys));
     set({ mode: 'plain' });
   },
 
   unlock: async (password) => {
-    const stored = readStored();
     if (stored?.mode !== 'enc') return true;
     try {
       const salt = fromB64(stored.salt);
@@ -164,18 +170,64 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
   },
 
   importLegacy: (legacy) => {
-    if (readStored() || !hasAnyKey(legacy)) return;
+    if (stored || hasAnyKey(get().keys) || !hasAnyKey(legacy)) return;
     const keys = { ...emptySecrets() };
     for (const k of Object.keys(keys) as (keyof Secrets)[]) {
       const v = legacy[k];
       if (typeof v === 'string') keys[k] = v.trim();
     }
-    writeStored({ v: 1, mode: 'plain', keys });
     set({ keys, mode: 'plain', locked: false });
+    void persist(() => sealPlain(keys));
   },
 }));
 
-/** Acceso a las claves desde código no-React (lib/gemini) */
+/**
+ * Carga las claves guardadas al arrancar (antes de mostrar la app). Si vienen de una versión anterior
+ * (localStorage), las pasa a IndexedDB cifradas y borra la copia vieja.
+ */
+export async function initSecrets(): Promise<void> {
+  let value = await deviceGet<StoredSecrets>(SECRETS_KEY).catch(() => undefined);
+
+  if (!value) {
+    let legacy: LegacyStored | null = null;
+    try {
+      const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      legacy = raw ? (JSON.parse(raw) as LegacyStored) : null;
+    } catch {
+      legacy = null;
+    }
+    if (legacy?.mode === 'enc') {
+      await persist(async () => legacy as PasswordSealed);
+      value = legacy;
+    } else if (legacy?.mode === 'plain' && hasAnyKey(legacy.keys ?? {})) {
+      const keys = { ...emptySecrets(), ...legacy.keys };
+      await persist(() => sealPlain(keys));
+      value = stored ?? undefined;
+    }
+    try {
+      if (legacy) localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      /* noop */
+    }
+  }
+
+  stored = value ?? null;
+  if (!value) return;
+  if (value.mode === 'enc') {
+    useSecrets.setState({ keys: emptySecrets(), mode: 'enc', locked: true });
+    return;
+  }
+  try {
+    const keys = { ...emptySecrets(), ...(await openJson<Partial<Secrets>>(await deviceKey(), value.data)) };
+    useSecrets.setState({ keys, mode: 'plain', locked: false });
+  } catch (err) {
+    // La clave del dispositivo se perdió (datos del sitio borrados a medias): no se pueden recuperar
+    console.warn('[Secrets] No se pudieron descifrar las claves guardadas:', err);
+    await persist(async () => null);
+  }
+}
+
+/** Acceso a las claves desde código no-React (lib/gemini, lib/coachVoice) */
 export const getSecrets = (): Secrets => useSecrets.getState().keys;
 
 /** Campos de claves que versiones antiguas guardaban dentro de `settings` */
