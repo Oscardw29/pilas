@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">¡Pilas!</string>
+    <string name="title_activity_main">¡Pilas!</string>
+    <string name="package_name">app.pilas.habitos</string>
+    <string name="custom_url_scheme">app.pilas.habitos</string>
+</resources>

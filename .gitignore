@@ -42,3 +42,15 @@ desktop.ini
 # Despliegue
 .vercel/
 .netlify/
+
+# Firma de apps (NUNCA al repositorio: si se filtra, otros pueden publicar «actualizaciones» falsas)
+*.jks
+*.keystore
+keystore.properties
+*.p12
+src-tauri/*.key
+src-tauri/*.key.pub
+
+# Builds nativos
+src-tauri/target/
+src-tauri/gen/

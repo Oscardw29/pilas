@@ -9,7 +9,11 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:android": "tsc --noEmit && vite build --mode capacitor && cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "node scripts/build-apk.mjs",
+    "android:icons": "capacitor-assets generate --android --iconBackgroundColor \"#0c0c10\" --splashBackgroundColor \"#0c0c10\""
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
@@ -33,6 +37,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
     "@tauri-apps/cli": "^2.12.4",
     "@types/canvas-confetti": "^1.9.0",

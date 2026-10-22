@@ -9,6 +9,9 @@ import { useEffect, useRef, type RefObject } from 'react';
 
 const stack: symbol[] = [];
 
+/** ¿Hay algún diálogo abierto? (el botón «Atrás» de Android lo cierra antes de navegar) */
+export const hasOpenModal = () => stack.length > 0;
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
