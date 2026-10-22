@@ -1234,7 +1234,8 @@ input[type="date"], select, .select, input, textarea {
   background: var(--surface-2);
   color: inherit;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Solo el tamaño usa el rebote: con «all» los colores y el borde también se pasaban de largo y la celda parpadeaba */
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .matrix-cell-btn:not(.filled):hover:not(:disabled) {
   border: 1.5px dashed rgba(52, 211, 153, 0.75) !important;
@@ -1984,9 +1985,10 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 
 /* Celda de hábito en pausa (hoy): mismo formato que las demás celdas de la matriz */
 .matrix-cell-btn.resume-cell {
-  background: var(--warning-soft); border: 1.5px solid rgba(251, 191, 36, 0.45); color: var(--warning);
+  background: var(--warning); border: 1.5px solid var(--warning); color: #fff;
   position: relative; transition: background .15s, border-color .15s, transform .15s, color .15s;
 }
+.matrix-cell-btn.resume-cell .resume-cell-idle, .icon-filled { fill: currentColor; }
 .matrix-cell-btn.resume-cell .resume-cell-hover { display: none; }
 .matrix-cell-btn.resume-cell:hover,
 .matrix-cell-btn.resume-cell:focus-visible {
