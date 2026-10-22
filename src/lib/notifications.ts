@@ -2,6 +2,7 @@ import type { Habit } from '@/types';
 import { useStore } from '@/store/useStore';
 import { isScheduled, getLog, isDoneLog, calculateGlobalStreak } from '@/lib/metrics';
 import { todayKey } from '@/lib/dates';
+import { getCoachPersona } from '@/components/coach/coachPersona';
 
 export interface NotificationPayload {
   title: string;
@@ -208,34 +209,35 @@ export function getStreakVariants(userName: string, pendingCount: number, curren
 
 export function getCoachVariants(userName: string): { title: string; body: string }[] {
   const user = userName.trim() || 'Campeón';
+  const coach = getCoachPersona().name;
 
   return [
     {
-      title: `🤖 Coach IA: Mensaje para ti, ${user}`,
+      title: `📣 ${coach}: Mensaje para ti, ${user}`,
       body: `«La disciplina es el puente entre tus metas y tus logros. Respira hondo y continúa con determinación.»`,
     },
     {
-      title: `💬 Coach IA: Tu dosis de claridad, ${user}`,
+      title: `💬 ${coach}: Tu dosis de claridad, ${user}`,
       body: `«No busques la perfección, busca la constancia. Lo que haces hoy en silencio hablará mañana.»`,
     },
     {
-      title: `✨ Coach IA: ¡Vamos con todo, ${user}!`,
+      title: `✨ ${coach}: ¡Vamos con todo, ${user}!`,
       body: `«He estado observando tu proceso. Cada pequeño esfuerzo que realizas hoy te acerca a tu mejor versión.»`,
     },
     {
-      title: `🎯 Coach IA: Enfoque y prioridades`,
+      title: `🎯 ${coach}: Enfoque y prioridades`,
       body: `${user}, pregúntate: ¿qué acción de 10 minutos puedes hacer ahora mismo que te haga sentir orgulloso al terminar el día?`,
     },
     {
-      title: `🧠 Coach IA: Pausa estratégica para ${user}`,
+      title: `🧠 ${coach}: Pausa estratégica para ${user}`,
       body: `«Tómate 30 segundos, desconecta de las distracciones y reconecta con tus metas de hoy. Tú tienes el control.»`,
     },
     {
-      title: `💪 Coach IA: Cree en tu constancia, ${user}`,
+      title: `💪 ${coach}: Cree en tu constancia, ${user}`,
       body: `«Incluso en los días con menos energía, dar el paso mínimo construye una mentalidad imparable. ¡Sigue firme!»`,
     },
     {
-      title: `⚡ Coach IA: El poder de los hábitos`,
+      title: `⚡ ${coach}: El poder de los hábitos`,
       body: `${user}, los resultados extraordinarios provienen de acciones ordinarias repetidas con paciencia cada día.`,
     },
   ];

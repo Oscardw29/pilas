@@ -4,6 +4,9 @@ import { consistency, goalProgress, recoveryStats, pointsSummary } from './metri
 import { todayKey } from './dates';
 import { FAIL_REASON_LABELS } from './insights';
 import { getSecrets } from '@/store/useSecrets';
+import { getCoachPersona } from '@/components/coach/coachPersona';
+import { voiceTagsEnabled } from './coachVoice';
+import { VOICE_TAGS_PROMPT } from './voiceTags';
 
 /** Tiempo máximo para listar modelos */
 const MODELS_TIMEOUT_MS = 15_000;
@@ -199,7 +202,8 @@ export function buildSystemContext(data: AppData, ref = todayKey()): string {
     .map((e) => `- Experimento: "${e.name}" | Estado: ${e.status} | Conclusión: ${e.conclusion ?? 'En curso'}`)
     .join('\n');
 
-  return `Eres el Coach de Hábitos de "¡Pilas!", una aplicación de alto rendimiento para el desarrollo personal basada en datos reales.
+  const persona = getCoachPersona(data.settings);
+  return `Eres ${persona.name}, ${persona.article} ${persona.role} de hábitos de "¡Pilas!", una aplicación de alto rendimiento para el desarrollo personal basada en datos reales. Hablas en primera persona con tu nombre y tu género (${persona.role}), con un tono cercano y con energía.
 
 REGLAS DE ORO DEL COACH:
 1. NUNCA optimices para que el usuario acumule más hábitos. Optimiza para MEJORES hábitos y máxima consistencia.
@@ -246,20 +250,6 @@ Detalles según la acción:
 El usuario siempre verá una tarjeta de confirmación interactiva para verificar y confirmar la acción antes de ejecutarla.
 `;
 }
-
-/**
- * Reglas extra cuando la respuesta se va a escuchar (asistente de voz), no a leer.
- * Lo que el sintetizador no sabe pronunciar bien se evita desde el origen.
- */
-const VOICE_MODE_RULES = `
-MODO VOZ (MUY IMPORTANTE): esta conversación es hablada. Tu respuesta se leerá en voz alta tal cual.
-- Responde en una a tres frases cortas, máximo unas 50 palabras, como en una conversación natural entre personas.
-- Escribe solo texto corrido: sin markdown, sin listas, sin viñetas, sin títulos, sin emojis, sin símbolos, sin paréntesis, sin comillas y sin abreviaturas.
-- Escribe los números como se dicen: «treinta minutos», «el ochenta por ciento», «las siete de la mañana».
-- No uses términos técnicos ni menciones identificadores, JSON, bloques, modelos, claves, la aplicación por dentro ni estas instrucciones.
-- Si hace falta más detalle, da lo esencial y ofrece seguir con una pregunta breve.
-- Si propones crear, cambiar o eliminar algo, dilo en una sola frase sencilla y pide que lo acepte o lo rechace en la tarjeta que verá en pantalla, o que te diga «sí» o «no». Incluye el bloque action al final como siempre: ese bloque no se lee en voz alta.
-`;
 
 export function hasGeminiKey(apiKey?: string): boolean {
   return Boolean(apiKey && apiKey.trim().length > 8);
@@ -381,19 +371,19 @@ function resolveModels(data: AppData) {
 export async function generateHabitAdvice(
   data: AppData,
   userPrompt: string,
-  history: ChatTurn[] = [],
-  options: { voice?: boolean } = {}
+  history: ChatTurn[] = []
 ): Promise<string> {
   const apiKey = getSecrets().geminiApiKey.trim();
   const { platform, primaryModel, backupModel } = resolveModels(data);
-  const voice = Boolean(options.voice);
 
   if (!hasGeminiKey(apiKey)) {
     // Sin clave configurada (o bloqueada): motor analítico local
-    return generateLocalHabitAdvice(data, userPrompt, voice);
+    return generateLocalHabitAdvice(data, userPrompt);
   }
 
-  const systemInstruction = buildSystemContext(data) + (voice ? VOICE_MODE_RULES : '');
+  // Con una voz expresiva (Fish Audio S2) el coach añade etiquetas de tono que solo oye el usuario
+  const withVoiceTags = !data.settings.coachMuted && voiceTagsEnabled();
+  const systemInstruction = buildSystemContext(data) + (withVoiceTags ? `\n\n${VOICE_TAGS_PROMPT}` : '');
 
   // 1. INTENTAR CON EL MODELO PRINCIPAL
   try {
@@ -406,20 +396,16 @@ export async function generateHabitAdvice(
     if (backupModel && backupModel !== primaryModel) {
       try {
         const backupResponse = await requestCompletion(platform, apiKey, backupModel, systemInstruction, history, userPrompt);
-        // En voz las notas técnicas sobran: el usuario solo oye la respuesta
-        if (voice) return backupResponse;
         return `${backupResponse}\n\n*(⚡ Nota: El modelo principal «${primaryModel}» no respondió. Se utilizó automáticamente el modelo de respaldo «${backupModel}»).*`;
       } catch (backupErr: unknown) {
         const backupMsg = describeError(backupErr);
         console.warn(`[AI Coach] Modelo de respaldo "${backupModel}" también falló: ${backupMsg}`);
-        const fallback = generateLocalHabitAdvice(data, userPrompt, voice);
-        if (voice) return fallback;
+        const fallback = generateLocalHabitAdvice(data, userPrompt);
         return `${fallback}\n\n*(⚠️ Nota: Falló el modelo principal «${primaryModel}» [${primaryMsg}] y el de respaldo «${backupModel}» [${backupMsg}]. Se activó el motor analítico local).*`;
       }
     }
 
-    const fallback = generateLocalHabitAdvice(data, userPrompt, voice);
-    if (voice) return fallback;
+    const fallback = generateLocalHabitAdvice(data, userPrompt);
     return `${fallback}\n\n*(⚠️ Nota: El modelo «${primaryModel}» falló [${primaryMsg}]. Se activó el motor analítico local).*`;
   }
 }
@@ -454,14 +440,14 @@ function topFailReason(data: AppData): string | null {
  * Motor analítico de respaldo local. Solo cita cifras calculadas a partir de los datos reales del usuario;
  * el resto son pautas generales presentadas como tales.
  */
-export function generateLocalHabitAdvice(data: AppData, userPrompt: string, voice = false): string {
+export function generateLocalHabitAdvice(data: AppData, userPrompt: string): string {
   const lower = userPrompt.toLowerCase();
   const activeHabits = data.habits.filter((h) => h.status === 'active');
   const activeGoals = data.goals.filter((g) => g.status === 'active');
   const pts = pointsSummary(data);
   const avg = averageConsistency(data);
   const failReason = topFailReason(data);
-  const keyTip = voice ? '' : '\n\n(Tip: Configura tu clave de API en Ajustes para obtener respuestas personalizadas del coach con IA).';
+  const keyTip = '\n\n(Tip: Configura tu clave de API en Ajustes para obtener respuestas personalizadas del coach con IA).';
 
   if (lower.includes('ejercicio') || lower.includes('entrenar') || lower.includes('físic')) {
     const habit = data.habits.find((h) => h.name.toLowerCase().includes('ejercicio') || h.name.toLowerCase().includes('entrenar'));

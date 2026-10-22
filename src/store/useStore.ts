@@ -122,7 +122,7 @@ const DATA_KEYS: (keyof AppData)[] = [
   'recommendationFeedback', 'dismissedInsights', 'conversations', 'activeConversationId', 'settings', 'hasStreakFreeze', 'streakFreezes',
 ];
 
-const STORE_VERSION = 3;
+const STORE_VERSION = 5;
 
 /** true si en este navegador aún no había datos guardados (primer uso): se muestra la bienvenida */
 export const isFirstRun = (() => {
@@ -150,6 +150,9 @@ function preservedSettings(st: Settings): Partial<Settings> {
     ttsVoiceId: st.ttsVoiceId,
     soundEnabled: st.soundEnabled,
     soundVolume: st.soundVolume,
+    // El coach conserva su identidad y su silencio aunque se reinicien los datos
+    userGender: st.userGender,
+    coachMuted: st.coachMuted,
   };
 }
 
@@ -232,6 +235,12 @@ function migrateData(state: any, version: number, adoptSecrets: boolean): any {
       useSecrets.getState().importLegacy(legacy);
     }
     state.settings = stripSecrets(state.settings);
+    // v5: se retiró la plataforma de voz «Voz original del coach» (ai_voice) que la v4 ponía por
+    // defecto; quien la tenga vuelve a Fish Audio, la predeterminada
+    if (state.settings.ttsPlatform === 'ai_voice') {
+      state.settings.ttsPlatform = 'fish_audio';
+      if (!state.settings.ttsModel) state.settings.ttsModel = 's2.1-pro-free';
+    }
     if (!state.settings.geminiModel || state.settings.geminiModel === 'gemini-3.8-flash') {
       state.settings.geminiModel = 'gemini-3.5-flash-lite';
     }
@@ -280,7 +289,8 @@ export function selectData(s: Store): AppData {
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      ...createDemoData(),
+      // El primer uso empieza siempre vacío; los datos de ejemplo se cargan a mano desde Ajustes
+      ...createEmptyData(),
 
       /* Objetivos */
       addGoal: (g) => {

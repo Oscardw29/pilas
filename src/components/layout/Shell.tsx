@@ -12,7 +12,6 @@ import {
   FlaskConical,
   GitFork,
   Gift,
-  Bot,
   Settings,
   Zap,
   Play,
@@ -25,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { pointsSummary, levelFromXp } from '@/lib/metrics';
-import { formatClock } from '@/lib/dates';
+import { formatClock, todayKey } from '@/lib/dates';
 import { SessionFinishModal } from '@/components/modals/SessionFinishModal';
 import { EnergyModal } from '@/components/modals/EnergyModal';
 import { TimerModal } from '@/components/modals/TimerModal';
@@ -39,12 +38,14 @@ import { TimerCompletionWatcher } from './TimerCompletionWatcher';
 import { WelcomeModal } from '@/components/modals/WelcomeModal';
 import { FloatingCoachChat } from '@/components/coach/FloatingCoachChat';
 import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
+import { CoachIcon } from '@/components/ui/icons';
+import { useCoachPersona } from '@/components/coach/coachPersona';
 
 interface NavItem {
   to: string;
   label: string;
   short?: string;
-  icon: LucideIcon;
+  icon: LucideIcon | typeof CoachIcon;
 }
 
 /** Navegación agrupada: la misma estructura para sidebar (escritorio), rail (tablet) y hoja «Más» (móvil) */
@@ -56,7 +57,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/objetivos', label: 'Objetivos', icon: Target },
       { to: '/semana', label: 'Mi semana', short: 'Semana', icon: Calendar },
       { to: '/temporizador', label: 'Temporizador', icon: Timer },
-      { to: '/coach', label: 'Coach IA', short: 'Coach', icon: Bot },
+      // El nombre real (Pilo o Pila) se pone al renderizar según el género elegido
+      { to: '/coach', label: 'Coach', icon: CoachIcon },
     ],
   },
   {
@@ -87,8 +89,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
-
 /** Pestañas fijas de la barra inferior en móvil; el resto vive en «Más» */
 const BOTTOM_TABS = ['/', '/semana', '/objetivos', '/coach'];
 
@@ -107,11 +107,19 @@ export const Shell: React.FC = () => {
   const pauseTimer = useStore((s) => s.pauseTimer);
   const resumeTimer = useStore((s) => s.resumeTimer);
   const cancelTimer = useStore((s) => s.cancelTimer);
+  const energySetToday = useStore((s) => s.energy.some((e) => e.date === todayKey()));
 
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showEnergyModal, setShowEnergyModal] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showMore, setShowMore] = useState(false);
+
+  const coachName = useCoachPersona().name;
+  const navGroups = useMemo(
+    () => NAV_GROUPS.map((g) => ({ ...g, items: g.items.map((i) => (i.to === '/coach' ? { ...i, label: coachName } : i)) })),
+    [coachName],
+  );
+  const allItems = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
 
   // Cerrar la hoja «Más» al navegar
   useEffect(() => {
@@ -130,7 +138,7 @@ export const Shell: React.FC = () => {
   const timerTitle = activeTimer?.isCustom ? activeTimer.customTitle || 'Temporizador libre' : timerHabit?.name;
   const timerIcon = activeTimer?.isCustom ? activeTimer.customIcon : timerHabit?.icon;
 
-  const currentItem = ALL_ITEMS.find((i) => isActivePath(pathname, i.to));
+  const currentItem = allItems.find((i) => isActivePath(pathname, i.to));
   const moreActive = !BOTTOM_TABS.some((to) => isActivePath(pathname, to));
 
   return (
@@ -148,7 +156,7 @@ export const Shell: React.FC = () => {
           </NavLink>
           <button
             type="button"
-            className="icon-btn sm energy-btn"
+            className={`icon-btn sm energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
             onClick={() => setShowEnergyModal(true)}
             title="Registrar nivel de energía de hoy"
             aria-label="Registrar nivel de energía de hoy"
@@ -168,7 +176,7 @@ export const Shell: React.FC = () => {
         </div>
 
         <nav className="side-nav">
-          {NAV_GROUPS.map((group) => (
+          {navGroups.map((group) => (
             <div key={group.label} className="nav-group">
               <span className="nav-group-label">{group.label}</span>
               {group.items.map((item) => (
@@ -200,7 +208,7 @@ export const Shell: React.FC = () => {
           <div className="row" style={{ gap: 6 }}>
             <button
               type="button"
-              className="icon-btn energy-btn"
+              className={`icon-btn energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
               onClick={() => setShowEnergyModal(true)}
               aria-label="Registrar nivel de energía de hoy"
             >
@@ -276,7 +284,7 @@ export const Shell: React.FC = () => {
       {/* BARRA INFERIOR (móvil) */}
       <nav className="bottom-nav" aria-label="Navegación rápida">
         {BOTTOM_TABS.map((to) => {
-          const item = ALL_ITEMS.find((i) => i.to === to)!;
+          const item = allItems.find((i) => i.to === to)!;
           return (
             <NavLink
               key={to}
@@ -305,7 +313,7 @@ export const Shell: React.FC = () => {
       {/* HOJA «MÁS» (móvil): resto de secciones agrupadas */}
       <Modal isOpen={showMore} onClose={() => setShowMore(false)} title="Todas las secciones">
         <div className="more-sheet">
-          {NAV_GROUPS.map((group) => {
+          {navGroups.map((group) => {
             const items = group.items.filter((i) => !BOTTOM_TABS.includes(i.to));
             if (items.length === 0) return null;
             return (
@@ -369,7 +377,7 @@ export const Shell: React.FC = () => {
       {/* BIENVENIDA DEL PRIMER USO */}
       <WelcomeModal />
 
-      {/* CHAT FLOTANTE DEL COACH (todas las páginas excepto Coach IA) */}
+      {/* CHAT FLOTANTE DEL COACH (todas las páginas excepto la suya) */}
       <FloatingCoachChat />
 
       {/* OVERLAYS DE CELEBRACIÓN */}

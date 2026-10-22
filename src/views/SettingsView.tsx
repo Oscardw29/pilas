@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
-import { AiPlatform, TtsPlatform } from '../types';
+import { AiPlatform, TtsPlatform, UserGender } from '../types';
+import { personaFor } from '../components/coach/coachPersona';
 import {
   Save,
   RotateCcw,
@@ -29,6 +30,8 @@ import {
   Droplets,
   Eye,
   EyeOff,
+  Play,
+  Square,
 } from 'lucide-react';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
@@ -38,8 +41,10 @@ import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
 import { fetchAvailableModels, PRESET_MODELS, ModelOption } from '../lib/gemini';
+import { checkDeepgramKey, checkTtsKey, type VoiceCheckResult } from '../lib/voiceCheck';
+import { resolveCoachVoice, speakCoach, stopCoachVoice, unlockCoachVoice, useCoachSpeaking } from '../lib/coachVoice';
 import { playSound } from '../lib/sound';
-import { speakWithTts, speakNative, PRESET_TTS_MODELS } from '../lib/voice';
+import { PRESET_TTS_MODELS } from '../lib/ttsPresets';
 import {
   getNotificationPermission,
   requestNotificationPermission,
@@ -108,6 +113,14 @@ const VOICE_PRESETS: Record<string, VoicePresetGroup[]> = {
   ],
 };
 
+/** Insignias del estado de las claves de voz: mismo estilo que la de modelos detectados de IA */
+const VOICE_BADGE_STYLE: Record<VoiceCheckResult['state'] | 'checking', React.CSSProperties> = {
+  ok: { fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc' },
+  invalid: { fontSize: 11, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' },
+  error: { fontSize: 11, background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' },
+  checking: { fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 },
+};
+
 /**
  * El formulario copia los ajustes a estado local al montarse. Tras importar o reiniciar datos se vuelve a montar
  * (cambio de `key`) para que no guarde valores obsoletos encima de los nuevos.
@@ -133,6 +146,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const { showToast } = useToast();
 
   const [userName, setUserName] = useState(settings.userName || 'Usuario');
+  const [userGender, setUserGender] = useState<UserGender>(settings.userGender || 'other');
   const [maxActiveHabits, setMaxActiveHabits] = useState(settings.maxActiveHabits || 7);
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
@@ -157,6 +171,54 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const [ttsVoiceId, setTtsVoiceId] = useState(settings.ttsVoiceId || '');
   const [deepgramApiKey, setDeepgramApiKey] = useState(secrets.deepgramApiKey);
 
+  // Comprobación de las claves de voz y modelos detectados (como en la tarjeta de IA)
+  const [ttsCheck, setTtsCheck] = useState<VoiceCheckResult | null>(null);
+  const [isCheckingTts, setIsCheckingTts] = useState(false);
+  const [sttCheck, setSttCheck] = useState<VoiceCheckResult | null>(null);
+  const [isCheckingStt, setIsCheckingStt] = useState(false);
+
+  useEffect(() => {
+    const key = ttsApiKey.trim();
+    if (ttsPlatform !== 'native' && key.length < 8) {
+      setTtsCheck(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setIsCheckingTts(true);
+      const result = await checkTtsKey(ttsPlatform, key);
+      if (!active) return;
+      setTtsCheck(result);
+      setIsCheckingTts(false);
+    }, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      setIsCheckingTts(false);
+    };
+  }, [ttsPlatform, ttsApiKey]);
+
+  useEffect(() => {
+    const key = deepgramApiKey.trim();
+    if (key.length < 8) {
+      setSttCheck(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setIsCheckingStt(true);
+      const result = await checkDeepgramKey(key);
+      if (!active) return;
+      setSttCheck(result);
+      setIsCheckingStt(false);
+    }, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      setIsCheckingStt(false);
+    };
+  }, [deepgramApiKey]);
+
   // Al desbloquear las claves cifradas, rellenar los campos con los valores descifrados
   useEffect(() => {
     if (secretsLocked) return;
@@ -166,7 +228,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secretsLocked]);
 
-  const [isTestingVoice, setIsTestingVoice] = useState(false);
 
   // Estado para edición de ID de voz custom
   const [isEditingCustomVoice, setIsEditingCustomVoice] = useState(false);
@@ -243,7 +304,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   }, [availableModels, backupModel]);
 
   const ttsModelOptions = useMemo(() => {
-    const models = PRESET_TTS_MODELS[ttsPlatform] || [];
+    // Con la clave comprobada se ofrecen los modelos que de verdad tiene la cuenta
+    const detected = ttsCheck?.state === 'ok' && ttsCheck.models?.length ? ttsCheck.models : null;
+    const models = detected ?? PRESET_TTS_MODELS[ttsPlatform] ?? [];
     const opts = models.map((m) => ({
       value: m.id,
       label: m.name,
@@ -257,7 +320,48 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       });
     }
     return opts;
-  }, [ttsPlatform, ttsModel]);
+  }, [ttsPlatform, ttsModel, ttsCheck]);
+
+  /** Voz que usará el coach con lo que hay ahora en el formulario */
+  const coachVoicePreview = useMemo(
+    () =>
+      resolveCoachVoice(
+        { ttsPlatform, ttsModel, ttsVoiceId, aiPlatform },
+        {
+          geminiApiKey,
+          ttsApiKey,
+          elevenLabsApiKey: ttsPlatform === 'elevenlabs' ? ttsApiKey : secrets.elevenLabsApiKey,
+          openaiTtsApiKey: ttsPlatform === 'openai' ? ttsApiKey : secrets.openaiTtsApiKey,
+          fishAudioApiKey: ttsPlatform === 'fish_audio' ? ttsApiKey : secrets.fishAudioApiKey,
+        },
+      ),
+    [ttsPlatform, ttsModel, ttsVoiceId, aiPlatform, geminiApiKey, ttsApiKey, secrets],
+  );
+  /** Prueba de voz con lo que hay en el formulario (sin guardar), con la voz de Pilo o Pila elegida arriba */
+  const coachSpeaking = useCoachSpeaking();
+  const [testingVoice, setTestingVoice] = useState(false);
+  const handleTestVoice = async () => {
+    if (coachSpeaking || testingVoice) {
+      stopCoachVoice({ fade: true });
+      setTestingVoice(false);
+      return;
+    }
+    const persona = personaFor(userGender);
+    unlockCoachVoice();
+    setTestingVoice(true);
+    const result = await speakCoach(
+      `¡Hola! Soy ${persona.name}, tu ${persona.role}. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!`,
+      persona.gender,
+      coachVoicePreview,
+    );
+    setTestingVoice(false);
+    if (result === 'failed') {
+      showToast(`No se pudo generar la voz con ${coachVoicePreview.label}. Revisa la clave, el saldo o el ID de voz.`, 'warning');
+    }
+  };
+  // Al salir de Ajustes la prueba se corta
+  useEffect(() => () => stopCoachVoice({ fade: true }), []);
+
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsLoadedStatus, setModelsLoadedStatus] = useState<string | null>(null);
   const [isTestingAi, setIsTestingAi] = useState(false);
@@ -352,10 +456,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const handleTtsPlatformChange = (p: TtsPlatform) => {
     setTtsPlatform(p);
     const presets = PRESET_TTS_MODELS[p] || [];
-    if (presets.length > 0) {
-      setTtsModel(presets[0].id);
-      setTtsVoiceId(presets[0].defaultVoice || '');
-    }
+    if (presets.length > 0) setTtsModel(presets[0].id);
+    // Sin ID la voz se elige según el coach (Pilo o Pila); el usuario puede escribir otra
+    setTtsVoiceId('');
     setTtsApiKey(p === 'native' ? '' : keyForTtsPlatform(p));
     playSound.pop();
   };
@@ -364,6 +467,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     e.preventDefault();
     updateSettings({
       userName: userName.trim(),
+      userGender,
       maxActiveHabits: Number(maxActiveHabits),
       askFailReason,
       aiPlatform,
@@ -432,37 +536,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     }
   };
 
-
-  // Prueba de síntesis de voz
-  const handleTestVoice = async () => {
-    if (ttsPlatform !== 'native' && !ttsApiKey.trim()) {
-      showToast(`Por favor ingresa tu API Key de ${ttsPlatform.toUpperCase()} para probar la voz`, 'warning');
-      return;
-    }
-
-    setIsTestingVoice(true);
-    showToast(`Generando síntesis de voz con ${ttsPlatform.toUpperCase()} (${ttsModel || 'default'})...`, 'info');
-    try {
-      await speakWithTts(
-        'Hola, soy tu coach de ¡Pilas! Estoy listo para ayudarte a cumplir tus hábitos hoy.',
-        {
-          ttsPlatform,
-          ttsApiKey,
-          ttsModel,
-          ttsVoiceId,
-          fishAudioApiKey: ttsPlatform === 'fish_audio' ? ttsApiKey : secrets.fishAudioApiKey,
-          elevenLabsApiKey: ttsPlatform === 'elevenlabs' ? ttsApiKey : secrets.elevenLabsApiKey,
-          openaiTtsApiKey: ttsPlatform === 'openai' ? ttsApiKey : secrets.openaiTtsApiKey,
-        }
-      );
-      showToast(`Prueba de voz reproducida con éxito (${ttsPlatform})`, 'success');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      showToast(`Error al generar voz con ${ttsPlatform}: ${msg}`, 'error');
-    } finally {
-      setIsTestingVoice(false);
-    }
-  };
 
   // Prueba rápida de la configuración de IA
   const handleTestAi = async () => {
@@ -565,6 +638,35 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   onChange={(e) => setUserName(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="field">
+                <span className="label" id="settings-gender-label">
+                  Te identificas como
+                </span>
+                <div className="gender-options" role="radiogroup" aria-labelledby="settings-gender-label">
+                  {(
+                    [
+                      ['male', 'Hombre'],
+                      ['female', 'Mujer'],
+                      ['other', 'Otro'],
+                    ] as [UserGender, string][]
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={userGender === value}
+                      className="gender-option"
+                      onClick={() => setUserGender(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="hint">
+                  Tu coach será {personaFor(userGender).name}, tu {personaFor(userGender).role}.
+                </span>
               </div>
 
               <div className="field">
@@ -863,19 +965,16 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <Headphones size={18} style={{ color: 'var(--accent-2)' }} />
               <div>
                 <div className="card-title">Voz Neuronal y Dictado (TTS & STT)</div>
-                <div className="card-sub">Integraciones multimodelo para el Coach por voz y transcripción en tiempo real</div>
+                <div className="card-sub">Claves y preferencias de voz y transcripción, guardadas en este navegador</div>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary sm"
-              onClick={handleTestVoice}
-              disabled={isTestingVoice}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {isTestingVoice ? <RefreshCw size={13} className="spin" /> : <Volume2 size={13} />}
-              Probar voz
-            </button>
+            {isCheckingTts ? (
+              <span className="badge" style={VOICE_BADGE_STYLE.checking}>
+                <RefreshCw size={11} className="spin" /> Comprobando clave…
+              </span>
+            ) : (
+              ttsCheck && <span className="badge" style={VOICE_BADGE_STYLE[ttsCheck.state]}>{ttsCheck.message}</span>
+            )}
           </div>
 
           <div className="form">
@@ -1031,7 +1130,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     disabled={ttsPlatform === 'native'}
                     value={ttsVoiceId}
                     onChange={(e) => setTtsVoiceId(e.target.value)}
-                    placeholder="ID personalizado (opcional)"
+                    placeholder="Vacío: voz según Pilo o Pila"
                     style={{
                       fontFamily: 'monospace',
                       fontSize: 12.5,
@@ -1121,6 +1220,48 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <span className="hint">
                 Proveedor fijo de STT. Modelo Nova-3 con transcripción ultrarrápida y puntuación automática en español. Si no se configura, se utiliza el reconocimiento de voz nativo del navegador.
               </span>
+              {(isCheckingStt || sttCheck) && (
+                <span className="badge" style={{ ...VOICE_BADGE_STYLE[isCheckingStt ? 'checking' : sttCheck!.state], alignSelf: 'flex-start' }}>
+                  {isCheckingStt ? (
+                    <>
+                      <RefreshCw size={11} className="spin" /> Comprobando clave…
+                    </>
+                  ) : (
+                    sttCheck!.message
+                  )}
+                </span>
+              )}
+            </div>
+
+            {/* Qué voz usará de verdad el coach con estos ajustes */}
+            <div className="callout" style={{ alignItems: 'center' }}>
+              <Volume2 />
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="title">Voz del coach: {coachVoicePreview.label}</div>
+                {coachVoicePreview.note && <div className="detail">{coachVoicePreview.note}, por eso el coach usa esta voz en su lugar.</div>}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary sm"
+                onClick={handleTestVoice}
+                disabled={testingVoice && !coachSpeaking}
+                aria-label={coachSpeaking ? 'Detener la prueba de voz' : `Probar la voz de ${personaFor(userGender).name}`}
+                style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {coachSpeaking ? (
+                  <>
+                    <Square size={13} /> Detener
+                  </>
+                ) : testingVoice ? (
+                  <>
+                    <RefreshCw size={13} className="spin" /> Generando…
+                  </>
+                ) : (
+                  <>
+                    <Play size={13} /> Probar voz
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1236,7 +1377,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <div>
                 <div className="card-title">Notificaciones del Sistema (Windows y Celulares)</div>
                 <div className="card-sub">
-                  Alertas nativas del sistema operativo: recordatorios a tu hora exacta, racha activa y Coach IA con variantes
+                  Alertas nativas del sistema operativo: recordatorios a tu hora exacta, racha activa y mensajes de {personaFor(userGender).name} con variantes
                 </div>
               </div>
             </div>
@@ -1400,7 +1541,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                       </span>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Sparkles size={15} style={{ color: 'var(--accent-2)' }} />
-                        Mensaje del Coach IA con tu nombre ({userName || 'Usuario'})
+                        Mensaje de {personaFor(userGender).name} con tu nombre ({userName || 'Usuario'})
                       </span>
                     </label>
 
@@ -1418,7 +1559,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     </div>
                   </div>
                   <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Envía un mensaje reflexivo y motivacional del Coach con tu nombre real, alternando frases de disciplina, claridad mental y enfoque sin necesidad de consumo de API.
+                    Envía un mensaje reflexivo y motivacional de {personaFor(userGender).name} con tu nombre real, alternando frases de disciplina, claridad mental y enfoque sin necesidad de consumo de API.
                   </p>
                 </div>
 

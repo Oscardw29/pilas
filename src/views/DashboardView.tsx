@@ -233,8 +233,9 @@ export const DashboardView: React.FC = () => {
   }, [data, T]);
 
   const { streakCardTheme, nextStreakMilestone, streakMilestonePercent } = useMemo(() => {
-    const milestones = [3, 7, 14, 21, 30, 50, 100, 365];
-    const nextMilestone = milestones.find((m) => m > globalStreak.streak) || (globalStreak.streak + 10);
+    const milestones = [3, 7, 14, 21, 30, 50, 60, 100, 150, 200, 250, 350, 365, 500, 730, 1000];
+    // Después de 1000 días, el siguiente hito es el próximo aniversario
+    const nextMilestone = milestones.find((m) => m > globalStreak.streak) ?? Math.ceil((globalStreak.streak + 1) / 365) * 365;
     const percent = Math.min(100, Math.max(6, Math.round((globalStreak.streak / nextMilestone) * 100)));
 
     if (globalStreak.isFrozen) {
@@ -733,37 +734,11 @@ export const DashboardView: React.FC = () => {
             />
           )}
 
-          {/* Fila superior: etiqueta + icono tematizado */}
-          <div className="stat-top">
+          {/* Fila superior: etiqueta + insignia de estado */}
+          <div className="stat-top" style={{ gap: 8 }}>
             <span className="stat-label" style={{ color: 'var(--text-2)', fontWeight: 600 }}>
               Racha de constancia
             </span>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: streakCardTheme.iconBg,
-                border: streakCardTheme.iconBorder,
-                display: 'grid',
-                placeItems: 'center',
-                color: streakCardTheme.accent,
-              }}
-            >
-              <StreakFlame
-                days={globalStreak.streak}
-                isSuperStreak={globalStreak.isSuperStreak}
-                isFrozen={globalStreak.isFrozen}
-                size={22}
-              />
-            </div>
-          </div>
-
-          {/* Valor de días + Insignia de estado */}
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4 }}>
-            <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: '#fff', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              {globalStreak.streak} <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>días</span>
-            </div>
             <span
               style={{
                 fontSize: 11,
@@ -776,10 +751,52 @@ export const DashboardView: React.FC = () => {
                 alignItems: 'center',
                 gap: 4,
                 letterSpacing: '0.02em',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               <streakCardTheme.badgeIcon size={11} strokeWidth={2.6} aria-hidden="true" />
               {streakCardTheme.badgeText}
+            </span>
+          </div>
+
+          {/* Llama grande al centro con los días justo debajo */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 6, position: 'relative' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: 4,
+                width: 84,
+                height: 84,
+                borderRadius: '50%',
+                background: streakCardTheme.iconBg,
+                border: streakCardTheme.iconBorder,
+                pointerEvents: 'none',
+              }}
+            />
+            <StreakFlame
+              days={globalStreak.streak}
+              isSuperStreak={globalStreak.isSuperStreak}
+              isFrozen={globalStreak.isFrozen}
+              size={92}
+            />
+            <div
+              className="stat-value"
+              style={{
+                fontSize: 40,
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+                color: '#fff',
+                marginTop: 2,
+                textShadow: streakCardTheme.accent.startsWith('#') ? `0 0 18px ${streakCardTheme.accent}66` : 'none',
+              }}
+            >
+              {globalStreak.streak}
+            </div>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: streakCardTheme.accent, letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 3 }}>
+              {globalStreak.streak === 1 ? 'día' : 'días'}
             </span>
           </div>
 

@@ -4,9 +4,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore, selectData } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
 import { generateHabitAdvice, hasGeminiKey, generateTopicTitle } from '../lib/gemini';
-import { executeCoachAction, type ParsedAction } from '../lib/coachActions';
+import { coachChoiceMessage, executeCoachAction, type ParsedAction } from '../lib/coachActions';
 import { ActionConfirmationCard } from '../components/coach/ActionConfirmationCard';
 import { extractActionAndText } from '../components/coach/extractAction';
+import { stripVoiceTags } from '../lib/voiceTags';
 import {
   Send,
   Sparkles,
@@ -17,22 +18,22 @@ import {
   Copy,
   Check,
   X,
-  Mic,
-  MicOff,
-  Volume2,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { CoachStage } from '../components/coach/CoachStage';
+import { CoachAvatar } from '../components/coach/CoachAvatar';
+import { useCoachPersona, type CoachPersona } from '../components/coach/coachPersona';
+import { markCoachVisited } from '../components/coach/coachTeasers';
+import { speakCoach, stopCoachVoice, unlockCoachVoice } from '../lib/coachVoice';
 import { useToast } from '../components/ui/ToastContext';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Modal } from '../components/ui/Modal';
-import { VoiceAssistantModal } from '../components/modals/VoiceAssistantModal';
-import { useDictation } from '../components/coach/useDictation';
 import { playSound } from '../lib/sound';
 import { AiConversation } from '../types';
 
@@ -71,7 +72,8 @@ const PRESET_QUESTIONS = [
   '¿Qué experimento A/B me recomiendas hacer ahora?',
 ];
 
-const DEFAULT_WELCOME_TEXT = `¡Hola! Soy tu Coach de Hábitos. Tengo acceso en tiempo real a tus objetivos, tus datos de consistencia de los últimos 30 días, patrones de energía y causas de fallo registradas.\n\n¿En qué te puedo asesorar hoy para optimizar tu constancia?`;
+const welcomeText = (p: CoachPersona) =>
+  `¡Hola! Soy ${p.name}, tu ${p.role} de hábitos. Tengo acceso en tiempo real a tus objetivos, tus datos de consistencia de los últimos 30 días, patrones de energía y causas de fallo registradas.\n\n¿En qué te puedo asesorar hoy para optimizar tu constancia?`;
 
 export const AiCoachView: React.FC = () => {
   const {
@@ -98,10 +100,17 @@ export const AiCoachView: React.FC = () => {
   const isKeyConfigured = useSecrets((s) => hasGeminiKey(s.keys.geminiApiKey));
   const keysLocked = useSecrets((s) => s.locked);
   const { toast } = useToast();
+  const persona = useCoachPersona();
+  const DEFAULT_WELCOME_TEXT = welcomeText(persona);
+  const location = useLocation();
+  const navigate = useNavigate();
+  /** Sube cuando se aplica una acción sugerida: el coach lo celebra */
+  const [cheerKey, setCheerKey] = useState(0);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  /** Respuesta que se está regenerando: espera dentro de su propia burbuja */
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   // Estados de gestión de conversaciones
   const [showNewConvModal, setShowNewConvModal] = useState(false);
@@ -197,6 +206,7 @@ export const AiCoachView: React.FC = () => {
   // Sincronizar mensajes al cambiar la conversación activa
   useEffect(() => {
     finishStream();
+    stopCoachVoice({ fade: true });
     if (!activeConversationId) return;
     const currentConv = conversations.find((c) => c.id === activeConversationId);
     if (currentConv && Array.isArray(currentConv.messages) && currentConv.messages.length > 0) {
@@ -216,9 +226,12 @@ export const AiCoachView: React.FC = () => {
   }, [activeConversationId]);
 
   useEffect(() => {
+    markCoachVisited();
     return () => {
       if (streamRef.current) clearInterval(streamRef.current.timer);
       streamRef.current = null;
+      // Al salir de la página el coach deja de hablar con un fundido
+      stopCoachVoice({ fade: true });
     };
   }, []);
 
@@ -253,6 +266,13 @@ export const AiCoachView: React.FC = () => {
       return;
     }
 
+    // El coach lee la respuesta (salvo que esté silenciado)
+    if (!useStore.getState().settings.coachMuted) {
+      void speakCoach(fullText, persona.gender).then((r) => {
+        if (r === 'failed') toast(`La voz de ${persona.name} no respondió (límite de la API o conexión). La respuesta sigue en el chat.`, 'warning');
+      });
+    }
+
     finishStream();
     const words = fullText.split(' ');
     let currentIdx = 0;
@@ -268,13 +288,17 @@ export const AiCoachView: React.FC = () => {
     streamRef.current = { timer, botId, fullText, onDone };
   };
 
-  const handleSend = async (messageText?: string) => {
+  /**
+   * `base`: mensajes sobre los que se añade el del usuario (por defecto los actuales).
+   * `force`: envía aunque siga la animación de escritura (la respuesta anterior ya está completa).
+   */
+  const handleSend = async (messageText?: string, opts: { base?: ChatMessage[]; force?: boolean } = {}) => {
     const textToSend = messageText || input;
-    if (!textToSend.trim() || loading) return;
+    if (!textToSend.trim() || (loading && !opts.force)) return;
     finishStream();
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
     const convId = activeConversationId;
-
-    if (dictation.active) dictation.cancel();
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -290,7 +314,7 @@ export const AiCoachView: React.FC = () => {
       activeVersionIndex: 0,
     };
 
-    const nextMessages = [...messages, userMsg];
+    const nextMessages = [...(opts.base ?? messages), userMsg];
     setMessages(nextMessages);
     if (activeConversationId) {
       setConversationMessages(activeConversationId, nextMessages);
@@ -345,22 +369,18 @@ export const AiCoachView: React.FC = () => {
     }
   };
 
-  // Dictado: pide permiso de micrófono y escribe en el campo lo que dices
-  const dictation = useDictation({
-    onText: setInput,
-    onError: (message) => toast(message, 'warning'),
-  });
-  const isRecording = dictation.active;
-
-  const toggleRecording = () => {
-    if (dictation.active) {
-      void dictation.stop();
-      playSound.click();
-    } else {
-      playSound.pop();
-      void dictation.start(input);
-    }
-  };
+  // Llegada desde el aviso del coach: su pregunta se envía sola para que cumpla lo prometido
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  const teaserHandled = useRef(false);
+  useEffect(() => {
+    const prompt = (location.state as { coachPrompt?: string } | null)?.coachPrompt;
+    if (!prompt || teaserHandled.current) return;
+    teaserHandled.current = true;
+    navigate(location.pathname, { replace: true, state: null });
+    // Deja que la conversación activa se cargue antes de enviar (sin limpieza: en StrictMode el efecto se repite)
+    setTimeout(() => handleSendRef.current(prompt), 400);
+  }, [location.state]);
 
   /** Guarda el estado de la acción en el propio mensaje (persistido con la conversación) */
   const setMessageActionStatus = (msgId: string, actionStatus: 'applied' | 'dismissed') => {
@@ -369,6 +389,25 @@ export const AiCoachView: React.FC = () => {
       if (activeConversationId) setConversationMessages(activeConversationId, next);
       return next;
     });
+  };
+
+  /**
+   * Responder a una propuesta con sus botones deja constancia en el chat: se envía un mensaje con lo
+   * elegido y el coach contesta. Si aún se espera una respuesta, solo se guarda el estado.
+   */
+  const reportActionChoice = (msgId: string, action: ParsedAction, actionStatus: 'applied' | 'dismissed') => {
+    if (loading && !streamRef.current) {
+      setMessageActionStatus(msgId, actionStatus);
+      return;
+    }
+    // Si la respuesta aún se está «escribiendo», se guarda con su texto completo
+    const st = streamRef.current;
+    const base = messages.map((m) => ({
+      ...m,
+      ...(st && m.id === st.botId ? { content: st.fullText } : {}),
+      ...(m.id === msgId ? { actionStatus } : {}),
+    }));
+    void handleSend(coachChoiceMessage(action, actionStatus), { base, force: true });
   };
 
   // Ejecutar acciones sugeridas por el Coach tras confirmación del usuario (validadas en lib/coachActions)
@@ -384,16 +423,16 @@ export const AiCoachView: React.FC = () => {
       if (action.action === 'delete_habit') playSound.delete();
       else playSound.pop();
       toast(result.message, action.action === 'delete_habit' ? 'info' : 'success');
-      setMessageActionStatus(msgId, 'applied');
+      reportActionChoice(msgId, action, 'applied');
+      setCheerKey((k) => k + 1);
     } catch (err: any) {
       toast(`Error aplicando acción: ${err?.message || 'Error desconocido'}`, 'error');
     }
   };
 
-  // Iniciar Asistente de Voz en vivo
-  const handleOpenLiveVoice = () => {
-    playSound.pop();
-    setShowVoiceModal(true);
+  const handleDismissAction = (msgId: string, action: ParsedAction) => {
+    if (messages.find((m) => m.id === msgId)?.actionStatus) return;
+    reportActionChoice(msgId, action, 'dismissed');
   };
 
   // Regenerar respuesta del coach
@@ -407,7 +446,10 @@ export const AiCoachView: React.FC = () => {
     const userMsg = messages[botIdx - 1];
     if (userMsg.sender !== 'user') return;
 
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
     setLoading(true);
+    setRegeneratingId(botMsgId);
     playSound.click();
 
     try {
@@ -417,21 +459,14 @@ export const AiCoachView: React.FC = () => {
       }));
 
       const newResponse = await generateHabitAdvice(currentData(), userMsg.content, priorHistory);
-      // Nuevo id: la acción sugerida (si la hay) es otra y no hereda el estado "aplicada"
-      const newBotId = `bot-${Date.now()}`;
-      setMessages((prev) => prev.map((m) => (m.id === botMsgId ? { id: newBotId, sender: 'assistant', content: '', timestamp: nowTime() } : m)));
-      if (convId) {
-        const conv = useStore.getState().conversations?.find((c) => c.id === convId);
-        if (conv) {
-          setConversationMessages(
-            convId,
-            (conv.messages as ChatMessage[]).map((m) => (m.id === botMsgId ? { id: newBotId, sender: 'assistant', content: '', timestamp: nowTime() } : m))
-          );
-        }
-      }
-      deliverBotResponse(convId, newBotId, newResponse, () => setLoading(false));
-      toast('Respuesta regenerada con éxito', 'success');
+      // Misma burbuja (mismo id); sin estado de acción: la propuesta nueva, si la hay, está pendiente
+      setMessages((prev) =>
+        prev.map((m) => (m.id === botMsgId ? { id: botMsgId, sender: 'assistant', content: '', timestamp: nowTime() } : m))
+      );
+      setRegeneratingId(null);
+      deliverBotResponse(convId, botMsgId, newResponse, () => setLoading(false));
     } catch (error: any) {
+      setRegeneratingId(null);
       toast('Error al regenerar respuesta: ' + (error?.message || 'Error desconocido'), 'warning');
       setLoading(false);
     }
@@ -474,6 +509,8 @@ export const AiCoachView: React.FC = () => {
     const newText = editText.trim();
     setEditingId(null);
     setShowEditConfirm(false);
+    stopCoachVoice({ fade: true });
+    unlockCoachVoice();
 
     const subsequent = messages.slice(userIdx + 1);
     // Copia: no mutar las versiones que forman parte del estado
@@ -642,11 +679,14 @@ export const AiCoachView: React.FC = () => {
   };
 
   return (
-    <div className="stack fade-up">
+    <div className="stack fade-up coach-page">
       {/* Cabecera */}
       <div className="page-head">
         <div>
-          <h1>Coach de Hábitos IA</h1>
+          <p className="eyebrow">Coach de hábitos con IA</p>
+          <h1>
+            {persona.name}, tu {persona.role}
+          </h1>
         </div>
 
         <div className="actions coach-model-badges">
@@ -693,7 +733,8 @@ export const AiCoachView: React.FC = () => {
 
       {/* LAYOUT PRINCIPAL: CONVERSACIONES A LA IZQUIERDA Y CHAT A LA DERECHA */}
       <div className="coach-layout">
-        {/* PANEL IZQUIERDO: CONVERSACIONES */}
+        {/* PANEL IZQUIERDO: CONVERSACIONES Y, DEBAJO, EL COACH */}
+        <div className="coach-left">
         <div className={`card conversations-sidebar ${convListOpen ? 'conv-list-open' : ''}`}>
           {/* Encabezado: Recientes ⌵ (plegable en pantallas pequeñas) y botón + Nueva */}
           <div className="conversations-header">
@@ -789,6 +830,9 @@ export const AiCoachView: React.FC = () => {
           </div>
         </div>
 
+        <CoachStage thinking={loading && !streamRef.current} cheerKey={cheerKey} />
+        </div>
+
         {/* CONTENEDOR DE CHAT PRINCIPAL A LA DERECHA */}
         <div className="card chat-container" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="chat-messages">
@@ -842,6 +886,12 @@ export const AiCoachView: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                    ) : m.id === regeneratingId ? (
+                      <div className="thinking-dots" aria-label={`${persona.name} está regenerando la respuesta`}>
+                        <span className="dot dot-1" />
+                        <span className="dot dot-2" />
+                        <span className="dot dot-3" />
+                      </div>
                     ) : (
                       <>
                         <MarkdownMessage content={parsed.text} />
@@ -851,7 +901,7 @@ export const AiCoachView: React.FC = () => {
                               action={parsed.action}
                               status={m.actionStatus || 'pending'}
                               onConfirm={() => handleExecuteAction(m.id, parsed.action!)}
-                              onDismiss={() => setMessageActionStatus(m.id, 'dismissed')}
+                              onDismiss={() => handleDismissAction(m.id, parsed.action!)}
                             />
                           </div>
                         )}
@@ -871,7 +921,7 @@ export const AiCoachView: React.FC = () => {
                       {/* Botón Copiar */}
                       <button
                         type="button"
-                        onClick={() => handleCopy(m.id, m.content)}
+                        onClick={() => handleCopy(m.id, isUser ? m.content : stripVoiceTags(m.content))}
                         className="chat-msg-action"
                         title="Copiar texto"
                         aria-label="Copiar texto"
@@ -899,8 +949,8 @@ export const AiCoachView: React.FC = () => {
                           onClick={() => handleRegenerate(m.id)}
                           disabled={loading}
                           className="chat-msg-action"
-                          title="Regenerar respuesta del coach"
-                          aria-label="Regenerar respuesta del coach"
+                          title={`Regenerar respuesta de ${persona.name}`}
+                          aria-label={`Regenerar respuesta de ${persona.name}`}
                         >
                           <Sparkles size={13} />
                         </button>
@@ -942,8 +992,8 @@ export const AiCoachView: React.FC = () => {
               );
             })}
 
-            {/* ANIMACIÓN DE CARGA / PENSANDO DEL COACH */}
-            {loading && (
+            {/* ANIMACIÓN DE CARGA / PENSANDO DEL COACH (al regenerar espera en su propia burbuja) */}
+            {loading && !regeneratingId && !streamRef.current && (
               <div
                 className="chat-message-wrapper assistant"
                 style={{
@@ -965,13 +1015,16 @@ export const AiCoachView: React.FC = () => {
                     background: 'rgba(99, 102, 241, 0.08)',
                   }}
                 >
+                  <span className="chat-thinking-avatar" aria-hidden="true">
+                    <CoachAvatar gender={persona.gender} crop="head" size={38} expression="thinking" />
+                  </span>
                   <div className="thinking-dots">
                     <span className="dot dot-1" />
                     <span className="dot dot-2" />
                     <span className="dot dot-3" />
                   </div>
                   <span style={{ fontSize: 13, color: 'var(--text-2)', fontStyle: 'italic' }}>
-                    El Coach está analizando tus datos y redactando la mejor respuesta...
+                    {persona.name} está analizando tus datos y preparando la mejor respuesta…
                   </span>
                 </div>
               </div>
@@ -1037,7 +1090,7 @@ export const AiCoachView: React.FC = () => {
             </div>
           )}
 
-          {/* Input de chat: micrófono STT, texto, botón voz en vivo a la izquierda de enviar */}
+          {/* Input de chat */}
           <form
             className="chat-input-bar"
             onSubmit={(e) => {
@@ -1046,56 +1099,14 @@ export const AiCoachView: React.FC = () => {
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}
           >
-            {/* Botón de Micrófono (STT para input) */}
-            <button
-              type="button"
-              className={`icon-btn chat-mic-btn ${isRecording ? 'recording' : ''}`}
-              onClick={toggleRecording}
-              style={{
-                flexShrink: 0,
-                background: isRecording ? 'rgba(239, 68, 68, 0.2)' : undefined,
-                borderColor: isRecording ? '#ef4444' : undefined,
-                color: isRecording ? '#ef4444' : 'var(--text-2)',
-              }}
-              title={isRecording ? 'Detener dictado por voz' : 'Hablar por micrófono (dictado a texto)'}
-              aria-label={isRecording ? 'Detener dictado por voz' : 'Hablar por micrófono (dictado a texto)'}
-            >
-              {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-
             <input
               type="text"
               className="input chat-input grow"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                dictation.state === 'starting'
-                  ? 'Activando micrófono…'
-                  : dictation.state === 'processing'
-                  ? 'Transcribiendo…'
-                  : isRecording
-                  ? 'Escuchando… habla y tu voz se escribirá aquí'
-                  : 'Pregunta sobre tus hábitos, energía o consistencia...'
-              }
+              placeholder="Pregunta sobre tus hábitos, energía o consistencia..."
               disabled={loading}
             />
-
-            {/* BOTÓN ASISTENTE DE VOZ EN VIVO: estrictamente icono, a la izquierda de Enviar */}
-            <button
-              type="button"
-              className="icon-btn chat-voice-btn"
-              onClick={handleOpenLiveVoice}
-              style={{
-                flexShrink: 0,
-                background: 'rgba(99, 102, 241, 0.12)',
-                borderColor: 'rgba(99, 102, 241, 0.3)',
-                color: 'var(--accent-2)',
-              }}
-              title="Abrir Asistente de Voz en tiempo real"
-              aria-label="Asistente de Voz en vivo"
-            >
-              <Volume2 size={18} />
-            </button>
 
             {/* Botón Enviar */}
             <button
@@ -1295,11 +1306,6 @@ export const AiCoachView: React.FC = () => {
         zIndex={1400}
       />
 
-      {/* Modal del Asistente de Voz con visualizador circular radial de crestas */}
-      <VoiceAssistantModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-      />
     </div>
   );
 };

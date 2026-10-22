@@ -280,6 +280,8 @@ export interface Reward {
   name: string;
   icon: string;
   cost: number;
+  /** Texto propio de la tarjeta; si falta se muestra uno genérico */
+  description?: string;
 }
 
 export interface Redemption {
@@ -386,8 +388,15 @@ export interface AiConversation {
 export type AiPlatform = 'gemini' | 'openai' | 'groq' | 'openrouter';
 export type TtsPlatform = 'fish_audio' | 'elevenlabs' | 'openai' | 'native';
 
+/** Género elegido en la bienvenida: define si el coach es entrenador o entrenadora */
+export type UserGender = 'male' | 'female' | 'other';
+
 export interface Settings {
   userName: string;
+  /** Sin elegir u «otro» → entrenador */
+  userGender?: UserGender;
+  /** El coach no lee en voz alta sus respuestas */
+  coachMuted?: boolean;
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
   minimumRatio: number;
   /** Máximo recomendado de hábitos activos antes de sugerir revisión */

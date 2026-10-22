@@ -2,30 +2,37 @@ import React, { useState, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { Experiment, ExperimentVariant } from '../types';
-import { addDaysKey } from '../lib/dates';
+import { addDaysKey, diffDays, todayKey } from '../lib/dates';
 import {
   FlaskConical,
   Plus,
   Trophy,
   Sparkles,
   Trash2,
-  TrendingUp,
   Pause,
   Play,
+  Microscope,
+  Archive,
+  NotebookPen,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ExperimentModal } from '../components/modals/ExperimentModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useToast } from '../components/ui/ToastContext';
 import { PausedBadge } from '../components/ui/icons';
+import { Beaker, LabShelfArt, TubeProgress } from '../components/lab/LabArt';
+import '../components/lab/lab.css';
+
+/** Colores de cada variante: A violeta, B ámbar (como sus etiquetas) */
+const SLOT = [
+  { name: 'A', color: '#a78bfa', shade: '#7c3aed' },
+  { name: 'B', color: '#fbbf24', shade: '#d97706' },
+];
+
+const expCode = (exp: Experiment, all: Experiment[]) => {
+  const n = [...all].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')).findIndex((e) => e.id === exp.id) + 1;
+  return `EXP-${String(n).padStart(2, '0')}`;
+};
 
 export const ExperimentsView: React.FC = () => {
   const { experiments, habits, sessions, updateExperiment, deleteExperiment, addPointEvent, setHabitStatus } = useStore(useShallow((s) => ({ experiments: s.experiments, habits: s.habits, sessions: s.sessions, updateExperiment: s.updateExperiment, deleteExperiment: s.deleteExperiment, addPointEvent: s.addPointEvent, setHabitStatus: s.setHabitStatus })));
@@ -53,8 +60,9 @@ export const ExperimentsView: React.FC = () => {
     showToast(`¡Variante «${variant.label}» adoptada con éxito! +100 pts.`, 'reward');
   };
 
-  const handleDelete = (id: string) => {
-    setExpIdToDelete(id);
+  const openNew = () => {
+    setEditingExp(null);
+    setIsModalOpen(true);
   };
 
   const getVariantStats = (exp: Experiment, variant: ExperimentVariant) => {
@@ -92,66 +100,101 @@ export const ExperimentsView: React.FC = () => {
     return { completionPct, avgDuration, avgEnergy, avgDiff };
   };
 
+  /* El monitor muestra por defecto solo lo que está en curso; los concluidos se incluyen a demanda */
+  const [monitorScope, setMonitorScope] = useState<'active' | 'all'>('active');
+  const monitorExperiments = monitorScope === 'active' ? activeExperiments : experiments;
+
   const experimentsChartData = useMemo(() => {
-    const list: { name: string; adherencia: number; duracion: number; expName: string }[] = [];
-    experiments.forEach((exp) => {
-      exp.variants.forEach((v) => {
+    const list: { name: string; adherencia: number; duracion: number; expName: string; slot: number }[] = [];
+    monitorExperiments.forEach((exp) => {
+      exp.variants.forEach((v, i) => {
         const stats = getVariantStats(exp, v);
         list.push({
           name: `${v.label} (${exp.name.length > 14 ? exp.name.slice(0, 13) + '…' : exp.name})`,
           expName: exp.name,
           adherencia: stats.completionPct,
           duracion: stats.avgDuration,
+          slot: i % 2,
         });
       });
     });
     return list;
-  }, [experiments, sessions]);
+  }, [experiments, sessions, monitorScope]);
+
+  const avgAdherence = useMemo(() => {
+    const vals = activeExperiments.flatMap((exp) => exp.variants.map((v) => getVariantStats(exp, v).completionPct));
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+  }, [activeExperiments, sessions]);
+
+  const today = todayKey();
 
   return (
-    <div className="stack fade-up">
-      {/* Cabecera */}
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">Pruebas A/B controladas</p>
-          <h1>Experimentos de hábitos</h1>
-        </div>
+    <div className="stack fade-up lab-page">
+      {/* CABECERA: el laboratorio con el coach en bata detrás de la mesa */}
+      <section className="lab-hero">
+        <div className="lab-hero-copy">
+          <p className="lab-eyebrow">
+            <Microscope size={14} aria-hidden="true" /> Pruebas A/B controladas
+          </p>
+          <h1>Laboratorio de hábitos</h1>
+          <p className="lab-hero-sub">
+            Compara dos condiciones durante 14 días (horario, duración o técnica) y deja que los datos elijan la estrategia ganadora.
+          </p>
 
-        <div className="actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              setEditingExp(null);
-              setIsModalOpen(true);
-            }}
-          >
+          <div className="lab-readouts" aria-label="Resumen del laboratorio">
+            <div className="lab-stat">
+              <span className="stat-label">En curso</span>
+              <span className="lab-stat-value">{activeExperiments.length}</span>
+            </div>
+            <div className="lab-stat">
+              <span className="stat-label">Concluidos</span>
+              <span className="lab-stat-value">{finishedExperiments.length}</span>
+            </div>
+            <div className="lab-stat">
+              <span className="stat-label">Adherencia media</span>
+              <span className="lab-stat-value">{avgAdherence === null ? '—' : `${avgAdherence}%`}</span>
+            </div>
+          </div>
+
+          <button type="button" className="btn btn-primary" onClick={openNew}>
             <Plus size={16} /> Nuevo experimento
           </button>
         </div>
-      </div>
 
-      <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
-        Descubre empíricamente cuál es tu mejor horario, duración ideal o técnica de trabajo comparando dos condiciones durante 14 días. Los datos decidirán la estrategia ganadora.
-      </p>
+        <div className="lab-hero-scene" aria-hidden="true">
+          <LabShelfArt />
+        </div>
+      </section>
 
-      {/* Gráfica de rendimiento comparativo de variantes */}
-      {experimentsChartData.length > 0 && (
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <div className="card-head">
+      {/* MONITOR: comparativa de adherencia de todas las variantes */}
+      {experiments.length > 0 && (
+        <div className="card lab-monitor">
+          <div className="lab-monitor-head">
             <div>
-              <h3 className="card-title">Comparativa de adherencia entre variantes</h3>
+              <h3 className="card-title">Monitor de adherencia</h3>
               <p className="card-sub">Tasa de cumplimiento de sesiones por cada variante A/B</p>
             </div>
-            <span
-              className="badge"
-              style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)' }}
-            >
-              {experimentsChartData.length} variantes
+            <span className="badge accent lab-live">
+              <i aria-hidden="true" /> {experimentsChartData.length} muestras
             </span>
           </div>
 
-          <div style={{ width: '100%', height: Math.max(160, experimentsChartData.length * 44), overflow: 'hidden' }}>
+          {experiments.length > activeExperiments.length && (
+            <div className="segmented lab-monitor-scope" role="group" aria-label="Experimentos en el monitor">
+              <button type="button" className={monitorScope === 'active' ? 'active' : ''} aria-pressed={monitorScope === 'active'} onClick={() => setMonitorScope('active')}>
+                En curso ({activeExperiments.length})
+              </button>
+              <button type="button" className={monitorScope === 'all' ? 'active' : ''} aria-pressed={monitorScope === 'all'} onClick={() => setMonitorScope('all')}>
+                Todos ({experiments.length})
+              </button>
+            </div>
+          )}
+
+          {experimentsChartData.length === 0 ? (
+            <p className="card-sub lab-monitor-empty">No hay experimentos en curso. Pulsa «Todos» para revisar los anteriores.</p>
+          ) : (
+          <div className="lab-screen">
+          <div style={{ height: Math.max(160, experimentsChartData.length * 44) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={experimentsChartData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} unit="%" stroke="var(--muted)" fontSize={11} tickLine={false} />
@@ -165,23 +208,17 @@ export const ExperimentsView: React.FC = () => {
                   tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
                 />
                 <Tooltip
+                  cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
                   content={({ active, payload }: any) => {
                     if (active && payload && payload.length) {
                       const item = payload[0].payload;
                       return (
-                        <div
-                          style={{
-                            background: 'rgba(20, 21, 33, 0.96)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: 10,
-                            padding: '8px 12px',
-                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
-                            fontSize: 12,
-                          }}
-                        >
-                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: 2 }}>{item.expName}</div>
-                          <div style={{ color: '#c084fc', fontWeight: 600 }}>Adherencia: {item.adherencia}%</div>
-                          <div style={{ color: 'var(--muted)', fontSize: 11 }}>Duración media: {item.duracion} min</div>
+                        <div className="lab-tooltip">
+                          <div className="lab-tooltip-title">{item.expName}</div>
+                          <div style={{ color: SLOT[item.slot].color, fontWeight: 700 }}>
+                            Variante {SLOT[item.slot].name}: {item.adherencia}%
+                          </div>
+                          <div className="lab-tooltip-sub">Duración media: {item.duracion} min</div>
                         </div>
                       );
                     }
@@ -190,35 +227,34 @@ export const ExperimentsView: React.FC = () => {
                   isAnimationActive={false}
                   wrapperStyle={{ pointerEvents: 'none', zIndex: 50 }}
                 />
-                <Bar dataKey="adherencia" fill="#c084fc" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="adherencia" radius={[0, 6, 6, 0]}>
+                  {experimentsChartData.map((d, i) => (
+                    <Cell key={i} fill={SLOT[d.slot].color} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+          </div>
+          )}
         </div>
       )}
 
-      {/* Experimentos en curso */}
+      {/* MESA DE TRABAJO: experimentos en curso */}
       <div className="stack" style={{ gap: 16 }}>
-        <div className="row-between">
-          <div className="card-title">Experimentos en curso</div>
+        <div className="row-between lab-section-head">
+          <div className="lab-section-title">
+            <FlaskConical size={18} aria-hidden="true" /> Mesa de trabajo
+          </div>
           <span className="badge accent">{activeExperiments.length} activos</span>
         </div>
 
         {activeExperiments.length === 0 ? (
-          <div className="card empty">
-            <div className="empty-icon">
-              <FlaskConical size={24} />
-            </div>
-            <h3>No tienes experimentos activos</h3>
-            <p>¿No sabes si te conviene estudiar a las 4 PM o a las 8 PM? Inicia un experimento y compara resultados reales.</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                setEditingExp(null);
-                setIsModalOpen(true);
-              }}
-            >
+          <div className="card lab-empty">
+            <Beaker level={0} color="#2dd4bf" shade="#0f766e" size={86} />
+            <h3>La mesa está vacía</h3>
+            <p>¿No sabes si te conviene estudiar a las 4 PM o a las 8 PM? Monta un experimento y compara resultados reales.</p>
+            <button type="button" className="btn btn-primary" onClick={openNew}>
               <Plus size={16} /> Crear mi primer experimento
             </button>
           </div>
@@ -226,52 +262,34 @@ export const ExperimentsView: React.FC = () => {
           <div className="stack" style={{ gap: 18 }}>
             {activeExperiments.map((exp) => {
               const habit = habits.find((h) => h.id === exp.habitId);
-              const variantA = exp.variants[0];
-              const variantB = exp.variants[1];
-              const statsA = variantA ? getVariantStats(exp, variantA) : null;
-              const statsB = variantB ? getVariantStats(exp, variantB) : null;
+              const variants = exp.variants.slice(0, 2);
+              const stats = variants.map((v) => getVariantStats(exp, v));
+              const leader =
+                stats.length === 2 && stats[0].completionPct !== stats[1].completionPct
+                  ? stats[0].completionPct > stats[1].completionPct
+                    ? 0
+                    : 1
+                  : -1;
               const isPausedHabit = habit?.status === 'paused';
               const isHovered = hoveredExpId === exp.id;
+              const day = Math.max(0, Math.min(exp.durationDays, diffDays(exp.startDate, today) + 1));
+              const planned = exp.status === 'planned' || day === 0;
 
               return (
-                <div
+                <article
                   key={exp.id}
-                  className="card highlight"
-                  style={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    ...(isPausedHabit ? { border: '1.5px solid #eab308' } : {}),
-                  }}
+                  className={`card lab-card${isPausedHabit ? ' paused' : ''}`}
                   onMouseEnter={() => setHoveredExpId(exp.id)}
                   onMouseLeave={() => setHoveredExpId(null)}
                 >
                   {/* Capa para reanudar el hábito en pausa al pasar el ratón */}
                   {isPausedHabit && isHovered && (
-                    <div
-                      className="resume-overlay"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'rgba(10, 10, 16, 0.85)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 12,
-                        zIndex: 10,
-                        padding: 16,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#eab308', fontWeight: 600, fontSize: 15 }}>
+                    <div className="resume-overlay lab-resume">
+                      <div className="lab-resume-title">
                         <Pause size={16} strokeWidth={2.6} aria-hidden="true" />
                         <span>Hábito pausado («{habit?.name}»)</span>
                       </div>
-                      <p style={{ color: 'var(--text-2)', fontSize: 13, maxWidth: 360, margin: 0 }}>
-                        Este experimento está asociado a un hábito en pausa. Puedes reanudarlo para continuar registrando sesiones.
-                      </p>
+                      <p>Este experimento está asociado a un hábito en pausa. Puedes reanudarlo para continuar registrando sesiones.</p>
                       <button
                         type="button"
                         className="btn btn-primary sm resume-btn-animated"
@@ -288,13 +306,13 @@ export const ExperimentsView: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="row-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                    <div>
-                      <div className="row">
-                        <span className="entity-icon sm">
-                          <FlaskConical size={16} aria-hidden="true" />
+                  <header className="lab-card-head">
+                    <div className="lab-card-title">
+                      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                        <span className="badge lab-code">{expCode(exp, experiments)}</span>
+                        <span className={`lab-status ${planned ? 'planned' : 'running'}`}>
+                          <i aria-hidden="true" /> {planned ? 'Preparado' : 'En curso'}
                         </span>
-                        <h3 style={{ fontSize: 17, fontWeight: 700 }}>{exp.name}</h3>
                         {habit && (
                           <span className="badge accent">
                             {habit.icon} {habit.name}
@@ -302,108 +320,82 @@ export const ExperimentsView: React.FC = () => {
                         )}
                         {isPausedHabit && <PausedBadge />}
                       </div>
-                      <p style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 6 }}>
-                        <b>Hipótesis:</b> {exp.hypothesis}
-                      </p>
+                      <h3>{exp.name}</h3>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setExpIdToDelete(exp.id)}
+                      className="icon-btn"
+                      title="Eliminar experimento"
+                      aria-label="Eliminar experimento"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </header>
 
-                    <div className="row" style={{ gap: 8 }}>
-                      <span className="small muted">
-                        {exp.durationDays} días (inicio: {exp.startDate})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(exp.id)}
-                        className="icon-btn"
-                        title="Eliminar experimento"
-                        aria-label="Eliminar experimento"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                  <div className="lab-timeline">
+                    <span className="lab-timeline-label">
+                      Día <b>{day}</b> de {exp.durationDays}
+                    </span>
+                    <TubeProgress value={(day / Math.max(1, exp.durationDays)) * 100} label={`Avance del experimento: día ${day} de ${exp.durationDays}`} />
+                    <span className="lab-timeline-date">Inicio: {exp.startDate}</span>
                   </div>
 
-                  {/* Comparativa A/B */}
-                  <div className="grid-2" style={{ marginTop: 18 }}>
-                    {variantA && (
-                      <div className="variant-card">
-                        <div className="row-between">
-                          <span className="badge accent">Variante A</span>
-                          <span className="xs muted">Días {variantA.startDay} a {variantA.endDay}</span>
-                        </div>
-                        <div className="bold" style={{ fontSize: 15 }}>{variantA.label}</div>
+                  <div className="lab-note">
+                    <span className="lab-note-tag">
+                      <NotebookPen size={13} aria-hidden="true" /> Hipótesis
+                    </span>
+                    <p>{exp.hypothesis}</p>
+                  </div>
 
-                        <div className="variant-metric-grid">
-                          <div className="variant-metric-box">
-                            <span className="num success">{statsA?.completionPct ?? 0}%</span>
-                            <span className="label">Completado</span>
-                          </div>
-                          <div className="variant-metric-box">
-                            <span className="num">{statsA?.avgDuration ?? 0}m</span>
-                            <span className="label">Duración prom.</span>
-                          </div>
-                          <div className="variant-metric-box">
-                            <span className="num warning">{statsA?.avgEnergy} / 5</span>
-                            <span className="label">Energía media</span>
-                          </div>
-                          <div className="variant-metric-box">
-                            <span className="num danger">{statsA?.avgDiff} / 5</span>
-                            <span className="label">Dificultad</span>
-                          </div>
-                        </div>
+                  {/* Comparativa A/B: un vaso por variante que se llena con su adherencia */}
+                  <div className="lab-variants">
+                    {variants.map((v, i) => {
+                      const st = stats[i];
+                      const slot = SLOT[i];
+                      return (
+                        <React.Fragment key={v.id}>
+                          {i === 1 && (
+                            <span className="lab-vs" aria-hidden="true">
+                              VS
+                            </span>
+                          )}
+                          <div className={`lab-variant slot-${slot.name.toLowerCase()}${leader === i ? ' leading' : ''}`}>
+                            {leader === i && <span className="lab-leading">Va ganando</span>}
+                            <div className="lab-variant-top">
+                              <Beaker level={st.completionPct} color={slot.color} shade={slot.shade} />
+                              <div className="lab-variant-info">
+                                <span className="lab-variant-tag">Variante {slot.name}</span>
+                                <div className="lab-variant-name">{v.label}</div>
+                                <span className="xs muted">
+                                  Días {v.startDay} a {v.endDay}
+                                </span>
+                                <div className="lab-variant-pct">{st.completionPct}%</div>
+                              </div>
+                            </div>
 
-                        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary sm"
-                            onClick={() => handleSelectWinner(exp, variantA)}
-                          >
-                            <Trophy size={14} style={{ color: 'var(--warning)' }} />
-                            Adoptar Variante A
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                            <div className="lab-metrics">
+                              <div className="lab-metric">
+                                <span>{st.avgDuration}m</span>
+                                <small>Duración</small>
+                              </div>
+                              <div className="lab-metric">
+                                <span>{st.avgEnergy}</span>
+                                <small>Energía /5</small>
+                              </div>
+                              <div className="lab-metric">
+                                <span>{st.avgDiff}</span>
+                                <small>Dificultad /5</small>
+                              </div>
+                            </div>
 
-                    {variantB && (
-                      <div className="variant-card">
-                        <div className="row-between">
-                          <span className="badge warning">Variante B</span>
-                          <span className="xs muted">Días {variantB.startDay} a {variantB.endDay}</span>
-                        </div>
-                        <div className="bold" style={{ fontSize: 15 }}>{variantB.label}</div>
-
-                        <div className="variant-metric-grid">
-                          <div className="variant-metric-box">
-                            <span className="num success">{statsB?.completionPct ?? 0}%</span>
-                            <span className="label">Completado</span>
+                            <button type="button" className="btn btn-secondary sm" onClick={() => handleSelectWinner(exp, v)}>
+                              <Trophy size={14} style={{ color: 'var(--warning)' }} /> Adoptar variante {slot.name}
+                            </button>
                           </div>
-                          <div className="variant-metric-box">
-                            <span className="num">{statsB?.avgDuration ?? 0}m</span>
-                            <span className="label">Duración prom.</span>
-                          </div>
-                          <div className="variant-metric-box">
-                            <span className="num warning">{statsB?.avgEnergy} / 5</span>
-                            <span className="label">Energía media</span>
-                          </div>
-                          <div className="variant-metric-box">
-                            <span className="num danger">{statsB?.avgDiff} / 5</span>
-                            <span className="label">Dificultad</span>
-                          </div>
-                        </div>
-
-                        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary sm"
-                            onClick={() => handleSelectWinner(exp, variantB)}
-                          >
-                            <Trophy size={14} style={{ color: 'var(--warning)' }} />
-                            Adoptar Variante B
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
 
                   {exp.conclusion && (
@@ -415,29 +407,39 @@ export const ExperimentsView: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Historial de experimentos concluidos */}
+      {/* ARCHIVO: experimentos concluidos */}
       {finishedExperiments.length > 0 && (
         <div className="stack" style={{ gap: 12, marginTop: 12 }}>
-          <div className="card-title">Experimentos concluidos</div>
+          <div className="lab-section-title">
+            <Archive size={18} aria-hidden="true" /> Archivo de resultados
+          </div>
           <div className="grid-2">
-            {finishedExperiments.map((exp) => (
-              <div key={exp.id} className="card" style={{ opacity: 0.85 }}>
-                <div className="row-between">
-                  <span className="bold">{exp.name}</span>
-                  <span className="badge success">Concluido</span>
+            {finishedExperiments.map((exp) => {
+              const winner = exp.variants.find((v) => v.id === exp.winnerVariantId);
+              const slotIdx = winner ? exp.variants.indexOf(winner) % 2 : -1;
+              return (
+                <div key={exp.id} className="card lab-report">
+                  <span className="lab-stamp" aria-hidden="true">
+                    Concluido
+                  </span>
+                  <span className="badge lab-code">{expCode(exp, experiments)}</span>
+                  <div className="lab-report-name">{exp.name}</div>
+                  {winner && (
+                    <div className="lab-report-winner" style={{ color: SLOT[slotIdx].color }}>
+                      <Trophy size={14} aria-hidden="true" /> Ganó la variante {SLOT[slotIdx].name}: {winner.label}
+                    </div>
+                  )}
+                  <p className="small muted">{exp.conclusion || 'Experimento completado.'}</p>
                 </div>
-                <p className="small muted" style={{ marginTop: 8 }}>
-                  {exp.conclusion || 'Experimento completado.'}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

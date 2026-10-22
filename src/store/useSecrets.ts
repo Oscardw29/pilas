@@ -175,7 +175,7 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
   },
 }));
 
-/** Acceso a las claves desde código no-React (lib/gemini, lib/voice) */
+/** Acceso a las claves desde código no-React (lib/gemini) */
 export const getSecrets = (): Secrets => useSecrets.getState().keys;
 
 /** Campos de claves que versiones antiguas guardaban dentro de `settings` */

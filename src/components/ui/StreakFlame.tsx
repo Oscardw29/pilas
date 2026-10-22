@@ -17,8 +17,15 @@ export type FlameTier =
   | 'intense'
   | 'searing'
   | 'blaze'
+  | 'inferno'
   | 'legendary'
-  | 'mythic';
+  | 'royal'
+  | 'solar'
+  | 'supernova'
+  | 'rising'
+  | 'mythic'
+  | 'eternal'
+  | 'immortal';
 
 export interface FlameLevel {
   tier: FlameTier;
@@ -36,8 +43,15 @@ export const FLAME_LEVELS: readonly FlameLevel[] = [
   { tier: 'intense', minDays: 14, name: 'Fuego intenso' },
   { tier: 'searing', minDays: 30, name: 'Fuego abrasador' },
   { tier: 'blaze', minDays: 50, name: 'Llamarada' },
+  { tier: 'inferno', minDays: 60, name: 'Infierno' },
   { tier: 'legendary', minDays: 100, name: 'Fuego legendario' },
+  { tier: 'royal', minDays: 150, name: 'Fuego coronado' },
+  { tier: 'solar', minDays: 200, name: 'Sol ardiente' },
+  { tier: 'supernova', minDays: 250, name: 'Supernova' },
+  { tier: 'rising', minDays: 350, name: 'Fénix naciente' },
   { tier: 'mythic', minDays: 365, name: 'Fénix mítico' },
+  { tier: 'eternal', minDays: 500, name: 'Fénix eterno' },
+  { tier: 'immortal', minDays: 1000, name: 'Llama inmortal' },
 ];
 
 export function getFlameLevel(days: number): FlameLevel {
@@ -49,6 +63,16 @@ export function getFlameLevel(days: number): FlameLevel {
 
 export function getFlameTier(days: number): FlameTier {
   return getFlameLevel(days).tier;
+}
+
+const MYTHIC_INDEX = FLAME_LEVELS.findIndex((l) => l.tier === 'mythic');
+
+/**
+ * Potencia del nivel de 0 (sin racha) a 1 (fénix mítico, 365 días): escala sonido, confeti y efectos.
+ * Los niveles posteriores solo cambian la llama; la celebración ya está al máximo.
+ */
+export function getFlamePower(days: number): number {
+  return Math.min(1, FLAME_LEVELS.indexOf(getFlameLevel(days)) / MYTHIC_INDEX);
 }
 
 /* ---------- Paletas ---------- */
@@ -77,8 +101,15 @@ const WARM: Record<FlameTier, Palette> = {
   intense: { o1: '#ef4444', o2: '#991b1b', i1: '#fde047', i2: '#f97316', core: '#fefce8', glow: '239, 68, 68', ember: '#fcd34d', accent: '#fca5a5' },
   searing: { o1: '#dc2626', o2: '#7f1d1d', i1: '#fff7ed', i2: '#fb923c', core: '#ffffff', glow: '249, 115, 22', ember: '#fed7aa', accent: '#fdba74' },
   blaze: { o1: '#f97316', o2: '#b91c1c', i1: '#ffffff', i2: '#fde047', core: '#ffffff', glow: '251, 146, 60', ember: '#fde68a', accent: '#fbbf24' },
+  inferno: { o1: '#ea580c', o2: '#7f1d1d', i1: '#fff7ed', i2: '#fbbf24', core: '#ffffff', glow: '234, 88, 12', ember: '#fdba74', accent: '#fb923c' },
   legendary: { o1: '#fbbf24', o2: '#c2410c', i1: '#ffffff', i2: '#fde68a', core: '#ffffff', glow: '251, 191, 36', ember: '#fde68a', accent: '#fcd34d' },
+  royal: { o1: '#fcd34d', o2: '#d97706', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '252, 211, 77', ember: '#fef3c7', accent: '#fde68a' },
+  solar: { o1: '#fde047', o2: '#ea580c', i1: '#ffffff', i2: '#fef9c3', core: '#ffffff', glow: '250, 204, 21', ember: '#fef9c3', accent: '#fde047' },
+  supernova: { o1: '#fef3c7', o2: '#f97316', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '253, 186, 116', ember: '#ffffff', accent: '#fff7ed' },
+  rising: { o1: '#fde68a', o2: '#ea580c', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '249, 115, 22', ember: '#fde68a', accent: '#fbbf24' },
   mythic: { o1: '#fde68a', o2: '#ea580c', i1: '#ffffff', i2: '#fef3c7', core: '#ffffff', glow: '249, 115, 22', ember: '#fde68a', accent: '#fbbf24' },
+  eternal: { o1: '#fef3c7', o2: '#f97316', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '251, 146, 60', ember: '#ffffff', accent: '#fde68a' },
+  immortal: { o1: '#ffffff', o2: '#f59e0b', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '253, 224, 71', ember: '#ffffff', accent: '#fffbeb' },
 };
 
 /** Súper racha: la misma forma del nivel, de violeta a azul eléctrico */
@@ -90,8 +121,15 @@ const SUPER: Record<FlameTier, Palette> = {
   intense: { o1: '#7c3aed', o2: '#3b0764', i1: '#e0e7ff', i2: '#a78bfa', core: '#ffffff', glow: '124, 58, 237', ember: '#c7d2fe', accent: '#c7d2fe' },
   searing: { o1: '#6366f1', o2: '#312e81', i1: '#e0f2fe', i2: '#818cf8', core: '#ffffff', glow: '99, 102, 241', ember: '#bae6fd', accent: '#a5b4fc' },
   blaze: { o1: '#3b82f6', o2: '#1e3a8a', i1: '#ffffff', i2: '#93c5fd', core: '#ffffff', glow: '59, 130, 246', ember: '#bfdbfe', accent: '#c4b5fd' },
+  inferno: { o1: '#2563eb', o2: '#172554', i1: '#ffffff', i2: '#93c5fd', core: '#ffffff', glow: '37, 99, 235', ember: '#bfdbfe', accent: '#818cf8' },
   legendary: { o1: '#a78bfa', o2: '#4338ca', i1: '#ffffff', i2: '#c7d2fe', core: '#ffffff', glow: '139, 92, 246', ember: '#a5f3fc', accent: '#67e8f9' },
+  royal: { o1: '#a5b4fc', o2: '#4338ca', i1: '#ffffff', i2: '#e0e7ff', core: '#ffffff', glow: '129, 140, 248', ember: '#a5f3fc', accent: '#67e8f9' },
+  solar: { o1: '#93c5fd', o2: '#1d4ed8', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '96, 165, 250', ember: '#cffafe', accent: '#a5f3fc' },
+  supernova: { o1: '#e0f2fe', o2: '#4f46e5', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '129, 140, 248', ember: '#ffffff', accent: '#cffafe' },
+  rising: { o1: '#e0e7ff', o2: '#6366f1', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '99, 102, 241', ember: '#a5f3fc', accent: '#67e8f9' },
   mythic: { o1: '#e0e7ff', o2: '#6366f1', i1: '#ffffff', i2: '#e0f2fe', core: '#ffffff', glow: '99, 102, 241', ember: '#a5f3fc', accent: '#67e8f9' },
+  eternal: { o1: '#e0f2fe', o2: '#4f46e5', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '129, 140, 248', ember: '#ffffff', accent: '#a5f3fc' },
+  immortal: { o1: '#ffffff', o2: '#6366f1', i1: '#ffffff', i2: '#ffffff', core: '#ffffff', glow: '165, 180, 252', ember: '#ffffff', accent: '#ecfeff' },
 };
 
 /** Racha protegida: llama congelada (no parpadea) */
@@ -163,9 +201,17 @@ interface Shape {
   halo: { r: number; cy: number; a: number };
   embers: number;
   ring?: boolean;
+  /** Segundo anillo, más ancho */
+  ring2?: boolean;
   rays?: boolean;
+  /** Segunda corona de rayos intercalada */
+  rays2?: boolean;
   wisps?: boolean;
-  wings?: boolean;
+  /** Destellos sobre la punta */
+  crown?: boolean;
+  /** Chispas que orbitan alrededor */
+  orbit?: boolean;
+  wings?: 'half' | 'full';
   spark?: boolean;
 }
 
@@ -176,8 +222,15 @@ const SHAPES: Record<Exclude<FlameTier, 'dormant'>, Shape> = {
   intense: { ...FOUR, scale: 1, dur: 1, amp: 0.08, halo: { r: 21, cy: 28, a: 0.5 }, embers: 3 },
   searing: { ...FOUR, scale: 1.06, dur: 0.95, amp: 0.085, halo: { r: 24, cy: 27, a: 0.72 }, embers: 4 },
   blaze: { ...CROWN, scale: 1, dur: 0.85, amp: 0.09, halo: { r: 24, cy: 26, a: 0.75 }, embers: 5, ring: true },
+  inferno: { ...CROWN, scale: 1, dur: 0.82, amp: 0.092, halo: { r: 24, cy: 26, a: 0.8 }, embers: 6, ring: true, ring2: true },
   legendary: { ...CROWN, scale: 1, dur: 0.8, amp: 0.095, halo: { r: 24, cy: 25, a: 0.85 }, embers: 6, ring: true, rays: true, wisps: true },
-  mythic: { ...CROWN, scale: 0.84, dur: 0.8, amp: 0.1, halo: { r: 24, cy: 26, a: 0.9 }, embers: 7, ring: true, rays: true, wings: true },
+  royal: { ...CROWN, scale: 1, dur: 0.8, amp: 0.095, halo: { r: 24, cy: 25, a: 0.88 }, embers: 7, ring: true, rays: true, wisps: true, crown: true },
+  solar: { ...CROWN, scale: 1.02, dur: 0.78, amp: 0.097, halo: { r: 24, cy: 25, a: 0.95 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, wisps: true, crown: true },
+  supernova: { ...CROWN, scale: 1, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 25, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, orbit: true },
+  rising: { ...CROWN, scale: 0.86, dur: 0.78, amp: 0.1, halo: { r: 24, cy: 26, a: 0.9 }, embers: 7, ring: true, rays: true, crown: true, wings: 'half' },
+  mythic: { ...CROWN, scale: 0.84, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 26, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full' },
+  eternal: { ...CROWN, scale: 0.84, dur: 0.76, amp: 0.1, halo: { r: 24, cy: 26, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full', orbit: true },
+  immortal: { ...CROWN, scale: 0.86, dur: 0.74, amp: 0.1, halo: { r: 24, cy: 25, a: 1 }, embers: 7, ring: true, ring2: true, rays: true, rays2: true, crown: true, wings: 'full', orbit: true },
 };
 
 /** Brasas que suben (el orden importa: los niveles bajos usan las primeras) */
@@ -204,6 +257,21 @@ const RAYS = Array.from({ length: 8 }, (_, i) => {
   const f = (n: number) => Math.round(n * 100) / 100;
   return { x1: f(24 + Math.cos(a) * r1), y1: f(25 + Math.sin(a) * r1), x2: f(24 + Math.cos(a) * r2), y2: f(25 + Math.sin(a) * r2) };
 });
+
+/** Segunda corona: rayos más cortos entre los primeros */
+const RAYS2 = Array.from({ length: 8 }, (_, i) => {
+  const a = (i * Math.PI) / 4;
+  const f = (n: number) => Math.round(n * 100) / 100;
+  return { x1: f(24 + Math.cos(a) * 19.5), y1: f(25 + Math.sin(a) * 19.5), x2: f(24 + Math.cos(a) * 22), y2: f(25 + Math.sin(a) * 22) };
+});
+
+/** Chispas en órbita (centro 24, 26; radio 20) */
+const ORBIT = [
+  { x: 44, y: 26 },
+  { x: 24, y: 46 },
+  { x: 4, y: 26 },
+  { x: 24, y: 6 },
+];
 
 const aboutBase = (s: number) => (s === 1 ? undefined : `translate(24 44) scale(${s}) translate(-24 -44)`);
 
@@ -340,6 +408,25 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
             ))}
           </g>
         )}
+        {shape.rays2 && (
+          <g className="sf-rays sf-rays-2" stroke={pal.ember} strokeWidth={small ? 1.8 : 1} strokeLinecap="round" opacity="0.5">
+            {RAYS2.map((r, i) => (
+              <line key={i} {...r} />
+            ))}
+          </g>
+        )}
+
+        {/* Mitad trasera del anillo ancho */}
+        {shape.ring2 && (
+          <path
+            className="sf-ring sf-ring-2"
+            d="M3 42.5A21 5.5 0 0 1 45 42.5"
+            stroke={pal.ember}
+            strokeWidth={ringWidth * 0.8}
+            strokeLinecap="round"
+            opacity="0.35"
+          />
+        )}
 
         {/* Mitad trasera del anillo */}
         {shape.ring && (
@@ -355,7 +442,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
 
         {/* Alas del fénix */}
         {shape.wings && (
-          <g>
+          <g transform={shape.wings === 'half' ? aboutBase(0.88) : undefined}>
             <path className="sf-wing" d={WING} fill={`url(#${ids.w})`} />
             <g transform="translate(48 0) scale(-1 1)">
               <path className="sf-wing" d={WING} fill={`url(#${ids.w})`} />
@@ -368,7 +455,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
           <path className="sf-outer" d={shape.outer} fill={`url(#${ids.o})`} />
           <path className="sf-inner" d={shape.inner} fill={`url(#${ids.i})`} />
           <path className="sf-core" d={shape.core} fill={pal.core} />
-          {shape.wings && <path d={BOLT} fill={frozen ? pal.accent : '#f59e0b'} stroke="#fff7ed" strokeWidth="0.6" strokeLinejoin="round" />}
+          {shape.wings === 'full' && <path d={BOLT} fill={frozen ? pal.accent : '#f59e0b'} stroke="#fff7ed" strokeWidth="0.6" strokeLinejoin="round" />}
         </g>
 
         {/* Lenguas sueltas */}
@@ -384,6 +471,25 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
             strokeWidth={ringWidth}
             strokeLinecap="round"
           />
+        )}
+        {shape.ring2 && (
+          <path
+            className="sf-ring sf-ring-2"
+            d="M3 42.5A21 5.5 0 0 0 45 42.5"
+            stroke={pal.ember}
+            strokeWidth={ringWidth * 0.8}
+            strokeLinecap="round"
+            opacity="0.8"
+          />
+        )}
+
+        {/* Chispas en órbita */}
+        {shape.orbit && (
+          <g className="sf-orbit" fill={pal.accent}>
+            {ORBIT.map((o, i) => (
+              <circle key={i} cx={o.x} cy={o.y} r={small ? 2.2 : i % 2 ? 1.1 : 1.6} />
+            ))}
+          </g>
         )}
 
         {/* Brasas que suben */}
@@ -413,8 +519,8 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
           </>
         )}
 
-        {/* Corona de destellos del fénix */}
-        {shape.wings && (
+        {/* Corona de destellos */}
+        {shape.crown && (
           <>
             <path className="sf-twinkle" d={star(24, 4, small ? 4 : 3.2)} fill="#fff7ed" />
             <path className="sf-twinkle sf-twinkle-2" d={star(14, 7.5, 2)} fill={pal.accent} />
@@ -423,7 +529,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
         )}
 
         {/* Destellos de súper racha */}
-        {isSuper && !shape.spark && !shape.wings && (
+        {isSuper && !shape.spark && !shape.crown && (
           <>
             <path className="sf-twinkle" d={star(40, 13, small ? 4.5 : 3.6)} fill="#fdf4ff" />
             <path className="sf-twinkle sf-twinkle-2" d={star(8, 22, small ? 3.2 : 2.5)} fill={pal.accent} />

@@ -1,7 +1,7 @@
 // Service Worker de ¡Pilas!: notificaciones nativas + funcionamiento sin conexión.
 // - Navegación: red primero, con la última página guardada como respaldo offline.
 // - /assets/* (archivos con hash, inmutables): caché primero.
-// - Nunca se cachean peticiones a /api ni a otros orígenes (IA, voz): pueden llevar claves y datos personales.
+// - Nunca se cachean peticiones a /api ni a otros orígenes (IA): pueden llevar claves y datos personales.
 // Nueva versión de caché: obliga a descargar los iconos y el manifiesto con la nueva marca
 const CACHE_NAME = 'pilas-v3';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];

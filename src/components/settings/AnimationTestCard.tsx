@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { Clapperboard, Flame, Gift, Snowflake } from 'lucide-react';
+import { Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen } from 'lucide-react';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
 import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
+import { triggerCoachTeaser } from '@/components/coach/coachTeasers';
+import { useCoachPersona } from '@/components/coach/coachPersona';
+import { openWelcomePreview } from '@/components/modals/WelcomeModal';
 
 const MIN_DAYS = 1;
-const MAX_DAYS = 365;
+/** Diez años: la racha real no tiene tope */
+const MAX_DAYS = 3650;
 
 /** Hitos donde la llama cambia de nivel (ver FLAME_LEVELS) */
 const MILESTONES = FLAME_LEVELS.filter((l) => l.minDays > 0).map((l) => l.minDays);
@@ -19,6 +23,7 @@ const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.roun
 export const AnimationTestCard: React.FC = () => {
   const [daysInput, setDaysInput] = useState('7');
   const [isSuper, setIsSuper] = useState(false);
+  const coachName = useCoachPersona().name;
 
   const parsed = Number(daysInput);
   const days = Number.isFinite(parsed) && daysInput.trim() !== '' ? clampDays(parsed) : MIN_DAYS;
@@ -119,6 +124,26 @@ export const AnimationTestCard: React.FC = () => {
             </button>
           </div>
           <span className="hint">Es solo una vista previa: no se gastan puntos ni se crea ningún canje.</span>
+        </div>
+
+        {/* Aviso del coach */}
+        <div className="field">
+          <span className="label">Aviso de {coachName}</span>
+          <button type="button" className="btn btn-secondary" onClick={triggerCoachTeaser} style={{ alignSelf: 'flex-start' }}>
+            <MessageCircleMore size={16} style={{ color: 'var(--accent-2)' }} />
+            Mostrar un aviso junto a su botón
+          </button>
+          <span className="hint">Siempre sale uno al entrar a la app; después, como mucho cada 2 horas y 4 veces al día.</span>
+        </div>
+
+        {/* Pantalla de inicio */}
+        <div className="field">
+          <span className="label">Pantalla de inicio</span>
+          <button type="button" className="btn btn-secondary" onClick={openWelcomePreview} style={{ alignSelf: 'flex-start' }}>
+            <DoorOpen size={16} style={{ color: 'var(--accent-2)' }} />
+            Ver el menú de inicio de la app
+          </button>
+          <span className="hint">La bienvenida del primer uso. Es solo una vista previa: no borra ni cambia nada.</span>
         </div>
       </div>
     </div>
