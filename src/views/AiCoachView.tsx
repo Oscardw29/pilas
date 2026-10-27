@@ -838,6 +838,8 @@ export const AiCoachView: React.FC = () => {
           <div className="chat-messages">
             {messages.map((m) => {
               const isUser = m.sender === 'user';
+              // La respuesta aún vacía no se dibuja: mientras tanto se ve la burbuja de «pensando»
+              if (!isUser && !m.content && m.id !== regeneratingId) return null;
               const isEditing = editingId === m.id;
               const isCopied = copiedId === m.id;
               const totalVersions = m.versions?.length || 1;

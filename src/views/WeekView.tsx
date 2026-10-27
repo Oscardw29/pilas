@@ -521,7 +521,7 @@ export const WeekView: React.FC = () => {
             <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'rgba(248, 113, 113, 0.2)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
           </span>
           <span className="week-legend-item">
-            <span className="legend-cell" style={{ border: '1.5px solid rgba(251, 191, 36, 0.45)', background: 'var(--warning-soft)', color: 'var(--warning)' }}><StatusIcon status="paused" size={9} strokeWidth={3} /></span> En pausa
+            <span className="legend-cell" style={{ background: 'var(--warning)', color: '#fff' }}><StatusIcon status="paused" size={9} strokeWidth={3} className="icon-filled" /></span> En pausa
           </span>
           <span className="week-legend-item">
             <span style={{ color: 'var(--muted)', opacity: 0.5, fontWeight: 700 }}>—</span> No programado hoy

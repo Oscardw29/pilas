@@ -148,7 +148,7 @@ export const CoachTeaser: React.FC<CoachTeaserProps> = ({ blocked, tucked, onUnt
           <span className="coach-teaser-ghost">{chars.slice(typed).join('')}</span>
         </span>
         <span className={`coach-teaser-cta${done ? ' show' : ''}`} aria-hidden="true">
-          Toca para verlo →
+          {teaser.cta ?? 'Toca para verlo →'}
         </span>
       </button>
       <button

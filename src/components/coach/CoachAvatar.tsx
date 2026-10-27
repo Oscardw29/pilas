@@ -81,6 +81,24 @@ const LOOK_MAX = { x: 4.4, y: 3.8 };
 const SH_R = { x: 142, y: 182 };
 const SH_L = { x: 58, y: 182 };
 const UPPER = 32;
+/** Del codo a la muñeca */
+const FORE = 24;
+
+/** Contorno de las mangas según la ropa */
+const SLEEVE_EDGE: Record<CoachOutfit, string> = { coach: '#4C1D95', shop: '#C9A66B', lab: '#94A3B8' };
+
+/* Moneda del tendero: giros del brazo derecho al lanzarla (deben coincidir con .ca-g-coin en coach.css)
+   y punto donde queda la moneda sobre la mano, ya en el marco del cuerpo */
+const COIN_UP = -112;
+const COIN_FORE = -64;
+const COIN_ARM_TURN = COIN_UP + COIN_FORE;
+const COIN_REACH = FORE + 26;
+const COIN_AIR = (() => {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const ex = SH_R.x - UPPER * Math.sin(rad(COIN_UP));
+  const ey = SH_R.y + UPPER * Math.cos(rad(COIN_UP));
+  return { x: ex - COIN_REACH * Math.sin(rad(COIN_ARM_TURN)), y: ey + COIN_REACH * Math.cos(rad(COIN_ARM_TURN)) };
+})();
 
 /* ---------------- Puntero compartido por todos los avatares ---------------- */
 const pointer = { x: 0, y: 0, t: 0 };
@@ -636,34 +654,89 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
      sin aparecer ni desvanecerse. */
   const arm = (side: 'r' | 'l') => {
     const sh = side === 'r' ? SH_R : SH_L;
+    const x = sh.x;
     const elbowY = sh.y + UPPER;
+    const wristY = elbowY + FORE;
     const out = side === 'r' ? 1 : -1; // hacia fuera del cuerpo
+    const edge = SLEEVE_EDGE[outfit];
+    // En la tienda lleva las mangas remangadas: el antebrazo es piel
+    const bareFore = outfit === 'shop';
     return (
-      <g className={`ca-up ca-up-${side}`} style={{ transformOrigin: `${sh.x}px ${sh.y}px` }}>
-        <path d={`M${sh.x} ${sh.y} L${sh.x} ${elbowY}`} stroke={sleeve} strokeWidth={21} strokeLinecap="round" />
+      <g className={`ca-up ca-up-${side}`} style={{ transformOrigin: `${x}px ${sh.y}px` }}>
+        {/* Brazo con contorno para que se lea sobre el torso del mismo color */}
+        <path d={`M${x} ${sh.y} L${x} ${elbowY}`} stroke={edge} strokeWidth={24} strokeLinecap="round" />
+        <path d={`M${x} ${sh.y} L${x} ${elbowY}`} stroke={sleeve} strokeWidth={20.5} strokeLinecap="round" />
         {outfit === 'coach' && (
-          <path d={`M${sh.x + 6.5 * out} ${sh.y + 2} L${sh.x + 6.5 * out} ${elbowY + 2}`} stroke={C.white} strokeWidth={3.4} strokeLinecap="round" opacity={0.9} />
+          <path d={`M${x + 5.5 * out} ${sh.y + 1} L${x + 5.5 * out} ${elbowY}`} stroke={C.white} strokeWidth={3} strokeLinecap="round" opacity={0.9} />
         )}
-        <g className={`ca-fore ca-fore-${side}`} style={{ transformOrigin: `${sh.x}px ${elbowY}px` }}>
-          <path d={`M${sh.x} ${elbowY} L${sh.x} ${elbowY + 25}`} stroke={sleeve} strokeWidth={19} strokeLinecap="round" />
-          <rect x={sh.x - 10.5} y={elbowY + 22} width={21} height={6} rx={3} fill={outfit === 'coach' ? C.white : C.skinShade} opacity={outfit === 'coach' ? 0.9 : 0.6} />
-          <g className={`ca-hand ca-hand-${side}`} style={{ transformOrigin: `${sh.x}px ${elbowY + 28}px` }}>
-            <rect x={sh.x - 11} y={elbowY + 27} width={22} height={22} rx={10} fill={C.skin} />
-            <rect x={sh.x - 11 * out - 4} y={elbowY + 30} width={8} height={10} rx={4} fill={C.skin} />
-            <rect x={sh.x - 6} y={elbowY + 41} width={5} height={7} rx={2.5} fill={C.skinShade} opacity={0.55} />
-            <rect x={sh.x + 1} y={elbowY + 41} width={5} height={7} rx={2.5} fill={C.skinShade} opacity={0.55} />
-            {side === 'r' && outfit === 'shop' && (
-              <g className="ca-coin" style={{ transformOrigin: `${sh.x}px ${elbowY + 60}px` }}>
-                <circle cx={sh.x} cy={elbowY + 60} r={9.5} fill={C.amberLip} />
-                <circle cx={sh.x} cy={elbowY + 59} r={8.2} fill={C.amber} />
-                <path d={`M${sh.x + 1.5} ${elbowY + 54} l-4.5 6.5 h3.5 l-1.5 4.5 l5 -7 h-3.5 Z`} fill={C.amberLip} />
-              </g>
-            )}
+        <g className={`ca-fore ca-fore-${side}`} style={{ transformOrigin: `${x}px ${elbowY}px` }}>
+          <path d={`M${x} ${elbowY} L${x} ${wristY}`} stroke={bareFore ? C.skinShade : edge} strokeWidth={20} strokeLinecap="round" />
+          <path d={`M${x} ${elbowY} L${x} ${wristY}`} stroke={bareFore ? C.skin : sleeve} strokeWidth={16.5} strokeLinecap="round" />
+          {bareFore ? (
+            // Manga remangada sobre el codo (tapa la unión)
+            <g>
+              <rect x={x - 12.5} y={elbowY - 5} width={25} height={11} rx={5.5} fill={edge} />
+              <rect x={x - 11.5} y={elbowY - 4.5} width={23} height={9} rx={4.5} fill={C.cream} />
+            </g>
+          ) : (
+            <g>
+              {/* Codo: tapa el contorno del antebrazo dentro de la manga */}
+              <circle cx={x} cy={elbowY} r={10.25} fill={sleeve} />
+              {outfit === 'coach' && (
+                <path d={`M${x + 5.5 * out} ${elbowY - 4} L${x + 5.5 * out} ${wristY - 6}`} stroke={C.white} strokeWidth={3} strokeLinecap="round" opacity={0.9} />
+              )}
+              {/* Puño de la manga */}
+              <rect x={x - 10} y={wristY - 5} width={20} height={7} rx={3.5} fill={outfit === 'coach' ? C.white : C.coat} stroke={edge} strokeWidth={1.4} />
+            </g>
+          )}
+          {side === 'r' && outfit === 'shop' && (
+            // Moneda en la mano, girada para verse derecha con el brazo en alto
+            <g className="ca-coin-hand" transform={`rotate(${-COIN_ARM_TURN} ${x} ${elbowY + COIN_REACH})`}>
+              {coin(x, elbowY + COIN_REACH)}
+            </g>
+          )}
+          <g className={`ca-hand ca-hand-${side}`} style={{ transformOrigin: `${x}px ${wristY}px` }}>
+            {/* Mano: palma redonda con dedos marcados y el pulgar hacia el cuerpo */}
+            <ellipse cx={x} cy={wristY + 11} rx={10.6} ry={11.2} fill={C.skinShade} />
+            <ellipse cx={x} cy={wristY + 10.4} rx={9.6} ry={10.2} fill={C.skin} />
+            <path
+              d={`M${x - 3.6} ${wristY + 15.5} v4.2 M${x + 0.4} ${wristY + 16.5} v4.2 M${x + 4.2} ${wristY + 15.5} v3.6`}
+              stroke={C.skinShade}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+            <ellipse
+              cx={x - 8.6 * out}
+              cy={wristY + 7.5}
+              rx={3.9}
+              ry={6.2}
+              fill={C.skin}
+              stroke={C.skinShade}
+              strokeWidth={1.6}
+              transform={`rotate(${22 * out} ${x - 8.6 * out} ${wristY + 7.5})`}
+            />
           </g>
         </g>
       </g>
     );
   };
+
+  /** Moneda de la tienda (centrada en x, y) */
+  const coin = (x: number, y: number) => (
+    <g>
+      <circle cx={x} cy={y + 0.8} r={8.6} fill={C.amberLip} />
+      <circle cx={x} cy={y} r={8} fill={C.amber} />
+      <path d={`M${x + 1.5} ${y - 5} l-4.5 6.5 h3.5 l-1.5 4.5 l5 -7 h-3.5 Z`} fill={C.amberLip} />
+    </g>
+  );
+
+  /* Moneda en el aire: se mueve en vertical en el marco del cuerpo (no en el del brazo girado),
+     así sube y baja recta sobre la mano en lugar de irse de lado. */
+  const flyingCoin = () => (
+    <g className="ca-coin-fly">
+      <g className="ca-coin-spin">{coin(COIN_AIR.x, COIN_AIR.y)}</g>
+    </g>
+  );
 
   const flask = () => (
     <g className="ca-flask" style={{ transformOrigin: '70px 196px' }}>
@@ -715,6 +788,7 @@ export const CoachAvatar: React.FC<CoachAvatarProps> = ({
           {showArms && outfit === 'lab' && flask()}
           {showArms && arm('l')}
           {showArms && arm('r')}
+          {showArms && outfit === 'shop' && flyingCoin()}
         </g>
 
         <g className="ca-head" style={{ transformOrigin: '100px 150px' }}>
