@@ -17,9 +17,8 @@ Abre la ventana nativa con recarga en caliente (usa el servidor de Vite en el pu
 ```bash
 npm run desktop:build
 ```
-Resultado:
-- `src-tauri/target/release/bundle/nsis/Pilas_2.0.0_x64-setup.exe`: instalador `.exe` (no pide permisos de administrador).
-- `src-tauri/target/release/bundle/msi/Pilas_2.0.0_x64_es-ES.msi`
+Resultado: `src-tauri/target/release/bundle/nsis/Pilas_2.0.0_x64-setup.exe`, un instalador `.exe` que no pide permisos de administrador.
+No se genera `.msi`: necesita VBScript, que Windows 11 24H2/25H2 trae desactivado, y el `.exe` cubre lo mismo.
 
 La primera compilación tarda varios minutos (compila Rust); después es mucho más rápida.
 

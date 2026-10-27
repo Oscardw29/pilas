@@ -42,7 +42,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "appimage", "deb"],
+    "targets": ["nsis", "appimage", "deb"],
     "publisher": "Pilas",
     "category": "Productivity",
     "shortDescription": "Hábitos, rachas y un coach de IA",

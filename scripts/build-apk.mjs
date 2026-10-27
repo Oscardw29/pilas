@@ -23,6 +23,8 @@ run('npm', ['run', 'build:android']);
 run('npx', [
   'cap', 'build', 'android',
   '--androidreleasetype', 'APK',
+  // apksigner firma con el esquema v2/v3 que exige Android 11+ (jarsigner, el predeterminado, solo v1)
+  '--signing-type', 'apksigner',
   '--keystorepath', PILAS_KEYSTORE_PATH,
   '--keystorepass', PILAS_KEYSTORE_PASS,
   '--keystorealias', PILAS_KEYSTORE_ALIAS,
