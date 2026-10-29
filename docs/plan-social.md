@@ -1,6 +1,6 @@
 # Plan: perfiles, social, clasificaciones, tienda y panel del creador
 
-> Estado: **propuesta para revisar** (2026-10-29). No se ha tocado código.
+> Estado: **propuesta para revisar** (actualizada el 2026-10-29: podio, ligas con premios, logros, cosméticos en todas partes y ánimos). No se ha tocado código.
 > Fuentes: tu mensaje, [Reglas de XP y monedas](https://claude.ai/artifact/VbBsiP8dHq4rGL3arvqhph) y
 > [Especificación de la app](https://claude.ai/artifact/RTnhhxyjbMzcJMJssEjwhy).
 > Presupuesto: **0 USD** (Supabase Free, sin servicios de pago).
@@ -18,6 +18,11 @@
 | Quién ve las publicaciones | Todos, en el perfil público. La notificación llega solo a los amigos |
 | Vetos | Temporales y permanentes |
 | Límite de hábitos activos | Fijo para todos: **8**, el mismo número de hábitos que suman XP en las reglas |
+| Ligas semanales | **Entran en esta versión**, con premio en monedas (F5b) |
+| Podio semanal | El 1.º, al centro, más grande y con el nombre animado; el 2.º y el 3.º a los lados |
+| Logros | Página nueva con todos los logros obtenibles; el perfil muestra 3 elegidos por la persona |
+| Cosméticos | Marcos, banners y tarjetas (normales, animados o personalizados) se ven **en todos los sitios** donde aparece la persona |
+| Ánimos | Botón en el perfil de otra persona que le envía una notificación de ánimo o felicitación |
 
 ---
 
@@ -58,7 +63,7 @@ F1 Ajustes y navegación ──┐
 F2 Rendimiento ───────────┤   (sin servidor, en paralelo)
 F3 Economía XP/monedas ───┘
           │
-F4 Servidor: capa pública ─► F5 Perfil + clasificaciones ─► F6 Social ─► F7 Tienda ─► F8 Panel del creador ─► F9 Verificación
+F4 Servidor: capa pública ─► F5 Perfil + clasificaciones + podio ─► F5b Ligas + logros ─► F6 Social + ánimos ─► F7 Tienda ─► F8 Panel del creador ─► F9 Verificación
 ```
 
 ### F1 · Ajustes y navegación (sin servidor) · ≈3–4 días
@@ -137,11 +142,16 @@ Nueva migración `supabase/migrations/0002_social.sql`:
 | `reports`, `blocks` | Reportar y bloquear usuarios | Cualquier usuario |
 | `moderation_actions`, `warnings`, `bans` | Borrar contenido, advertir, vetar (temporal o permanente), con registro de quién, a quién, cuándo y por qué | Solo el creador |
 | Vistas `leaderboard_streak`, `leaderboard_xp_week`, `leaderboard_xp_total` | Clasificaciones paginadas | Solo lectura |
+| `leagues`, `league_memberships`, `league_results` | Liga de cada persona por semana, posición final, ascenso o descenso y premio cobrado | Solo el cierre semanal (`close_week()`) |
+| `achievement_defs`, `user_achievements` | Catálogo de logros (condición, icono, rareza, premio opcional) y logros conseguidos con su fecha | Catálogo: el creador. Conseguidos: solo `check_achievements()` |
+| `cheers` | Ánimos y felicitaciones enviados (para el límite diario y el logro «Animador») | Solo `send_cheer()` |
 
 - **Storage:**
   - Bucket `avatars`: cada usuario sube solo a su carpeta, WebP de hasta 1 MB.
   - Bucket `catalog`: solo sube el creador, WebP de hasta 2 MB y lectura pública.
   - El servidor rechaza cualquier formato que no sea WebP.
+- **Cierre semanal automático:** `pg_cron` (incluido gratis en Supabase) ejecuta `close_week()` cada lunes a las 00:00 hora de Colombia
+  (UTC−5). Ver F5b.
 - **Vetos:** quien tiene un veto activo no puede escribir nada público, y la app le muestra una pantalla con el motivo y la fecha de fin.
 - **Avisos en tiempo real:** Supabase Realtime sobre `notifications`. Las notificaciones del sistema siguen siendo locales y solo
   saltan con la app abierta.
@@ -163,7 +173,95 @@ Nueva migración `supabase/migrations/0002_social.sql`:
 - **`/clasificaciones`:**
   - Pestañas **Racha** (permanente) y **XP**: semana actual y total, con el % de cumplimiento como desempate.
   - La fila de cada persona usa la **tarjeta de ranking** que haya comprado.
-  - Las ligas semanales (Bronce→Diamante, con ascensos y descensos) quedan como mejora opcional al final.
+- **Podio semanal** (arriba de la pestaña XP de la semana):
+  - Los 3 primeros de la semana en curso, con su foto (y su marco) y su alias.
+  - **El 1.º va al centro**, ligeramente más grande (unos 1,15×), con el **nombre animado** (un brillo que recorre el texto) y una
+    corona o halo suave. El **2.º va a la izquierda** y el **3.º a la derecha**, a menor altura, al estilo de un podio.
+  - Las animaciones usan solo `transform` y `opacity` (sin `blur` ni sombras animadas), para no repetir los bajones de FPS de la F2,
+    y se pausan si el podio sale de pantalla.
+  - Al cerrarse la semana, el podio pasa a «Ganadores de la semana pasada» durante el lunes, y los tres reciben una notificación.
+  - Tocar a cualquiera del podio abre su perfil.
+
+### Componentes de identidad (se usan en toda la app)
+Para que los marcos, banners y tarjetas **animados o personalizados se vean en todos los sitios** donde aparece la persona, toda la
+app usa los mismos tres componentes:
+- `<Avatar>`: foto + marco. Aparece en el menú de perfil, la cabecera móvil, el perfil propio y el público, las filas del ranking,
+  el podio, las publicaciones, las notificaciones, la lista de amigos y la vista previa del panel del creador.
+- `<ProfileBanner>`: banner en el perfil propio, el perfil público y la vista previa al publicar.
+- `<RankCard>`: la tarjeta de la persona en el ranking y en las listas de liga.
+
+Para que no pesen:
+- En tamaños pequeños (menos de 40 px) se muestra un **fotograma fijo**. Se genera al subir el archivo, así que el WebP animado no
+  se reproduce en cada fila.
+- Lo animado solo se reproduce mientras está en pantalla.
+- Cada archivo se descarga una vez y queda en la caché del dispositivo.
+
+### F5b · Ligas semanales y logros · ≈5–6 días
+**Ligas semanales con premio en monedas**
+- Cinco ligas: **Bronce → Plata → Oro → Platino → Diamante**. Todo el mundo empieza en Bronce.
+- Cada semana (de lunes a domingo, hora de Colombia) compites con las personas de tu liga, ordenadas por la XP de la semana. Si
+  hay empate, decide el % de cumplimiento.
+  - Cuando haya muchos usuarios, la liga se divide en grupos de unas 30 personas con nivel parecido. Con pocos usuarios, cada
+    liga es un solo grupo.
+- **Cierre del lunes 00:00** (`close_week()`, automático):
+  - **Suben** el 20 % de arriba y **bajan** el 20 % de abajo. Nadie baja de Bronce ni sube de Diamante.
+  - Solo cuenta quien ganó XP esa semana: quien no ganó nada no ocupa puesto ni se lleva premio.
+- **Premios en monedas** (valores iniciales, editables desde el panel del creador):
+
+| Puesto en el grupo | Bronce | Plata | Oro | Platino | Diamante |
+|---|---|---|---|---|---|
+| 1.º | 150 | 200 | 260 | 330 | 400 |
+| 2.º | 100 | 135 | 175 | 220 | 270 |
+| 3.º | 70 | 95 | 120 | 155 | 190 |
+| 4.º–10.º | 25 | 35 | 45 | 55 | 70 |
+
+  - Los premios se ingresan en el servidor (`coin_ledger`) y **no cuentan para el tope diario** de 200 monedas, que es solo para
+    las monedas que dan los hábitos.
+  - Cada persona recibe una notificación con su puesto, su premio y si sube o baja.
+- La página de clasificaciones gana la pestaña **Mi liga**: el grupo de la semana, con las zonas de ascenso (verde) y descenso
+  (rojo) y la cuenta atrás hasta el cierre.
+
+**Página de logros (`/logros`)**
+- Lista de todos los logros que se pueden conseguir. Cada uno tiene icono, nombre, descripción, rareza y **barra de progreso**
+  (por ejemplo «Racha de 30 días: 12/30»). Los conseguidos muestran la fecha y los bloqueados se ven en gris.
+- Debajo de cada logro se indica qué % de usuarios lo tiene.
+- Los otorga el servidor (`check_achievements()`) a partir de los datos públicos: rachas, XP, monedas, puestos y ligas. Así no se
+  pueden conseguir editando el dispositivo. Cada logro nuevo envía una notificación y lanza una celebración, de una en una (F2).
+- Un logro puede dar un **premio opcional en monedas**, que decides tú desde el panel.
+
+Logros iniciales (inventados; los editas desde el panel del creador):
+
+| Logro | Condición | Rareza |
+|---|---|---|
+| 🔥 Chispa | Racha de 3 días | Común |
+| 🔥 Semana encendida | Racha de 7 días | Común |
+| 🔥 Diez de diez | Racha de 10 días | Común |
+| 🔥 Un mes imparable | Racha de 30 días | Rara |
+| 🔥 Dos meses de fuego | Racha de 60 días | Rara |
+| 🔥 Centenario | Racha de 100 días | Épica |
+| 🔥 Un año entero | Racha de 365 días | Legendaria |
+| ⚡ Primeros mil | 1 000 XP en total | Común |
+| ⚡ Diez mil | 10 000 XP en total | Rara |
+| ⚡ Leyenda de la constancia | 50 000 XP en total | Épica |
+| 🪙 Primer gasto | Gastar 100 monedas | Común |
+| 🪙 Buen cliente | Gastar 1 000 monedas | Rara |
+| 🥇 Campeón de la semana | Quedar 1.º en el ranking semanal | Épica |
+| 🥈 Subcampeón | Quedar 2.º en el ranking semanal | Rara |
+| 🥉 En el podio | Quedar 3.º en el ranking semanal | Rara |
+| 🏆 Tricampeón | Quedar 1.º en tres semanas distintas | Legendaria |
+| 🛡️ Ascenso | Subir de liga por primera vez | Común |
+| 💎 Diamante | Llegar a la liga Diamante | Épica |
+| ✅ Semana perfecta | Cumplir todos los hábitos programados de una semana | Rara |
+| ✅ Cinco semanas perfectas | Cinco semanas perfectas, no necesariamente seguidas | Épica |
+| 📈 Cien hábitos | 100 hábitos cumplidos | Común |
+| 🤝 Buena compañía | Tener 5 amigos | Común |
+| 📣 Primera publicación | Publicar por primera vez | Común |
+| 💬 Animador | Enviar ánimos 10 veces | Común |
+| 🎨 Con estilo | Comprar el primer cosmético | Común |
+
+**Tarjeta de logros en el perfil**
+- Una tarjeta más del perfil (como la de racha o la de XP de la semana) con **3 logros elegidos por la persona** entre los que tiene.
+- Se eligen en `/perfil` y se pueden cambiar cuando quieras. Tocar un logro muestra su descripción y la fecha en que se consiguió.
 
 ### F6 · Social: amigos, publicaciones, reacciones, notificaciones · ≈5–6 días
 - **Amigos:** enviar, aceptar o rechazar solicitudes, y eliminar o bloquear.
@@ -178,6 +276,18 @@ Nueva migración `supabase/migrations/0002_social.sql`:
 - **Reacciones:** 🔥 💪 👏, que no dan XP ni monedas.
 - **Notificaciones:** cada publicación avisa a los amigos. La bandeja va en el menú de perfil, con un contador.
 - **Menú ⋯** en cada publicación: borrar (autor o creador) y reportar.
+- **Enviar ánimos o felicitaciones** desde el perfil de otra persona:
+  - Botón **«Enviar ánimos»**. Si la persona consiguió algo en los últimos 3 días (un logro, el podio, subir de liga, una racha
+    redonda), el botón cambia a **«Felicitar»**.
+  - Le llega una notificación con un texto al azar, entre variantes como:
+    - «**@usuario** te envía ánimos para que sigas con toda 💪»
+    - «**@usuario** cree en ti: ¡no sueltes la racha! 🔥»
+    - «**@usuario** te manda energía para el día de hoy ⚡»
+    - «**@usuario** dice: ¡vas muy bien, sigue así! 👏»
+    - «**@usuario** te felicita por tu logro: ¡te lo ganaste! 🏆» (felicitación)
+    - «**@usuario** celebra tu racha de {N} días contigo 🎉» (felicitación)
+  - Límites del servidor (`send_cheer()`): uno por persona y día, máximo 20 al día en total. No se pueden enviar a quien te
+    bloqueó. No dan XP ni monedas; solo cuentan para el logro «Animador».
 
 ### F7 · Tienda de cosméticos · ≈4–5 días
 - La página de recompensas suma una sección **Personalización**: banners, marcos y tarjetas de ranking, normales y animados.
@@ -197,6 +307,10 @@ Página `/creador`, visible solo si `is_admin()` responde que sí:
 - **Economía:** se editan los parámetros de XP y monedas (topes, valores por tipo, multiplicador de racha, bono, precios dinámicos)
   con una **simulación** que recalcula los ejemplos del documento antes de publicar, y con historial para revertir.
   También se puede ver y ajustar el saldo de monedas o la XP de una persona; cada ajuste queda registrado.
+- **Ligas y logros:**
+  - Editar la tabla de premios de las ligas y el % que sube o baja.
+  - Crear, editar o retirar logros: condición, icono, rareza y premio.
+  - Forzar el cierre de una semana (solo en pruebas).
 - **Moderación:**
   - En cualquier perfil: borrar foto o banner, advertir, vetar (con días o permanente) y levantar el veto.
   - En publicaciones: borrar desde el ⋯.
@@ -208,10 +322,13 @@ Página `/creador`, visible solo si `is_admin()` responde que sí:
   - La economía, contra los ejemplos del documento.
   - Las políticas RLS: un usuario normal **no** puede escribir en el catálogo, vetar, cambiar su saldo, subir algo que no sea WebP ni publicar más XP del tope.
   - Las compras: sin saldo no se puede comprar, y el multiplicador respeta la espera de 24 h y el máximo de 4 al mes.
+  - El cierre semanal: ascensos y descensos correctos, premios cobrados una sola vez aunque el cierre se ejecute dos veces.
+  - Los logros: se otorgan una sola vez y un usuario no puede darse logros a sí mismo.
+  - Los ánimos: se respetan los límites diarios y los bloqueos.
 - **Prueba manual con dos cuentas:** amistad, publicación, notificación, reacción, ranking, compra, equipar, moderación y veto.
 - Medir los fps en la `.exe` (F2) y revisar que los perfiles públicos nunca muestran hábitos ocultos.
 
-**Total estimado: 6–8 semanas a tiempo parcial.** F1, F2 y F3 pueden ir en paralelo en sesiones separadas: no se tocan entre sí y
+**Total estimado: 7–9 semanas a tiempo parcial.** F1, F2 y F3 pueden ir en paralelo en sesiones separadas: no se tocan entre sí y
 no necesitan el servidor.
 
 ---
@@ -226,9 +343,11 @@ no necesitan el servidor.
 | Acoso desde el ranking | Alias, solicitudes de amistad con aceptación, bloquear y reportar |
 | Moderar depende solo de ti | Cola de reportes y registro de acciones |
 | Datos personales públicos | Aviso en el registro, hábitos ocultos por defecto, alias y opción de eliminar la cuenta |
+| Los premios de liga inflan la economía | El cierre semanal mide la razón monedas ganadas / gastadas (documento de reglas) y la ves en el panel; los premios se ajustan desde allí |
+| Ánimos usados como spam | Uno por persona y día, 20 al día, y bloquear corta los envíos |
 
 ## Lo que necesito de ti antes de empezar
 1. **Revisar este plan** y decirme qué cambiarías.
 2. **Notificaciones para todos:** ¿dejo un interruptor mínimo de «Notificaciones sí/no» en Ajustes? Recomendado.
-3. **Ligas semanales** (Bronce→Diamante): ¿entran en esta versión o después?
+3. **Premios de las ligas:** ¿te sirven los valores de la tabla de la F5b como punto de partida?
 4. Cuando lo apruebes, empiezo por F1, F2 y F3 (sin servidor). La F4 necesitará que pegues un SQL nuevo en Supabase.
