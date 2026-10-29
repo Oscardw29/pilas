@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Gift, Shield, Snowflake, Coins } from 'lucide-react';
 import { fireRewardCelebration, fireIceFreezeCelebration } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
+import { celebrationEnded, enqueueCelebration } from '@/lib/celebrationQueue';
 
 export interface RewardCelebrationData {
   name: string;
@@ -15,7 +16,8 @@ type Listener = (data: RewardCelebrationData) => void;
 const listeners = new Set<Listener>();
 
 export function triggerRewardCelebration(data: RewardCelebrationData) {
-  listeners.forEach((fn) => fn(data));
+  // De una en una (ver lib/celebrationQueue): si hay otra en pantalla, espera
+  enqueueCelebration(() => listeners.forEach((fn) => fn(data)));
 }
 
 /**
@@ -143,6 +145,7 @@ export const RewardCelebrationOverlay: React.FC = () => {
       setActive(null);
       setClosing(false);
       closingRef.current = false;
+      celebrationEnded();
     }, EXIT_MS);
   };
 

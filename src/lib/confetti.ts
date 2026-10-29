@@ -1,8 +1,41 @@
 import confetti from 'canvas-confetti';
 import { isLowPowerDevice } from './perf';
 
+/**
+ * Todas las ráfagas pasan por aquí: hay un tope de partículas vivas a la vez para que varias
+ * explosiones seguidas (o una celebración larga) no saturen el dibujo.
+ * El confeti se dibuja en un worker (OffscreenCanvas) cuando el CSP lo permite (`worker-src blob:`).
+ */
+const maxLive = () => (isLowPowerDevice() ? 220 : 520);
+/** ms aproximados por «tick» de canvas-confetti (≈ un fotograma a 60 Hz) */
+const TICK_MS = 17;
+let live: { n: number; until: number }[] = [];
+
+function shoot(opts: confetti.Options) {
+  const now = performance.now();
+  live = live.filter((b) => b.until > now);
+  const used = live.reduce((sum, b) => sum + b.n, 0);
+  const n = Math.min(opts.particleCount ?? 50, maxLive() - used);
+  if (n < 4) return;
+  live.push({ n, until: now + (opts.ticks ?? 200) * TICK_MS });
+  void confetti({ ...opts, particleCount: n });
+}
+
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Prepara el confeti en un momento libre: la primera ráfaga crea el worker y su lienzo, y eso
+ * costaba un tirón de más de 100 ms justo al empezar la primera celebración. Se dispara una sola
+ * partícula fuera de la pantalla para que esa preparación ocurra antes, sin que se vea nada.
+ */
+export function prewarmConfetti() {
+  if (reducedMotion() || typeof window === 'undefined') return;
+  const run = () => void confetti({ particleCount: 1, ticks: 2, startVelocity: 0, origin: { x: -0.2, y: -0.2 }, zIndex: 2100 });
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 5000 });
+  else setTimeout(run, 2500);
+}
 
 /**
  * Dispara confeti festivo para celebrar el cumplimiento de objetivos o hitos importantes.
@@ -16,7 +49,7 @@ export function fireGoalCelebration() {
   };
 
   function fire(particleRatio: number, opts: confetti.Options) {
-    confetti({
+    shoot({
       ...defaults,
       ...opts,
       particleCount: Math.floor(count * particleRatio),
@@ -61,7 +94,7 @@ export function fireHabitPop(x = 0.5, y = 0.5) {
   if (reducedMotion()) return;
   const nx = x > 1 ? x / window.innerWidth : x;
   const ny = y > 1 ? y / window.innerHeight : y;
-  confetti({
+  shoot({
     particleCount: 35,
     spread: 50,
     origin: { x: nx, y: ny },
@@ -91,7 +124,7 @@ export function fireStreakEmbers(power = 0) {
   const shot = (x: number, delay: number) =>
     setTimeout(
       () =>
-        confetti({
+        shoot({
           particleCount: scaled(Math.round(28 + p * 30)),
           angle: 90,
           spread: 40 + p * 20,
@@ -118,7 +151,7 @@ export function fireStreakEmbers(power = 0) {
   // Desde 14 días: estallido de estrellas doradas al prender la llama
   if (p >= 0.3) {
     setTimeout(() => {
-      confetti({
+      shoot({
         particleCount: scaled(Math.round(30 + p * 70)),
         spread: 360,
         startVelocity: 22 + p * 22,
@@ -137,8 +170,8 @@ export function fireStreakEmbers(power = 0) {
   if (p >= 0.6) {
     setTimeout(() => {
       const count = Math.round(40 + p * 40);
-      confetti({ particleCount: scaled(count), angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: 2100 });
-      confetti({ particleCount: scaled(count), angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: 2100 });
+      shoot({ particleCount: scaled(count), angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: 2100 });
+      shoot({ particleCount: scaled(count), angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: 2100 });
     }, 650);
   }
   // Desde 250 días: lluvia de chispas doradas desde arriba
@@ -149,7 +182,7 @@ export function fireStreakEmbers(power = 0) {
 function rainFromTop(colors: string[], particleCount: number, delay: number) {
   setTimeout(() => {
     [0.2, 0.5, 0.8].forEach((x) =>
-      confetti({
+      shoot({
         particleCount: scaled(Math.round(particleCount / 3)),
         angle: 270,
         spread: 70,
@@ -177,7 +210,7 @@ export function fireSuperStreakBurst(power = 0) {
   const p = clamp01(power);
   const colors = ['#c084fc', '#a855f7', '#818cf8', '#60a5fa', '#ffffff'];
   setTimeout(() => {
-    confetti({
+    shoot({
       particleCount: scaled(Math.round(90 + p * 110)),
       spread: 360,
       startVelocity: 42 + p * 14,
@@ -193,14 +226,14 @@ export function fireSuperStreakBurst(power = 0) {
   }, 500);
   setTimeout(() => {
     const count = Math.round(60 + p * 60);
-    confetti({ particleCount: scaled(count), angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: 2100 });
-    confetti({ particleCount: scaled(count), angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: 2100 });
+    shoot({ particleCount: scaled(count), angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: 2100 });
+    shoot({ particleCount: scaled(count), angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: 2100 });
   }, 700);
 
   // Desde 50 días: segunda oleada (coincide con el segundo impacto del sonido)
   if (p >= 0.4) {
     setTimeout(() => {
-      confetti({
+      shoot({
         particleCount: scaled(Math.round(50 + p * 70)),
         spread: 360,
         startVelocity: 32 + p * 16,
@@ -222,7 +255,7 @@ export function fireSuperStreakBurst(power = 0) {
     const bursts = isLowPowerDevice() ? 2 : 3 + Math.round((p - 0.75) * 12);
     for (let i = 0; i < bursts; i++) {
       setTimeout(() => {
-        confetti({
+        shoot({
           particleCount: scaled(45),
           spread: 360,
           startVelocity: 26,
@@ -247,7 +280,7 @@ export function fireSuperStreakBurst(power = 0) {
 export function fireRewardCelebration(delayMs = 900) {
   if (reducedMotion()) return;
   setTimeout(() => {
-    confetti({
+    shoot({
       particleCount: 120,
       spread: 80,
       origin: { y: 0.5 },
@@ -264,7 +297,7 @@ export function fireRewardCelebration(delayMs = 900) {
 export function fireIceFreezeCelebration(delayMs = 900) {
   if (reducedMotion()) return;
   setTimeout(() => {
-    confetti({
+    shoot({
       particleCount: 140,
       spread: 90,
       origin: { y: 0.5 },

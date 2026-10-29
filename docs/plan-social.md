@@ -89,6 +89,17 @@ F4 Servidor: capa pública ─► F5 Perfil + clasificaciones + podio ─► F5b
      (`beforeunload`).
 
 ### F2 · Rendimiento y efectos en la `.exe` · ≈2–3 días
+
+> ✅ **Hecha (2026-10-29).** Medido en la `.exe` (WebView2, pantalla de 144 Hz):
+> - Confeti: antes estaba bloqueado por el CSP y no se dibujaba nunca; ahora se ve y se dibuja en un *worker*.
+> - Súper racha: p95 13,9 → 7,3 ms. Las siguientes, sin fotogramas de más de 33 ms (antes 3).
+> - Racha: el peor fotograma pasó de 42 a 14 ms.
+> - Con la CPU 4× más lenta: 29 → 39 fps.
+> - Cambios aplicados:
+>   - Cola de celebraciones y tope de partículas vivas.
+>   - Confeti preparado en un momento libre.
+>   - Sin `backdrop-filter` en las celebraciones y sin `blur`, `brightness` ni grosor de borde animados.
+>   - Pausa de lo que queda detrás de un overlay o diálogo, y de las llamas fuera de pantalla.
 | Problema | Causa encontrada | Arreglo |
 |---|---|---|
 | Efectos que no salen en la `.exe` | `canvas-confetti` crea un *worker* desde un `blob:` y el CSP de Tauri solo permite `worker-src 'self'` | Añadir `blob:` a `worker-src` en Tauri y en la web. Se verifica en la `.exe` con las herramientas de depuración, como en la pantalla negra |

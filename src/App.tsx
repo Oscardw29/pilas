@@ -6,6 +6,7 @@ import { registerServiceWorker, runNotificationCheck } from './lib/notifications
 import { useStore } from './store/useStore';
 import { useToast } from './components/ui/ToastContext';
 import { longDate, todayKey } from './lib/dates';
+import { prewarmConfetti } from './lib/confetti';
 
 
 // Cada vista se carga bajo demanda (code-splitting): el arranque descarga mucho menos JavaScript
@@ -80,6 +81,11 @@ export const App: React.FC = () => {
     return () => {
       document.removeEventListener('click', handleGlobalClick, true);
     };
+  }, []);
+
+  // El confeti se prepara en un momento libre para que la primera celebración no dé un tirón
+  useEffect(() => {
+    prewarmConfetti();
   }, []);
 
   useEffect(() => {

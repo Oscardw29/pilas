@@ -1,4 +1,21 @@
-import React, { useId } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+
+/**
+ * La llama anima sin parar (SVG: cada fotograma se repinta en el hilo principal). Fuera de pantalla
+ * no aporta nada, así que se pausa (`.is-offscreen`) hasta que vuelve a verse.
+ */
+function useOnScreen<T extends Element>(enabled: boolean) {
+  const ref = useRef<T | null>(null);
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { rootMargin: '64px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [enabled]);
+  return [ref, onScreen] as const;
+}
 
 interface StreakFlameProps {
   days: number;
@@ -296,6 +313,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
   const pal = frozen ? ICE : isSuper ? SUPER[tier] : WARM[tier];
   const wing = frozen ? WING_COLORS.ice : isSuper ? WING_COLORS.super : WING_COLORS.warm;
   const moving = animated && !frozen;
+  const [rootRef, onScreen] = useOnScreen<HTMLDivElement>(moving);
   // A tamaño de icono, partículas y trazos más gruesos para que se lean (y menos nodos animados)
   const small = size < 32;
 
@@ -310,6 +328,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
     isSuper && 'is-super',
     frozen && 'is-frozen',
     moving && 'is-animated',
+    moving && !onScreen && 'is-offscreen',
   ]
     .filter(Boolean)
     .join(' ');
@@ -318,7 +337,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
 
   if (!lit) {
     return (
-      <div className={className} style={{ width: size, height: size }} role="img" aria-label={label} title={label}>
+      <div ref={rootRef} className={className} style={{ width: size, height: size }} role="img" aria-label={label} title={label}>
         <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
           <defs>
             <linearGradient id={ids.c} x1="24" y1="44" x2="24" y2="32" gradientUnits="userSpaceOnUse">
@@ -360,6 +379,7 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
 
   return (
     <div
+      ref={rootRef}
       className={className}
       style={
         {

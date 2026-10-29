@@ -5,6 +5,7 @@ import { StreakFlame, getFlamePower } from './StreakFlame';
 import { fireStreakEmbers, fireSuperStreakBurst } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
 import { isLowPowerDevice } from '@/lib/perf';
+import { celebrationEnded, enqueueCelebration } from '@/lib/celebrationQueue';
 
 export interface StreakCelebrationPayload {
   days: number;
@@ -21,9 +22,9 @@ const EXIT_MS = 380;
  * Dispara la celebración de racha a pantalla completa.
  */
 export function triggerStreakCelebration(payload: StreakCelebrationPayload) {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: payload }));
-  }
+  if (typeof window === 'undefined') return;
+  // De una en una (ver lib/celebrationQueue): si hay otra en pantalla, espera
+  enqueueCelebration(() => window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: payload })));
 }
 
 /** Partículas CSS con posición/tiempos aleatorios estables durante la animación */
@@ -80,6 +81,7 @@ export const StreakCelebrationOverlay: React.FC = () => {
     exitTimer.current = setTimeout(() => {
       setData(null);
       setClosing(false);
+      celebrationEnded();
     }, EXIT_MS);
   };
 
@@ -105,7 +107,7 @@ export const StreakCelebrationOverlay: React.FC = () => {
   const power = data ? getFlamePower(data.days) : 0;
   // En teléfonos, menos partículas y estrellas en órbita para no trabar la animación
   const lite = isLowPowerDevice();
-  const particles = useParticles(Math.round((data?.isSuper ? 26 : 20) * (lite ? 0.6 : 1) + power * (lite ? 12 : 34)), data?.key ?? 0);
+  const particles = useParticles(Math.round((data?.isSuper ? 22 : 18) * (lite ? 0.6 : 1) + power * (lite ? 8 : 18)), data?.key ?? 0);
   // Ondas y estrellas en órbita también crecen con el nivel
   const ringCount = 3 + (power >= 0.45 ? 1 : 0) + (power >= 0.75 ? 1 : 0);
   const orbitCount = 6 + Math.round(power * (lite ? 2 : 6));

@@ -15,10 +15,12 @@ const buildCsp = (supabaseOrigin: string) =>
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
-    "img-src 'self' data: blob:",
+    // Fotos de perfil, banners y marcos (Supabase Storage, docs/plan-social.md)
+    `img-src 'self' data: blob: ${supabaseOrigin}`,
     `connect-src 'self' ${supabaseOrigin} https://generativelanguage.googleapis.com https://api.openai.com https://api.groq.com https://openrouter.ai https://api.elevenlabs.io https://api.fish.audio https://api.deepgram.com`,
     // La síntesis de Fish Audio va por el relay del mismo dominio (/api/fish-tts): 'self'
-    "worker-src 'self'",
+    // blob: → canvas-confetti dibuja en un worker creado desde un blob (fuera del hilo principal)
+    "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

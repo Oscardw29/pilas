@@ -1157,9 +1157,11 @@ ul, ol { list-style: none; }
   filter: drop-shadow(0 0 22px rgba(56, 189, 248, 1));
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
 }
+/* Antes animaba filter: blur (repintado continuo en Inicio). Ahora el desenfoque es fijo y late opacidad/escala */
 @keyframes neonAuraPulse {
-  0% { opacity: 0.6; filter: blur(14px); }
-  100% { opacity: 1; filter: blur(24px); }
+  /* «scale» (no «transform») para no pisar el transform del hover */
+  0% { opacity: 0.6; scale: 0.98; }
+  100% { opacity: 1; scale: 1.03; }
 }
 
 /* Botón interactivo de completar hábito con hover de trazos sin parpadeos */
@@ -1352,8 +1354,8 @@ input[type="date"], select, .select, input, textarea {
 
 /* Animación para el overlay y botón de reanudar hábito */
 @keyframes resumeOverlayFadeIn {
-  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-  to { opacity: 1; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes resumeButtonPulse {
   0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5); }
@@ -1361,6 +1363,7 @@ input[type="date"], select, .select, input, textarea {
   100% { transform: scale(1); box-shadow: 0 0 8px 1px rgba(234, 179, 8, 0.2); }
 }
 .resume-overlay {
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   animation: resumeOverlayFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .resume-btn-animated {
@@ -2106,13 +2109,14 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .celebrate-overlay {
   position: fixed; inset: 0; z-index: 2000;
   display: grid; place-items: center; padding: 24px; overflow: hidden; cursor: pointer;
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  /* Sin backdrop-filter: desenfocar toda la pantalla en cada fotograma era lo más costoso. El fondo es casi opaco */
+  contain: layout paint; isolation: isolate;
   animation: celebrateFadeIn .35s ease both;
 }
-.celebrate-overlay.is-streak { background: radial-gradient(ellipse at 50% 70%, rgba(234, 88, 12, 0.32) 0%, rgba(14, 8, 4, 0.9) 60%); }
-.celebrate-overlay.is-super { background: radial-gradient(ellipse at 50% 45%, rgba(147, 51, 234, 0.4) 0%, rgba(10, 4, 22, 0.92) 62%); }
-.celebrate-overlay.is-reward { z-index: 99990; background: radial-gradient(ellipse at 50% 45%, rgba(234, 179, 8, 0.28) 0%, rgba(10, 10, 16, 0.9) 62%); }
-.celebrate-overlay.is-reward.is-freeze { background: radial-gradient(ellipse at 50% 45%, rgba(14, 165, 233, 0.34) 0%, rgba(2, 6, 23, 0.92) 62%); }
+.celebrate-overlay.is-streak { background: radial-gradient(ellipse at 50% 70%, rgba(234, 88, 12, 0.32) 0%, rgba(14, 8, 4, 0.95) 60%), rgba(14, 8, 4, 0.84); }
+.celebrate-overlay.is-super { background: radial-gradient(ellipse at 50% 45%, rgba(147, 51, 234, 0.4) 0%, rgba(10, 4, 22, 0.96) 62%), rgba(10, 4, 22, 0.84); }
+.celebrate-overlay.is-reward { z-index: 99990; background: radial-gradient(ellipse at 50% 45%, rgba(234, 179, 8, 0.28) 0%, rgba(10, 10, 16, 0.95) 62%), rgba(10, 10, 16, 0.84); }
+.celebrate-overlay.is-reward.is-freeze { background: radial-gradient(ellipse at 50% 45%, rgba(14, 165, 233, 0.34) 0%, rgba(2, 6, 23, 0.96) 62%), rgba(2, 6, 23, 0.84); }
 .celebrate-overlay.is-closing { animation: celebrateFadeOut .38s ease both; }
 .celebrate-overlay.is-closing .celebrate-stage { animation: celebrateStageOut .38s cubic-bezier(.4, 0, 1, 1) both; }
 @keyframes celebrateFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2126,14 +2130,14 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .celebrate-flame { position: relative; z-index: 2; animation: flameIgnite .7s cubic-bezier(.34, 1.56, .64, 1) .32s both; }
 .is-super .celebrate-flame { animation: flameNova .8s cubic-bezier(.34, 1.56, .64, 1) .45s both; }
 @keyframes flameIgnite {
-  0% { opacity: 0; transform: scale(.1) translateY(60px); filter: brightness(3); }
-  55% { opacity: 1; transform: scale(1.18) translateY(-6px); filter: brightness(1.6); }
-  100% { opacity: 1; transform: none; filter: none; }
+  0% { opacity: 0; transform: scale(.1) translateY(60px); }
+  55% { opacity: 1; transform: scale(1.18) translateY(-6px); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes flameNova {
-  0% { opacity: 0; transform: scale(.2); filter: brightness(4) saturate(2); }
-  50% { opacity: 1; transform: scale(1.25); filter: brightness(1.8); }
-  100% { opacity: 1; transform: none; filter: none; }
+  0% { opacity: 0; transform: scale(.2); }
+  50% { opacity: 1; transform: scale(1.25); }
+  100% { opacity: 1; transform: none; }
 }
 
 /* Chispa que sube y enciende la llama (solo racha) */
@@ -2164,14 +2168,16 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .is-super .celebrate-ring.r4 { animation-delay: 1.5s; }
 .is-super .celebrate-ring.r5 { animation-delay: 1.85s; }
 @keyframes ringOut { 0% { opacity: .9; transform: scale(.35); } 100% { opacity: 0; transform: scale(1.6); } }
-@keyframes shockwave { 0% { opacity: 1; transform: scale(.2); border-width: 8px; } 100% { opacity: 0; transform: scale(2.6); border-width: 1px; } }
+@keyframes shockwave { 0% { opacity: 1; transform: scale(.2); } 100% { opacity: 0; transform: scale(2.6); } }
+/* Piezas que se mueven durante la celebración: capas propias en la GPU (solo existen mientras se ve) */
+.celebrate-ring, .celebrate-rays, .celebrate-orbit, .celebrate-particles span, .celebrate-flame, .celebrate-spark { will-change: transform, opacity; }
 
 /* Destello de pantalla y rayos de aurora (súper racha) */
 .celebrate-flash { position: absolute; inset: 0; z-index: 1; background: radial-gradient(circle at 50% 42%, #fff 0%, rgba(233, 213, 255, 0.8) 25%, transparent 65%); opacity: 0; animation: screenFlash .7s ease-out .48s both; pointer-events: none; }
 .is-streak .celebrate-flash { background: radial-gradient(circle at 50% 42%, #fff 0%, rgba(254, 215, 170, 0.8) 25%, transparent 65%); animation-delay: .3s; }
 @keyframes screenFlash { 0% { opacity: 0; } 15% { opacity: .85; } 100% { opacity: 0; } }
 .celebrate-rays {
-  position: absolute; left: 50%; top: 42%; width: 170vmax; height: 170vmax; margin: -85vmax 0 0 -85vmax; z-index: 0; pointer-events: none;
+  position: absolute; left: 50%; top: 42%; width: 130vmax; height: 130vmax; margin: -65vmax 0 0 -65vmax; z-index: 0; pointer-events: none;
   background: repeating-conic-gradient(from 0deg, rgba(192, 132, 252, 0.13) 0deg 7deg, transparent 7deg 22deg);
   -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 42%); mask-image: radial-gradient(circle, #000 0%, transparent 42%);
   opacity: 0; animation: raysIn .8s ease .5s both, raysSpin 18s linear .5s infinite;
@@ -2179,9 +2185,8 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .is-streak .celebrate-rays { background: repeating-conic-gradient(from 0deg, rgba(251, 146, 60, 0.12) 0deg 7deg, transparent 7deg 22deg); animation-delay: .35s, .35s; }
 .celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(250, 204, 21, 0.11) 0deg 8deg, transparent 8deg 24deg); animation: raysIn .8s ease 2.6s both, raysSpin 24s linear 2.6s infinite; }
 .is-freeze .celebrate-rays.reward { background: repeating-conic-gradient(from 0deg, rgba(56, 189, 248, 0.13) 0deg 8deg, transparent 8deg 24deg); }
-/* Teléfonos: sin desenfoque del fondo ni rayos girando en las celebraciones de racha (son lo más costoso) */
+/* Teléfonos: sin rayos girando en las celebraciones de racha */
 @media (pointer: coarse) {
-  .celebrate-overlay.is-streak, .celebrate-overlay.is-super { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .is-streak .celebrate-rays, .is-super .celebrate-rays { animation: raysIn .8s ease .5s both; }
 }
 @keyframes raysIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2234,7 +2239,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .is-super .celebrate-title {
   background: linear-gradient(100deg, #fff 0%, #f0abfc 25%, #a855f7 45%, #fff 55%, #e879f9 75%, #fff 100%);
   background-size: 250% 100%; -webkit-background-clip: text; background-clip: text;
-  animation: copyUp .55s cubic-bezier(.16, 1, .3, 1) 1.15s both, titleShimmer 2.4s linear 1.4s infinite;
+  animation: copyUp .55s cubic-bezier(.16, 1, .3, 1) 1.15s both, titleShimmer 2.4s linear 1.4s 2;
 }
 .is-reward .celebrate-title { background: linear-gradient(100deg, #fff 30%, #fde68a 70%, #f59e0b 100%); -webkit-background-clip: text; background-clip: text; animation-delay: 3.05s; }
 .is-freeze .celebrate-title { background: linear-gradient(100deg, #fff 30%, #bae6fd 70%, #38bdf8 100%); -webkit-background-clip: text; background-clip: text; }
@@ -2243,7 +2248,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .is-super .celebrate-sub { animation-delay: 1.25s; }
 .is-reward .celebrate-sub { animation-delay: 3.15s; }
 .celebrate-hint { font-size: 11px; color: var(--muted); margin-top: 6px; animation: copyUp .5s ease 1.6s both; }
-@keyframes copyUp { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes copyUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 /* Partículas: brasas que suben (racha) / polvo de estrellas (súper racha) */
 .celebrate-particles { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -2385,13 +2390,13 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 }
 /* Al abrir, la luz se desvanece difuminándose sin crecer más que el regalo */
 @keyframes crackBurst {
-  0% { opacity: 1; transform: scale(1); filter: blur(0); }
-  40% { opacity: .8; transform: scale(.95, 1.6); filter: blur(3px); }
-  100% { opacity: 0; transform: scale(.85, 2); filter: blur(10px); }
+  0% { opacity: 1; transform: scale(1); }
+  40% { opacity: .7; transform: scale(.95, 1.6); }
+  100% { opacity: 0; transform: scale(.85, 2.1); }
 }
 @keyframes haloBurst {
-  0% { opacity: 1; transform: scale(1); filter: blur(0); }
-  100% { opacity: 0; transform: scale(.9, 1.1); filter: blur(12px); }
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.95, 1.2); }
 }
 
 /* Chispas que escapan con cada saltito */
@@ -2495,3 +2500,20 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .action-card-row dt { color: var(--muted); }
 .action-card-row dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
 .action-card-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* =====================================================================
+   RENDIMIENTO: pausar lo que no se ve
+   Con una celebración o un diálogo encima, las animaciones infinitas de la página (llama de racha, aura,
+   rayo de energía…) quedan tapadas pero seguían pintándose en cada fotograma. Se pausan mientras tanto.
+   ===================================================================== */
+body:has(.celebrate-overlay) .app-shell *,
+body:has(.celebrate-overlay) .app-shell *::before,
+body:has(.celebrate-overlay) .app-shell *::after,
+body:has(.modal-backdrop) .app-shell *,
+body:has(.modal-backdrop) .app-shell *::before,
+body:has(.modal-backdrop) .app-shell *::after {
+  animation-play-state: paused !important;
+}
+/* Llamas fuera de pantalla (ver StreakFlame): sin animación hasta que vuelvan a verse */
+.streak-flame.is-offscreen * { animation-play-state: paused !important; }
+
