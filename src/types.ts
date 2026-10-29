@@ -293,6 +293,15 @@ export interface Redemption {
   date: ISODate;
 }
 
+/** Multiplicador 1.5× de XP comprado en la tienda (12 h). Multiplica la XP de lo que se marque en ese tiempo */
+export interface XpBoost {
+  id: ID;
+  startedAt: ISODate;
+  endsAt: ISODate;
+  /** Monedas que costó */
+  cost: number;
+}
+
 /** Puntos extra fuera de los registros de hábitos (retos, logros, recuperación…) */
 export interface PointEvent {
   id: ID;
@@ -397,6 +406,8 @@ export interface Settings {
   userGender?: UserGender;
   /** El coach no lee en voz alta sus respuestas */
   coachMuted?: boolean;
+  /** Desde esta fecha rigen las reglas nuevas de monedas y XP (topes, anti-trampa). Lo anterior se conserva tal cual */
+  economyStartDate?: DateKey;
   /** Foto de perfil (WebP en data URL, 256×256). Se sincroniza cifrada; pasará a Supabase con los perfiles públicos */
   avatarDataUrl?: string;
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
@@ -492,4 +503,6 @@ export interface AppData {
   hasStreakFreeze?: boolean;
   /** Fechas en que el protector de racha fue consumido para salvar la racha */
   streakFreezes?: DateKey[];
+  /** Multiplicadores de XP comprados */
+  xpBoosts?: XpBoost[];
 }

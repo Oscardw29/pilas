@@ -109,6 +109,23 @@ F4 Servidor: capa pública ─► F5 Perfil + clasificaciones + podio ─► F5b
 Se mide antes y después con el panel *Performance* en la `.exe`. Objetivo: 60 fps estables en las celebraciones de racha y recompensa.
 
 ### F3 · Economía nueva: XP y monedas (local primero) · ≈4–5 días
+
+> ✅ **Hecha (2026-10-29).** Código en `src/lib/economyRules.ts` (reglas puras) y `src/lib/economy.ts` (saldo, XP, ritmo y compras).
+> Las pruebas en `tests/economy.test.ts` reproducen los ejemplos del documento (116.5 / 318.1 / 132.8 / 192 XP) y los precios del protector.
+>
+> Decisiones donde el documento no era explícito:
+> - «Primeras 24 h sin XP»: el hábito no da XP **el día en que se crea**.
+> - Marcar más de 1 día atrás: se permite registrarlo, pero da 0 monedas y 0 XP.
+> - Versión mínima de una acción directa: 40 % del chip y 40 % de los 24 XP. Un registro «parcial» (bajo el mínimo) da 0.
+> - Los 8 hábitos que suman XP son los **primeros 8 marcados** del día.
+> - Multiplicador:
+>   - Espera de 24 h desde la activación.
+>   - Tope de 1200 de base ese día, así que el máximo diario es 1590.
+>   - Precio con la misma fórmula que el protector.
+> - Ritmo ḡ: promedio de los 14 días anteriores a hoy, contando los días sin monedas.
+> - Historial anterior a la actualización (`settings.economyStartDate`):
+>   - Conserva sus monedas, sin tope, así que **el saldo de nadie cambia**.
+>   - La XP sí se calcula para todo el historial.
 Se implementan las [Reglas de XP y monedas](https://claude.ai/artifact/VbBsiP8dHq4rGL3arvqhph) en `src/lib/economy.ts`, con
 pruebas de cada ejemplo resuelto del documento (116.5 XP, 318.1 XP, 132.8 XP, el abuso que se queda en 192 XP…).
 - **Monedas** = los «puntos» actuales, con las nuevas reglas por tipo de hábito y un tope de 200 al día. **El saldo actual de cada

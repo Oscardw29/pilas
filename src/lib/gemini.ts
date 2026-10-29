@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import type { AppData, AiPlatform } from '@/types';
-import { consistency, goalProgress, recoveryStats, pointsSummary } from './metrics';
+import { consistency, goalProgress, recoveryStats } from './metrics';
+import { economySummary } from './economy';
 import { todayKey } from './dates';
 import { FAIL_REASON_LABELS } from './insights';
 import { getSecrets } from '@/store/useSecrets';
@@ -156,7 +157,7 @@ export async function fetchAvailableModels(platform: AiPlatform, apiKey: string)
 export function buildSystemContext(data: AppData, ref = todayKey()): string {
   const activeHabits = data.habits.filter((h) => h.status === 'active');
   const activeGoals = data.goals.filter((g) => g.status === 'active');
-  const pts = pointsSummary(data);
+  const pts = economySummary(data);
 
   const goalsSummary = activeGoals
     .map((g) => {
@@ -213,7 +214,7 @@ REGLAS DE ORO DEL COACH:
 
 DATOS DEL USUARIO:
 Nombre: ${data.settings.userName || 'Usuario'}
-Puntos actuales: ${pts.balance} (Ganados: ${pts.earned}, Canjeados: ${pts.spent})
+Monedas actuales: ${pts.balance} (Ganadas: ${pts.earned}, Gastadas: ${pts.spent}) · XP total: ${pts.xpTotal}
 Fecha de hoy: ${ref}
 
 OBJETIVOS ACTIVOS:
@@ -444,7 +445,7 @@ export function generateLocalHabitAdvice(data: AppData, userPrompt: string): str
   const lower = userPrompt.toLowerCase();
   const activeHabits = data.habits.filter((h) => h.status === 'active');
   const activeGoals = data.goals.filter((g) => g.status === 'active');
-  const pts = pointsSummary(data);
+  const pts = economySummary(data);
   const avg = averageConsistency(data);
   const failReason = topFailReason(data);
   const keyTip = '\n\n(Tip: Configura tu clave de API en Ajustes para obtener respuestas personalizadas del coach con IA).';

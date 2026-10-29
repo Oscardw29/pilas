@@ -49,6 +49,7 @@ import { celebrateStreakChange, streakSnapshot } from '@/lib/streakCelebration';
 import { playSound } from '@/lib/sound';
 import { StatusIcon, StatusLabel } from '@/components/ui/icons';
 import type { Habit, HabitLog } from '@/types';
+import { habitCoinValue } from '@/lib/economyRules';
 
 /** Fase de la animación al cambiar de semana: sale la semana mostrada y luego entra la nueva. */
 type WeekSlide = { phase: 'idle' | 'out' | 'in'; dir: 'next' | 'prev' };
@@ -135,7 +136,7 @@ export const WeekView: React.FC = () => {
       const before = streakSnapshot();
       logHabit(h.id, dateKey, 'full');
       playSound.complete();
-      toast(`+${h.points} pts · «${h.name}» completado`, 'success');
+      toast(`+${habitCoinValue(h)} pts · «${h.name}» completado`, 'success');
       if (e) {
         fireHabitPop(e.clientX, e.clientY);
       }
@@ -299,7 +300,7 @@ export const WeekView: React.FC = () => {
                               )}
                             </div>
                             <div className="week-habit-meta">
-                              +{h.points} pts
+                              +{habitCoinValue(h)} pts
                               {h.kind === 'time' && (h.targetMinutes ? ` · ${h.targetMinutes} min` : '')}
                               {h.kind === 'quantity' && (h.targetQuantity ? ` · ${h.targetQuantity} ${h.quantityUnit || 'reps'}` : '')}
                               {!h.kind && h.targetMinutes ? ` · ${h.targetMinutes} min` : ''}

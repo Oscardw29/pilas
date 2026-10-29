@@ -22,7 +22,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { pointsSummary, levelFromXp } from '@/lib/metrics';
+import { levelFromXp } from '@/lib/metrics';
+import { useEconomy } from '@/store/useEconomy';
 import { formatClock, todayKey } from '@/lib/dates';
 import { SessionFinishModal } from '@/components/modals/SessionFinishModal';
 import { EnergyModal } from '@/components/modals/EnergyModal';
@@ -95,9 +96,6 @@ const isActivePath = (pathname: string, to: string) => (to === '/' ? pathname ==
 export const Shell: React.FC = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const logs = useStore((s) => s.logs);
-  const pointEvents = useStore((s) => s.pointEvents);
-  const redemptions = useStore((s) => s.redemptions);
   const activeTimer = useStore((s) => s.activeTimer);
   const isTimerModalOpen = useStore((s) => s.isTimerModalOpen);
   const setTimerModalOpen = useStore((s) => s.setTimerModalOpen);
@@ -126,8 +124,9 @@ export const Shell: React.FC = () => {
   }, [pathname]);
 
   // Memo: el cronómetro re-renderiza cada segundo y no hace falta recorrer todos los registros
-  const pts = useMemo(() => pointsSummary({ logs, pointEvents, redemptions }), [logs, pointEvents, redemptions]);
-  const levelInfo = useMemo(() => levelFromXp(pts.earned), [pts.earned]);
+  const pts = useEconomy();
+  // El nivel sale de la XP (la calcula la app y nunca se gasta), no de las monedas
+  const levelInfo = useMemo(() => levelFromXp(pts.xpTotal), [pts.xpTotal]);
 
   // Cronómetro del temporizador activo (por diferencia de tiempo: no deriva)
   const timerSeconds = useElapsed(activeTimer);
@@ -164,7 +163,7 @@ export const Shell: React.FC = () => {
           <SyncPill compact />
         </div>
 
-        <div className="level-card" aria-label={`Nivel ${levelInfo.level}, ${pts.balance} puntos`}>
+        <div className="level-card" aria-label={`Nivel ${levelInfo.level}, ${Math.round(pts.xpTotal)} XP, ${pts.balance} monedas`} title={`${Math.round(pts.xpTotal)} XP · faltan ${Math.ceil(levelInfo.xpForNext - levelInfo.xpInLevel)} para el nivel ${levelInfo.level + 1}`}>
           <div className="row-between">
             <span className="level-card-level">Nivel {levelInfo.level}</span>
             <span className="level-card-points">{pts.balance} pts</span>

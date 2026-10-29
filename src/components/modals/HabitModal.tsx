@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
@@ -7,6 +7,7 @@ import { CustomTimePicker } from '@/components/ui/CustomTimePicker';
 import { CustomDatePicker } from '@/components/ui/CustomDatePicker';
 import type { Habit, HabitKind, Priority, TimeOfDay } from '@/types';
 import { DAY_SHORT, todayKey } from '@/lib/dates';
+import { CHIP_HINTS, COIN_CHIPS, ECONOMY, timeHabitCoins } from '@/lib/economyRules';
 
 interface HabitModalProps {
   isOpen: boolean;
@@ -38,7 +39,8 @@ const COLORS = [
   '#60a5fa', '#fb7185', '#a3e635', '#f97316', '#2dd4bf'
 ];
 
-const POINT_OPTIONS = [10, 20, 30, 40, 50];
+/** Chips de monedas permitidos (los hábitos de tiempo no tienen chip: la app calcula sus monedas) */
+const POINT_OPTIONS = [10, 20, 30, 40];
 
 export const UNIT_PRESETS = [
   { group: 'Repeticiones y Conteo', units: ['reps', 'páginas', 'vasos', 'veces'] },
@@ -68,6 +70,9 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
   const [points, setPoints] = useState<number>(
     habitToEdit?.points && POINT_OPTIONS.includes(habitToEdit.points) ? habitToEdit.points : 20
   );
+  useEffect(() => {
+    if (kind !== 'time' && points > ECONOMY.chipMax[kind]) setPoints(ECONOMY.chipMax[kind]);
+  }, [kind, points]);
   const [priority, setPriority] = useState<Priority>(habitToEdit?.priority ?? 2);
   const [targetMinutes, setTargetMinutes] = useState<string>(
     habitToEdit?.targetMinutes ? String(habitToEdit.targetMinutes) : '30'
@@ -160,7 +165,8 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
         icon,
         color,
         days,
-        points: Number(points) || 20,
+        // Tiempo: la app calcula las monedas según la duración. Acción y cantidad: el chip, con su máximo por tipo
+        points: kind === 'time' ? timeHabitCoins(tMin) : Math.min(Number(points) || 20, ECONOMY.chipMax[kind]),
         priority,
         targetMinutes: kind === 'time' ? tMin : undefined,
         minimumMinutes: kind === 'time' ? mMin : undefined,
@@ -345,25 +351,38 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
           </div>
         </div>
 
-        {/* Puntos al completar (Opciones fijas: 10, 20, 30, 40, 50) */}
+        {/* Monedas al completar: chips con criterio de esfuerzo; en hábitos de tiempo las calcula la app */}
         <div className="field">
-          <span className="label">Puntos al completar</span>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-            {POINT_OPTIONS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`chip ${points === p ? 'active' : ''}`}
-                style={{ padding: '8px 18px', fontWeight: 700, fontSize: 13.5 }}
-                onClick={() => setPoints(p)}
-              >
-                +{p} pts
-              </button>
-            ))}
-          </div>
-          <span className="hint" style={{ marginTop: 6 }}>
-            El modo mínimo otorga el {ratioPct}% de los puntos seleccionados (+{Math.max(1, Math.round(points * minimumRatio))} pts).
-          </span>
+          <span className="label">Monedas al completar</span>
+          {kind === 'time' ? (
+            <span className="hint" style={{ marginTop: 4 }}>
+              La app las calcula según la duración: <strong>+{timeHabitCoins(Number(targetMinutes) || 30)} pts</strong> al cumplir la meta
+              completa, y la parte proporcional si haces menos minutos.
+            </span>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                {COIN_CHIPS[kind].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`chip ${points === p ? 'active' : ''}`}
+                    style={{ padding: '8px 18px', fontWeight: 700, fontSize: 13.5 }}
+                    onClick={() => setPoints(p)}
+                    title={CHIP_HINTS[p]}
+                  >
+                    +{p} pts
+                  </button>
+                ))}
+              </div>
+              <span className="hint" style={{ marginTop: 6 }}>
+                {CHIP_HINTS[Math.min(points, ECONOMY.chipMax[kind])]}.{' '}
+                {kind === 'quantity'
+                  ? 'Si haces solo una parte, recibes la parte proporcional.'
+                  : `El modo mínimo otorga el ${ratioPct}% (+${Math.round(Math.min(points, ECONOMY.chipMax[kind]) * minimumRatio * 10) / 10} pts).`}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Selector de Tipo de Hábito */}

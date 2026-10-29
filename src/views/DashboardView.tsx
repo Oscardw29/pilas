@@ -48,7 +48,6 @@ import {
   isScheduled,
   getLog,
   isDoneLog,
-  pointsSummary,
   weekSummary,
   pointsFor,
   consistency,
@@ -61,6 +60,8 @@ import { FailReasonModal } from '@/components/modals/FailReasonModal';
 import { AbandonmentModal } from '@/components/modals/AbandonmentModal';
 import { HabitProgressModal } from '@/components/modals/HabitProgressModal';
 import type { Habit } from '@/types';
+import { useEconomy } from '@/store/useEconomy';
+import { habitCoinValue } from '@/lib/economyRules';
 
 const QUOTES = [
   'La constancia vence lo que la dicha no alcanza.',
@@ -208,7 +209,7 @@ export const DashboardView: React.FC = () => {
   const [progressModalHabit, setProgressModalHabit] = useState<Habit | null>(null);
 
   // Cálculos principales
-  const pts = pointsSummary(data);
+  const pts = useEconomy();
   const thisWeek = weekSummary(data, startOfWeekKey(T));
   const activeHabits = useMemo(() => data.habits.filter((h) => h.status === 'active'), [data.habits]);
 
@@ -429,7 +430,7 @@ export const DashboardView: React.FC = () => {
       celebrateStreakChange(before, T);
 
       toast(
-        mode === 'full' ? `+${h.points} pts · ¡${h.name} completado!` : `+${pointsFor(h, 'minimum', data.settings.minimumRatio)} pts · Versión mínima de «${h.name}»`,
+        mode === 'full' ? `+${habitCoinValue(h)} pts · ¡${h.name} completado!` : `+${pointsFor(h, 'minimum', data.settings.minimumRatio)} pts · Versión mínima de «${h.name}»`,
         'success',
       );
     }
@@ -1082,7 +1083,7 @@ export const DashboardView: React.FC = () => {
                           {h.name}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          +{h.points} pts
+                          +{habitCoinValue(h)} pts
                           {h.kind === 'time' && (
                             <span> · {log?.minutes ? `${log.minutes}/${h.targetMinutes || 30} min` : `${h.targetMinutes || 30} min`}</span>
                           )}

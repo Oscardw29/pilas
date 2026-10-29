@@ -1,5 +1,6 @@
 import type { AppData, DateKey, Goal, Habit, HabitLog, Session } from '@/types';
 import { addDaysKey, diffDays, rangeKeys, todayKey, weekdayIndex } from './dates';
+import { logCoins } from './economyRules';
 
 /**
  * MÉTRICAS BASE (puras, sin React). Todas reciben `data` (AppData o un subconjunto).
@@ -66,8 +67,12 @@ export function isScheduled(h: Habit, date: DateKey): boolean {
 export const activeHabits = (data: Pick<AppData, 'habits'>, ref = todayKey()) =>
   data.habits.filter((h) => isHabitActiveOnDate(h, ref));
 
-export const pointsFor = (h: Habit, status: HabitLog['status'], minimumRatio: number) =>
-  status === 'full' ? h.points : status === 'minimum' ? Math.max(1, Math.round(h.points * minimumRatio)) : 0;
+/**
+ * Monedas de marcar un hábito con ese estado (reglas por tipo: ver lib/economyRules).
+ * Sin minutos ni cantidad, «completo» vale la meta entera y «mínimo» la versión mínima.
+ */
+export const pointsFor = (h: Habit, status: HabitLog['status'], minimumRatio: number, progress?: Pick<HabitLog, 'minutes' | 'quantity'>) =>
+  logCoins(h, status, progress, minimumRatio);
 
 /* ---------------- Nueva Lógica de Racha y Súper Racha ---------------- */
 
@@ -490,17 +495,10 @@ export function weekSummary(data: AppData, weekStart: DateKey, ref = todayKey())
   return res;
 }
 
-/* ---------------- Puntos / niveles ---------------- */
+/* ---------------- Niveles ---------------- */
+// El saldo de monedas y la XP se calculan en lib/economy.ts (economySummary)
 
-export function pointsSummary(data: Pick<AppData, 'logs' | 'pointEvents' | 'redemptions'>) {
-  const fromLogs = Object.values(data.logs || {}).reduce((a, l) => a + (l.points || 0), 0);
-  const bonus = (data.pointEvents || []).reduce((a, e) => a + e.amount, 0);
-  const spent = (data.redemptions || []).reduce((a, r) => a + r.cost, 0);
-  const earned = fromLogs + bonus;
-  return { fromLogs, bonus, earned, spent, balance: Math.max(0, earned - spent) };
-}
-
-/** Nivel según XP de por vida (los puntos gastados no restan XP). Cada nivel pide 75 XP más que el anterior. */
+/** Nivel según la XP de por vida (la XP nunca se gasta). Cada nivel pide 75 XP más que el anterior. */
 export function levelFromXp(xp: number) {
   let level = 1, need = 150, acc = 0;
   while (xp >= acc + need) { acc += need; level++; need = 150 + (level - 1) * 75; }

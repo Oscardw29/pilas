@@ -5,7 +5,9 @@ import type {
   HabitRelation, HabitReviewEntry, ID, Level5, LogStatus, PointEvent, RecommendationFeedback, Reward, Secrets, Session,
   SessionStatus, Settings, WeeklyReview,
 } from '@/types';
-import { doneCountByDate, getDayStreakStatus, logKey, pointsFor, pointsSummary, previousCountedDay } from '@/lib/metrics';
+import { doneCountByDate, getDayStreakStatus, logKey, pointsFor, previousCountedDay } from '@/lib/metrics';
+import { BOOST_REWARD_ID, FREEZE_REWARD_ID, boostOffer, economySummary, freezeOffer, isBackdated } from '@/lib/economy';
+import { ECONOMY } from '@/lib/economyRules';
 import { todayKey, toKey } from '@/lib/dates';
 import { createDemoData, createEmptyData, defaultSettings } from '@/data/seed';
 import { LEGACY_SECRET_FIELDS, useSecrets } from '@/store/useSecrets';
@@ -84,8 +86,10 @@ export interface Actions {
   deleteReward: (id: ID) => void;
   /** false si no alcanza el saldo */
   redeem: (rewardId: ID) => boolean;
-  /** Comprar protector de racha permanente (150 pts) */
-  buyStreakFreeze: (cost?: number) => boolean;
+  /** Comprar el protector de racha al precio dinámico del momento (máx. 1 guardado y 7 al mes) */
+  buyStreakFreeze: () => boolean;
+  /** Comprar el multiplicador 1.5× de XP durante 12 h (espera de 24 h, máx. 4 al mes) */
+  buyXpBoost: () => boolean;
   /**
    * Consume automáticamente el protector si el último día que contaba rompió la racha y el anterior la tenía.
    * Devuelve la fecha protegida o null si no hizo falta.
@@ -119,9 +123,10 @@ const DATA_KEYS: (keyof AppData)[] = [
   'version', 'goals', 'habits', 'logs', 'sessions', 'activeTimer', 'energy', 'challenges', 'experiments', 'relations',
   'weeklyReviews', 'checkins', 'habitReviews', 'rewards', 'redemptions', 'pointEvents', 'achievements',
   'recommendationFeedback', 'dismissedInsights', 'conversations', 'activeConversationId', 'settings', 'hasStreakFreeze', 'streakFreezes',
+  'xpBoosts',
 ];
 
-const STORE_VERSION = 5;
+const STORE_VERSION = 6;
 
 /** Clave del estado de versiones anteriores (todo en un JSON en localStorage), antes de las cuentas */
 export const LEGACY_STORAGE_KEY = 'constancia-v2';
@@ -227,6 +232,7 @@ export function migrateData(state: any, version: number, adoptSecrets: boolean):
     });
   }
   if (state.hasStreakFreeze === undefined) state.hasStreakFreeze = false;
+  if (!Array.isArray(state.xpBoosts)) state.xpBoosts = [];
   if (!Array.isArray(state.streakFreezes)) state.streakFreezes = [];
 
   if (!Array.isArray(state.conversations) || state.conversations.length === 0) {
@@ -262,6 +268,8 @@ export function migrateData(state: any, version: number, adoptSecrets: boolean):
       state.settings.ttsPlatform = 'fish_audio';
       if (!state.settings.ttsModel) state.settings.ttsModel = 's2.1-pro-free';
     }
+    // v6: economía de XP y monedas. Las reglas nuevas rigen desde hoy; el historial anterior se conserva tal cual
+    if (!state.settings.economyStartDate) state.settings.economyStartDate = todayKey();
     if (!state.settings.geminiModel || state.settings.geminiModel === 'gemini-3.8-flash') {
       state.settings.geminiModel = 'gemini-3.5-flash-lite';
     }
@@ -354,12 +362,28 @@ export const useStore = create<Store>()(
         const h = s.habits.find((x) => x.id === habitId);
         if (!h) return;
         const prev = s.logs[logKey(date, habitId)];
+        const progress = {
+          minutes: extra?.minutes !== undefined ? extra.minutes : prev?.minutes,
+          quantity: extra?.quantity !== undefined ? extra.quantity : prev?.quantity,
+        };
+        // Reglas de la economía (desde economyStartDate): monedas según el tipo y el avance, y nada si se marca
+        // más de 1 día tarde. Antes de esa fecha se conserva el cálculo antiguo para no alterar el historial.
+        const newRules = !s.settings.economyStartDate || date >= s.settings.economyStartDate;
+        const points = newRules
+          ? isBackdated(date)
+            ? 0
+            : pointsFor(h, status, s.settings.minimumRatio, progress)
+          : status === 'full'
+            ? h.points
+            : status === 'minimum'
+              ? Math.max(1, Math.round(h.points * s.settings.minimumRatio))
+              : 0;
         set({
           logs: {
             ...s.logs,
             [logKey(date, habitId)]: {
               habitId, date, status,
-              points: pointsFor(h, status, s.settings.minimumRatio),
+              points,
               failReason: status === 'missed' ? extra?.failReason : undefined,
               failNote: status === 'missed' ? extra?.failNote : undefined,
               minutes: extra?.minutes !== undefined ? extra.minutes : prev?.minutes,
@@ -510,25 +534,42 @@ export const useStore = create<Store>()(
       redeem: (rewardId) => {
         const s = get();
         const r = s.rewards.find((x) => x.id === rewardId);
-        if (!r || pointsSummary(s).balance < r.cost) return false;
+        if (!r || economySummary(s).balance < r.cost) return false;
         set({ redemptions: [{ id: uid(), rewardId, name: r.name, icon: r.icon, cost: r.cost, date: nowISO() }, ...s.redemptions] });
         return true;
       },
-      buyStreakFreeze: (cost = 150) => {
+      buyStreakFreeze: () => {
         const s = get();
-        if (s.hasStreakFreeze) return false;
-        if (pointsSummary(s).balance < cost) return false;
+        const offer = freezeOffer(s);
+        const cost = offer.price;
+        if (offer.blocked) return false;
+        if (economySummary(s).balance < cost) return false;
         set({
           hasStreakFreeze: true,
           redemptions: [
             {
               id: uid(),
-              rewardId: 'rw-streak-freeze',
+              rewardId: FREEZE_REWARD_ID,
               name: 'Protector de racha (1 día)',
               icon: '❄️',
               cost,
               date: nowISO(),
             },
+            ...s.redemptions,
+          ],
+        });
+        return true;
+      },
+      buyXpBoost: () => {
+        const s = get();
+        const offer = boostOffer(s);
+        if (offer.blocked || economySummary(s).balance < offer.price) return false;
+        const start = new Date();
+        const end = new Date(start.getTime() + ECONOMY.boostHours * 3_600_000);
+        set({
+          xpBoosts: [...(s.xpBoosts ?? []), { id: uid(), startedAt: start.toISOString(), endsAt: end.toISOString(), cost: offer.price }],
+          redemptions: [
+            { id: uid(), rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: offer.price, date: start.toISOString() },
             ...s.redemptions,
           ],
         });

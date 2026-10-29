@@ -19,7 +19,7 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 /** Colecciones opcionales que, si existen, deben ser arrays de objetos */
 const OPTIONAL_ARRAYS = [
   'sessions', 'energy', 'challenges', 'experiments', 'relations', 'weeklyReviews', 'checkins', 'habitReviews',
-  'rewards', 'redemptions', 'pointEvents', 'conversations', 'streakFreezes',
+  'rewards', 'redemptions', 'pointEvents', 'conversations', 'streakFreezes', 'xpBoosts',
 ] as const;
 
 /** Colecciones opcionales que, si existen, deben ser objetos */

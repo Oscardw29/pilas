@@ -45,6 +45,7 @@ export function createEmptyData(): AppData {
     settings: defaultSettings(),
     hasStreakFreeze: false,
     streakFreezes: [],
+    xpBoosts: [],
   };
 }
 

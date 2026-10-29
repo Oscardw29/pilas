@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { Reward, Redemption } from '../types';
-import { pointsSummary, levelFromXp } from '../lib/metrics';
-import { Coins, Plus, Gift, Trash2, Lock, Edit3, Shield, ShieldCheck, Snowflake, Check, ReceiptText, Store } from 'lucide-react';
+import { levelFromXp } from '../lib/metrics';
+import { useEconomy } from '../store/useEconomy';
+import { boostOffer, freezeOffer } from '../lib/economy';
+import { ECONOMY } from '../lib/economyRules';
+import { Coins, Plus, Gift, Trash2, Lock, Edit3, Shield, ShieldCheck, Snowflake, Check, ReceiptText, Store, Zap, Hourglass } from 'lucide-react';
 import { RewardModal } from '../components/modals/RewardModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useToast } from '../components/ui/ToastContext';
@@ -14,7 +17,13 @@ import { useCoachPersona } from '../components/coach/coachPersona';
 import { CashRegister, ShopAwning, ShopBackShelf } from '../components/shop/ShopArt';
 import '../components/shop/shop.css';
 
-const FREEZE_COST = 150;
+/** «3 h 20 min» */
+function formatLeft(ms: number) {
+  const totalMin = Math.max(1, Math.ceil(ms / 60_000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
+}
 
 /** Colores de la caja de cada producto (rotan por el catálogo) */
 const BOX_COLORS = [
@@ -27,13 +36,27 @@ const BOX_COLORS = [
 ];
 
 export const RewardsView: React.FC = () => {
-  const { rewards, redemptions, pointEvents, logs, redeem, deleteReward, hasStreakFreeze, buyStreakFreeze } = useStore(useShallow((s) => ({ rewards: s.rewards, redemptions: s.redemptions, pointEvents: s.pointEvents, logs: s.logs, redeem: s.redeem, deleteReward: s.deleteReward, hasStreakFreeze: s.hasStreakFreeze, buyStreakFreeze: s.buyStreakFreeze })));
+  const { rewards, redemptions, redeem, deleteReward, hasStreakFreeze, buyStreakFreeze, buyXpBoost } = useStore(useShallow((s) => ({ rewards: s.rewards, redemptions: s.redemptions, redeem: s.redeem, deleteReward: s.deleteReward, hasStreakFreeze: s.hasStreakFreeze, buyStreakFreeze: s.buyStreakFreeze, buyXpBoost: s.buyXpBoost })));
+  const econData = useStore(
+    useShallow((s) => ({
+      habits: s.habits, logs: s.logs, pointEvents: s.pointEvents, redemptions: s.redemptions, streakFreezes: s.streakFreezes,
+      xpBoosts: s.xpBoosts, settings: s.settings, hasStreakFreeze: s.hasStreakFreeze,
+    })),
+  );
+  // Reloj de la tienda: el tiempo restante del multiplicador y su espera se actualizan solos
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const freeze = useMemo(() => freezeOffer(econData, new Date(now)), [econData, now]);
+  const boost = useMemo(() => boostOffer(econData, now), [econData, now]);
   const { showToast } = useToast();
   const persona = useCoachPersona();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
-  const [rewardToRedeem, setRewardToRedeem] = useState<Reward | 'streak_freeze' | null>(null);
+  const [rewardToRedeem, setRewardToRedeem] = useState<Reward | 'streak_freeze' | 'xp_boost' | null>(null);
   const [rewardIdToDelete, setRewardIdToDelete] = useState<string | null>(null);
   /** El tendero celebra cada canje */
   const [cheerKey, setCheerKey] = useState(0);
@@ -45,18 +68,18 @@ export const RewardsView: React.FC = () => {
     return () => clearTimeout(t);
   }, [cheerKey]);
 
-  const pts = pointsSummary({ logs, pointEvents, redemptions });
-  const levelInfo = levelFromXp(pts.earned);
+  const pts = useEconomy();
+  const levelInfo = levelFromXp(pts.xpTotal);
 
   // Lo que dice el tendero según el saldo
   const shopkeeperLine = useMemo(() => {
     if (celebrating) return '¡Buena elección! Disfrútalo, te lo ganaste 🎉';
-    const affordable = rewards.filter((r) => r.cost <= pts.balance).length + (!hasStreakFreeze && pts.balance >= FREEZE_COST ? 1 : 0);
+    const affordable = rewards.filter((r) => r.cost <= pts.balance).length + (!freeze.blocked && pts.balance >= freeze.price ? 1 : 0);
     if (affordable > 0) return `¡Hola! Con tus ${pts.balance} pts te alcanza para ${affordable} ${affordable === 1 ? 'premio' : 'premios'}.`;
     const next = [...rewards].sort((a, b) => a.cost - b.cost).find((r) => r.cost > pts.balance);
     if (next) return `Te faltan ${next.cost - pts.balance} pts para «${next.name}». ¡Tú puedes!`;
     return '¡Hola! Añade premios a la estantería y ve por ellos.';
-  }, [celebrating, rewards, pts.balance, hasStreakFreeze]);
+  }, [celebrating, rewards, pts.balance, freeze.blocked, freeze.price]);
 
   // El bocadillo se escribe letra a letra cada vez que cambia la frase
   const [typed, setTyped] = useState(0);
@@ -71,14 +94,24 @@ export const RewardsView: React.FC = () => {
   const handleConfirmRedeem = () => {
     if (!rewardToRedeem) return;
 
-    if (rewardToRedeem === 'streak_freeze') {
-      const ok = buyStreakFreeze(FREEZE_COST);
+    if (rewardToRedeem === 'xp_boost') {
+      const cost = boost.price;
+      if (buyXpBoost()) {
+        triggerRewardCelebration({ name: 'Multiplicador 1.5× de XP', icon: '⚡', cost, isFreeze: false });
+        setCheerKey((k) => k + 1);
+        showToast(`¡Multiplicador activo! Durante ${ECONOMY.boostHours} h, cada hábito que completes da 1.5× de XP.`, 'reward');
+      } else {
+        showToast('Ahora no se puede comprar el multiplicador', 'warning');
+      }
+    } else if (rewardToRedeem === 'streak_freeze') {
+      const cost = freeze.price;
+      const ok = buyStreakFreeze();
       if (ok) {
         // El overlay del cofre reproduce el sonido y el confeti sincronizados con la apertura
         triggerRewardCelebration({
           name: 'Protector de Racha',
           icon: '❄️',
-          cost: FREEZE_COST,
+          cost,
           isFreeze: true,
         });
         setCheerKey((k) => k + 1);
@@ -117,7 +150,8 @@ export const RewardsView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const canAffordFreeze = pts.balance >= FREEZE_COST;
+  const canAffordFreeze = pts.balance >= freeze.price;
+  const canBuyBoost = !boost.blocked && pts.balance >= boost.price;
 
   return (
     <div className="stack fade-up shop-page">
@@ -132,7 +166,7 @@ export const RewardsView: React.FC = () => {
             </p>
             <h1>Tienda de recompensas</h1>
             <p className="shop-front-sub">
-              Canjea los puntos de tus hábitos, sesiones de foco y revisiones semanales por premios reales que disfrutes.
+              Canjea las monedas de tus hábitos por premios reales que disfrutes. La XP no se gasta: mide tu constancia.
             </p>
 
             <div className="shop-stats">
@@ -156,14 +190,14 @@ export const RewardsView: React.FC = () => {
                   <span className="badge accent">Nivel {levelInfo.level}</span>
                 </div>
                 <div className="stat-value">
-                  {pts.earned} <small>XP</small>
+                  {Math.round(pts.xpTotal)} <small>XP</small>
                 </div>
                 <div className="progress thin">
                   <div style={{ width: `${Math.round(levelInfo.progress * 100)}%` }} />
                 </div>
                 <div className="row-between xs muted">
                   <span>{Math.round(levelInfo.progress * 100)}% hacia nivel {levelInfo.level + 1}</span>
-                  <span>Faltan {levelInfo.xpForNext - levelInfo.xpInLevel} XP</span>
+                  <span>Faltan {Math.ceil(levelInfo.xpForNext - levelInfo.xpInLevel)} XP</span>
                 </div>
               </div>
             </div>
@@ -201,7 +235,7 @@ export const RewardsView: React.FC = () => {
             <Gift size={17} aria-hidden="true" /> Estantería de premios
           </div>
           <div className="row" style={{ gap: 10 }}>
-            <span className="badge accent">{rewards.length + 1} recompensas</span>
+            <span className="badge accent">{rewards.length + 2} recompensas</span>
             <button type="button" className="btn btn-primary sm" onClick={openNew}>
               <Plus size={15} /> Nuevo premio
             </button>
@@ -229,12 +263,15 @@ export const RewardsView: React.FC = () => {
               <div className="shop-item-name" style={{ color: '#38bdf8' }}>
                 Protector de racha (1 día)
               </div>
-              <p className="shop-item-desc">Si un día no haces hábitos, tu racha se congela en azul en vez de romperse. Máximo 1 en inventario.</p>
+              <p className="shop-item-desc">
+                Si un día no haces hábitos, tu racha se congela en azul en vez de romperse (ese día no da monedas ni XP). Máximo 1
+                guardado · {freeze.boughtThisMonth}/{freeze.maxPerMonth} este mes. El precio sigue tu ritmo: unos 2 días de esfuerzo.
+              </p>
             </div>
             <div className="shop-item-foot">
               <div className="reward-price" style={{ color: '#38bdf8' }}>
                 <Coins size={18} aria-hidden="true" />
-                <span>{FREEZE_COST}</span>
+                <span>{freeze.price}</span>
                 <small className="muted" style={{ fontSize: 12 }}>
                   pts
                 </small>
@@ -242,6 +279,10 @@ export const RewardsView: React.FC = () => {
               {hasStreakFreeze ? (
                 <button type="button" className="btn sm btn-secondary shop-owned" disabled>
                   <ShieldCheck size={14} aria-hidden="true" /> Activo (1/1)
+                </button>
+              ) : freeze.blocked === 'month-limit' ? (
+                <button type="button" className="btn sm btn-secondary" disabled>
+                  <Lock size={13} /> Límite del mes
                 </button>
               ) : (
                 <button
@@ -256,7 +297,7 @@ export const RewardsView: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Lock size={13} /> Faltan {FREEZE_COST - pts.balance}
+                      <Lock size={13} /> Faltan {Math.ceil(freeze.price - pts.balance)}
                     </>
                   )}
                 </button>
@@ -267,6 +308,72 @@ export const RewardsView: React.FC = () => {
                 <Check size={12} strokeWidth={3} aria-hidden="true" /> Listo para tu próximo día sin hábitos
               </div>
             )}
+          </article>
+
+          {/* Recompensa fija: multiplicador 1.5× de XP durante 12 h */}
+          <article className={`shop-item boost${boost.active ? ' owned' : ''}`}>
+            <div className="shop-item-display">
+              <span className="shop-box" style={{ ['--box' as string]: '#facc15', ['--box-lip' as string]: '#ca8a04' }}>
+                <Zap size={28} aria-hidden="true" />
+              </span>
+              <span className="badge shop-item-flag" style={{ background: 'rgba(250, 204, 21, 0.16)', color: '#facc15' }}>
+                {boost.active ? (
+                  <>
+                    <Zap size={11} aria-hidden="true" /> Activo
+                  </>
+                ) : (
+                  'Permanente'
+                )}
+              </span>
+            </div>
+            <div className="shop-item-body">
+              <div className="shop-item-name" style={{ color: '#facc15' }}>
+                Multiplicador 1.5× XP · {ECONOMY.boostHours} h
+              </div>
+              <p className="shop-item-desc">
+                Cada hábito que completes durante {ECONOMY.boostHours} h da 1.5× de XP (el tope del día también sube). Una vez cada{' '}
+                {ECONOMY.boostCooldownHours} h · {boost.boughtThisMonth}/{boost.maxPerMonth} este mes.
+              </p>
+            </div>
+            <div className="shop-item-foot">
+              <div className="reward-price" style={{ color: '#facc15' }}>
+                <Coins size={18} aria-hidden="true" />
+                <span>{boost.price}</span>
+                <small className="muted" style={{ fontSize: 12 }}>
+                  pts
+                </small>
+              </div>
+              {boost.active ? (
+                <button type="button" className="btn sm btn-secondary shop-owned" disabled>
+                  <Hourglass size={14} aria-hidden="true" /> Quedan {formatLeft(Date.parse(boost.active.endsAt) - now)}
+                </button>
+              ) : boost.blocked === 'cooldown' && boost.availableAt ? (
+                <button type="button" className="btn sm btn-secondary" disabled>
+                  <Hourglass size={13} /> En {formatLeft(boost.availableAt - now)}
+                </button>
+              ) : boost.blocked === 'month-limit' ? (
+                <button type="button" className="btn sm btn-secondary" disabled>
+                  <Lock size={13} /> Límite del mes
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`btn sm ${canBuyBoost ? 'btn-primary' : 'btn-secondary'}`}
+                  disabled={!canBuyBoost}
+                  onClick={() => setRewardToRedeem('xp_boost')}
+                >
+                  {canBuyBoost ? (
+                    <>
+                      <Zap size={14} /> Activar
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={13} /> Faltan {Math.ceil(boost.price - pts.balance)}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </article>
 
           {/* Recompensas del usuario */}
@@ -424,12 +531,16 @@ export const RewardsView: React.FC = () => {
         title={
           rewardToRedeem === 'streak_freeze'
             ? 'Canjear protector de racha'
-            : `Canjear «${(rewardToRedeem as Reward)?.name}»`
+            : rewardToRedeem === 'xp_boost'
+              ? 'Activar multiplicador de XP'
+              : `Canjear «${(rewardToRedeem as Reward)?.name}»`
         }
         message={
           rewardToRedeem === 'streak_freeze'
-            ? `¿Deseas canjear ${FREEZE_COST} puntos por un Protector de Racha? Protegerá tu racha durante 24 horas si no completas ningún hábito, manteniéndola congelada en azul sin romper tu progreso.`
-            : `¿Canjear «${(rewardToRedeem as Reward)?.name}» por ${(rewardToRedeem as Reward)?.cost} puntos? ¡Disfruta tu recompensa merecida!`
+            ? `¿Deseas canjear ${freeze.price} puntos por un Protector de Racha? Protegerá tu racha si un día no completas ningún hábito, manteniéndola congelada en azul (ese día no da monedas ni XP).`
+            : rewardToRedeem === 'xp_boost'
+              ? `¿Canjear ${boost.price} puntos por el multiplicador? Empieza ahora y dura ${ECONOMY.boostHours} h: cada hábito que completes en ese tiempo da 1.5× de XP.`
+              : `¿Canjear «${(rewardToRedeem as Reward)?.name}» por ${(rewardToRedeem as Reward)?.cost} puntos? ¡Disfruta tu recompensa merecida!`
         }
         confirmLabel="¡Sí, canjear!"
         confirmVariant="primary"

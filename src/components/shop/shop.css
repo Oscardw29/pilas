@@ -92,6 +92,8 @@
 }
 .shop-item:hover::after { transform: translateY(2px); }
 .shop-item.freeze { border-color: rgba(56, 189, 248, 0.35); }
+.shop-item.boost { border-color: rgba(250, 204, 21, 0.35); }
+.shop-item.boost .shop-box::before { display: none; }
 
 .shop-item-display {
   position: relative; display: flex; align-items: center; justify-content: center; min-height: 96px;

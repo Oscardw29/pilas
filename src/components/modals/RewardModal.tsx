@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Modal } from '@/components/ui/Modal';
 import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
 import type { Reward } from '@/types';
+import { rewardDays } from '@/lib/economy';
 
 interface RewardModalProps {
   isOpen: boolean;
@@ -16,6 +18,12 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
   const addReward = useStore((s) => s.addReward);
   const updateReward = useStore((s) => s.updateReward);
   const { toast } = useToast();
+  const econData = useStore(
+    useShallow((s) => ({
+      habits: s.habits, logs: s.logs, pointEvents: s.pointEvents, redemptions: s.redemptions, streakFreezes: s.streakFreezes,
+      xpBoosts: s.xpBoosts, settings: s.settings,
+    })),
+  );
 
   const [name, setName] = useState(rewardToEdit?.name ?? '');
   const [icon, setIcon] = useState(rewardToEdit?.icon ?? REWARD_ICONS[0]);
@@ -30,6 +38,9 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
       setDescription(rewardToEdit?.description ?? '');
     }
   }, [isOpen, rewardToEdit]);
+
+  // «Este premio equivale a N días de tu ritmo actual» (se actualiza mientras se escribe el precio; nunca bloquea)
+  const equivalence = useMemo(() => rewardDays(econData, cost > 0 ? cost : 0), [econData, cost]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +119,21 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
               ))}
             </div>
           </div>
+          <span className="hint" role="status" aria-live="polite">
+            {equivalence.kind === 'no-history'
+              ? 'Aún no hay suficiente historial para estimar los días.'
+              : `Este premio equivale a ${equivalence.days} ${equivalence.days === 1 ? 'día' : 'días'} de tu ritmo actual.`}
+          </span>
+          {equivalence.kind === 'too-easy' && (
+            <span className="hint" style={{ color: 'var(--warning)' }}>
+              Es muy fácil de conseguir, ¿seguro que motiva?
+            </span>
+          )}
+          {equivalence.kind === 'too-far' && (
+            <span className="hint" style={{ color: 'var(--warning)' }}>
+              Puede tardar demasiado, considera bajarlo.
+            </span>
+          )}
         </div>
 
         <div className="modal-foot">

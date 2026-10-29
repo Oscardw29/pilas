@@ -22,6 +22,7 @@ import {
   MONTHS,
 } from '@/lib/dates';
 import { FAIL_REASON_LABELS } from '@/lib/insights';
+import { habitCoinValue } from '@/lib/economyRules';
 
 export const CalendarView: React.FC = () => {
   const data = useData();
@@ -275,7 +276,7 @@ export const CalendarView: React.FC = () => {
                     <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                       <span>{h.icon}</span>
                       <span>{h.name}</span>
-                      <span className="badge sm success" style={{ marginLeft: 'auto' }}>+{h.points} pts</span>
+                      <span className="badge sm success" style={{ marginLeft: 'auto' }}>+{habitCoinValue(h)} pts</span>
                     </div>
                   ))}
                 </div>

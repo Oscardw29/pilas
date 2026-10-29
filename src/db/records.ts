@@ -11,7 +11,7 @@ import { createEmptyData } from '@/data/seed';
 /** Colecciones guardadas como lista de objetos con `id` */
 export const ID_COLLECTIONS = [
   'goals', 'habits', 'sessions', 'energy', 'challenges', 'experiments', 'relations', 'weeklyReviews',
-  'checkins', 'habitReviews', 'rewards', 'redemptions', 'pointEvents', 'conversations',
+  'checkins', 'habitReviews', 'rewards', 'redemptions', 'pointEvents', 'conversations', 'xpBoosts',
 ] as const satisfies readonly (keyof AppData)[];
 
 /** Colecciones guardadas como mapa `clave → valor` (cada entrada es un registro) */
