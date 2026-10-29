@@ -12,7 +12,6 @@ import {
   FlaskConical,
   GitFork,
   Gift,
-  Settings,
   Zap,
   Play,
   Pause,
@@ -41,6 +40,7 @@ import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
 import { CoachIcon } from '@/components/ui/icons';
 import { useCoachPersona } from '@/components/coach/coachPersona';
 import { SyncPill } from '@/components/auth/SyncPill';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
 
 interface NavItem {
   to: string;
@@ -84,11 +84,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/recompensas', label: 'Recompensas', icon: Gift },
     ],
   },
-  {
-    label: 'Sistema',
-    items: [{ to: '/ajustes', label: 'Ajustes', icon: Settings }],
-  },
 ];
+// «Ajustes» y «Mi perfil» no están en la navegación: se abren desde el menú de perfil (abajo del panel o en la cabecera móvil)
 
 /** Pestañas fijas de la barra inferior en móvil; el resto vive en «Más» */
 const BOTTOM_TABS = ['/', '/semana', '/objetivos', '/coach'];
@@ -197,6 +194,8 @@ export const Shell: React.FC = () => {
             </div>
           ))}
         </nav>
+
+        <ProfileMenu variant="sidebar" />
       </aside>
 
       {/* CONTENEDOR PRINCIPAL */}
@@ -205,7 +204,9 @@ export const Shell: React.FC = () => {
         <header className="mobile-topbar">
           <div className="brand">
             <BrandMark size={28} className="brand-logo sm" />
-            <span className="mobile-topbar-title">{currentItem?.label ?? '¡Pilas!'}</span>
+            <span className="mobile-topbar-title">
+              {currentItem?.label ?? (isActivePath(pathname, '/perfil') ? 'Mi perfil' : isActivePath(pathname, '/ajustes') ? 'Ajustes' : '¡Pilas!')}
+            </span>
           </div>
           <div className="row" style={{ gap: 6 }}>
             <SyncPill compact />
@@ -220,6 +221,7 @@ export const Shell: React.FC = () => {
             <span className="badge accent" aria-label={`${pts.balance} puntos`}>
               {pts.balance} pts
             </span>
+            <ProfileMenu variant="header" />
           </div>
         </header>
 

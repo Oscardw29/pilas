@@ -1,6 +1,7 @@
 import type { AppData, FailReason, Habit, Insight } from '@/types';
 import { addDaysKey, diffDays, hourOf, rangeKeys, todayKey, toKey, weekdayIndex } from './dates';
 import { consistency, getLog, habitStart, isDoneLog, periodConsistency } from './metrics';
+import { MAX_ACTIVE_HABITS } from './limits';
 
 /**
  * MOTOR DE APRENDIZAJE E INSIGHTS (Puntos 7, 9, 15, 16)
@@ -274,12 +275,12 @@ export function detectInsights(data: AppData, ref = todayKey()): Insight[] {
   });
 
   /* 8. DETECCIÓN DE SOBRECARGA */
-  if (activeHabits.length > data.settings.maxActiveHabits) {
+  if (activeHabits.length > MAX_ACTIVE_HABITS) {
     insights.push({
       id: 'insight-load-habits',
       kind: 'load',
       title: `Tienes ${activeHabits.length} hábitos activos simultáneos`,
-      detail: `La aplicación optimiza para mejores hábitos, no para acumularlos. Te recomendamos auditar y mantener un máximo de ${data.settings.maxActiveHabits} para no dispersar tu energía.`,
+      detail: `La aplicación optimiza para mejores hábitos, no para acumularlos. Te recomendamos auditar y mantener un máximo de ${MAX_ACTIVE_HABITS} para no dispersar tu energía.`,
       confidence: 0.95,
       tone: 'attention',
     });

@@ -22,6 +22,7 @@ const ExperimentsView = lazy(() => import('./views/ExperimentsView').then((m) =>
 const HabitMapView = lazy(() => import('./views/HabitMapView').then((m) => ({ default: m.HabitMapView })));
 const RewardsView = lazy(() => import('./views/RewardsView').then((m) => ({ default: m.RewardsView })));
 const AiCoachView = lazy(() => import('./views/AiCoachView').then((m) => ({ default: m.AiCoachView })));
+const ProfileView = lazy(() => import('./views/ProfileView').then((m) => ({ default: m.ProfileView })));
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })));
 
 export const App: React.FC = () => {
@@ -143,6 +144,9 @@ export const App: React.FC = () => {
 
         {/* Coach IA */}
         <Route path="/coach" element={<AiCoachView />} />
+
+        {/* Perfil */}
+        <Route path="/perfil" element={<ProfileView />} />
 
         {/* Ajustes */}
         <Route path="/ajustes" element={<SettingsView />} />

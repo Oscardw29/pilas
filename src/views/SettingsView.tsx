@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
@@ -38,6 +39,10 @@ import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
 import { BackupCard } from '../components/settings/BackupCard';
 import { AccountCard } from '../components/settings/AccountCard';
 import { AnimationTestCard } from '../components/settings/AnimationTestCard';
+import { Modal } from '../components/ui/Modal';
+import { useIsCreator } from '../lib/creator';
+import { MAX_ACTIVE_HABITS } from '../lib/limits';
+import '../components/profile/profile.css';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { CustomTimePicker } from '../components/ui/CustomTimePicker';
@@ -146,9 +151,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   );
   const { showToast } = useToast();
 
-  const [userName, setUserName] = useState(settings.userName || 'Usuario');
-  const [userGender, setUserGender] = useState<UserGender>(settings.userGender || 'other');
-  const [maxActiveHabits, setMaxActiveHabits] = useState(settings.maxActiveHabits || 7);
+  // El nombre y el género del coach viven ahora en la página de perfil; aquí solo se leen
+  const userName = settings.userName || 'Usuario';
+  const userGender: UserGender = settings.userGender || 'other';
+  const isCreator = useIsCreator();
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
   // IA Settings
@@ -464,12 +470,61 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     playSound.pop();
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /* ---------- Cambios sin guardar ---------- */
+  // Instantánea de todo lo editable del formulario: si difiere de la última guardada, hay cambios pendientes
+  const formSnapshot = JSON.stringify([
+    askFailReason, aiPlatform, geminiApiKey, geminiModel, backupModel, ttsPlatform, ttsApiKey, ttsModel, ttsVoiceId,
+    deepgramApiKey, soundEnabled, soundVolume, notifEnabled, habitReminders, streakReminder, streakReminderTime,
+    coachReminder, coachReminderTime, morningReminder, morningReminderTime, middayReminder, middayReminderTime,
+    nightReminder, nightReminderTime,
+  ]);
+  const savedSnapshot = useRef(formSnapshot);
+  const [, setSavedTick] = useState(0);
+  const isDirty = formSnapshot !== savedSnapshot.current;
+  const markSaved = () => {
+    savedSnapshot.current = formSnapshot;
+    setSavedTick((t) => t + 1);
+  };
+
+  // Al desbloquear las claves cifradas se rellenan los campos: eso no cuenta como un cambio de la persona
+  const rebaseline = useRef(false);
+  useEffect(() => {
+    if (!secretsLocked) rebaseline.current = true;
+  }, [secretsLocked]);
+  useEffect(() => {
+    if (!rebaseline.current) return;
+    rebaseline.current = false;
+    savedSnapshot.current = formSnapshot;
+    setSavedTick((t) => t + 1);
+  }, [formSnapshot]);
+
+  // Salir de Ajustes con cambios pendientes: modal pequeño. Cerrar la pestaña: aviso del navegador
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
+
+  // Botón flotante de guardar mientras el botón normal no está en pantalla
+  const formRef = useRef<HTMLFormElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const [saveVisible, setSaveVisible] = useState(true);
+  useEffect(() => {
+    const el = saveButtonRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(([entry]) => setSaveVisible(entry.isIntersecting), { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    markSaved();
     updateSettings({
-      userName: userName.trim(),
-      userGender,
-      maxActiveHabits: Number(maxActiveHabits),
       askFailReason,
       aiPlatform,
       geminiModel: geminiModel.trim(),
@@ -610,93 +665,34 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
       {/* Formulario de Ajustes */}
       <form
+        ref={formRef}
         onSubmit={handleSaveProfile}
         className="form"
         autoComplete="off"
         data-lpignore="true"
         data-1p-ignore="true"
       >
-        {/* Perfil y Filosofía */}
+        {/* Preferencias de hábitos (el perfil pasó a su propia página) */}
         <div className="card">
           <div className="card-head">
             <div className="row">
               <User size={18} style={{ color: 'var(--accent-2)' }} />
               <div>
-                <div className="card-title">Perfil de usuario y carga de hábitos</div>
-                <div className="card-sub">Previene la acumulación excesiva y la sobrecarga</div>
+                <div className="card-title">Hábitos</div>
+                <div className="card-sub">Cómo se cuentan y registran tus hábitos</div>
               </div>
             </div>
           </div>
 
           <div className="form">
-            <div className="form-row">
-              <div className="field">
-                <span className="label">Tu nombre o alias</span>
-                <input
-                  type="text"
-                  className="input"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  required
-                />
+            <div className="field">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="label">Hábitos activos a la vez</span>
+                <span className="badge accent" style={{ fontWeight: 700 }}>Máximo {MAX_ACTIVE_HABITS}</span>
               </div>
-
-              <div className="field">
-                <span className="label" id="settings-gender-label">
-                  Te identificas como
-                </span>
-                <div className="gender-options" role="radiogroup" aria-labelledby="settings-gender-label">
-                  {(
-                    [
-                      ['male', 'Hombre'],
-                      ['female', 'Mujer'],
-                      ['other', 'Otro'],
-                    ] as [UserGender, string][]
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={userGender === value}
-                      className="gender-option"
-                      onClick={() => setUserGender(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <span className="hint">
-                  Tu coach será {personaFor(userGender).name}, tu {personaFor(userGender).role}.
-                </span>
-              </div>
-
-              <div className="field">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="label">Límite recomendado de hábitos activos</span>
-                  <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-2)', fontWeight: 700 }}>
-                    {maxActiveHabits} hábitos
-                  </span>
-                </div>
-                <div className="custom-slider-wrap">
-                  <input
-                    type="range"
-                    min={2}
-                    max={15}
-                    step={1}
-                    className="custom-slider-input"
-                    value={maxActiveHabits}
-                    style={{
-                      background: `linear-gradient(to right, #6366f1 0%, #a855f7 ${((maxActiveHabits - 2) / 13) * 100}%, rgba(255, 255, 255, 0.12) ${((maxActiveHabits - 2) / 13) * 100}%, rgba(255, 255, 255, 0.12) 100%)`,
-                    }}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setMaxActiveHabits(val);
-                      playSound.click();
-                    }}
-                  />
-                </div>
-                <span className="hint">Sugerido: 4 a 7 hábitos simultáneos para evitar el colapso.</span>
-              </div>
+              <span className="hint" style={{ marginTop: 4 }}>
+                Es igual para todos. Si te cuesta sostenerlos, Insights y tu coach te ayudarán a ajustar tras unos días con tus datos.
+              </span>
             </div>
 
             <div className="field" style={{ marginTop: 8 }}>
@@ -1267,7 +1263,49 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
-        {/* EFECTOS DE SONIDO EN LA INTERFAZ */}
+        {/* NOTIFICACIONES (para todos): solo encender o apagar */}
+        {!isCreator && (
+          <div className="card">
+            <div className="card-head">
+              <div className="row">
+                <Bell size={18} style={{ color: 'var(--accent-2)' }} />
+                <div>
+                  <div className="card-title">Notificaciones</div>
+                  <div className="card-sub">Recordatorios de tus hábitos y de tu racha mientras la app está abierta</div>
+                </div>
+              </div>
+              {notifPermission !== 'granted' && notifPermission !== 'denied' && notifPermission !== 'unsupported' && notifEnabled && (
+                <button type="button" className="btn btn-primary sm" onClick={handleRequestPermission} disabled={isRequestingPermission}>
+                  <Bell size={13} /> Permitir
+                </button>
+              )}
+            </div>
+            <label className="custom-switch">
+              <input
+                type="checkbox"
+                checked={notifEnabled}
+                onChange={(e) => {
+                  setNotifEnabled(e.target.checked);
+                  playSound.pop();
+                }}
+              />
+              <span className="custom-switch-track">
+                <span className="custom-switch-thumb" />
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>
+                {notifEnabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
+              </span>
+            </label>
+            {notifPermission === 'denied' && notifEnabled && (
+              <p className="hint" style={{ marginTop: 8 }}>
+                El permiso está bloqueado en el sistema: actívalo en los ajustes del navegador o del dispositivo.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* EFECTOS DE SONIDO EN LA INTERFAZ (solo cuenta del creador) */}
+        {isCreator && (
         <div className="card">
           <div className="card-head">
             <div className="row">
@@ -1370,7 +1408,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
-        {/* NOTIFICACIONES DEL SISTEMA (WINDOWS Y CELULARES) */}
+        )}
+
+        {/* NOTIFICACIONES DEL SISTEMA (WINDOWS Y CELULARES): detalle solo para la cuenta del creador */}
+        {isCreator && (
         <div className="card" style={{ borderTop: '3px solid var(--accent)' }}>
           <div className="card-head">
             <div className="row">
@@ -1671,9 +1712,11 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
+        )}
+
         {/* Botón Guardar */}
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
-          <button type="submit" className="btn btn-primary lg">
+          <button ref={saveButtonRef} type="submit" className="btn btn-primary lg">
             <Save size={16} /> Guardar configuración
           </button>
         </div>
@@ -1683,8 +1726,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
       <BackupCard onDataReplaced={onDataReplaced} />
 
-      <AnimationTestCard />
+      {isCreator && <AnimationTestCard />}
 
+      {isCreator && (
       <ApiKeySecurityCard
         onKeysForgotten={() => {
           setGeminiApiKey('');
@@ -1692,8 +1736,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           setDeepgramApiKey('');
         }}
       />
+      )}
 
-      {/* Acciones destructivas / Restablecer datos */}
+      {/* Acciones destructivas / Restablecer datos (solo cuenta del creador) */}
+      {isCreator && (
       <div className="card" style={{ border: '1px solid var(--border-danger, rgba(239, 68, 68, 0.3))' }}>
         <div className="card-head">
           <div className="row">
@@ -1738,6 +1784,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         </div>
       </div>
 
+      )}
+
       {/* Modal Confirmación Cargar Datos Demo */}
       <ConfirmModal
         isOpen={showResetDemoConfirm}
@@ -1761,6 +1809,45 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         confirmVariant="danger"
         zIndex={1300}
       />
+      {/* Guardar desde cualquier punto de la página */}
+      {!saveVisible && (
+        <button
+          type="button"
+          className="btn btn-primary lg sticky-save"
+          onClick={() => formRef.current?.requestSubmit()}
+          aria-label={isDirty ? 'Guardar configuración (hay cambios sin guardar)' : 'Guardar configuración'}
+        >
+          {isDirty && <span className="dot" aria-hidden="true" />}
+          <Save size={16} /> Guardar configuración
+        </button>
+      )}
+
+      {/* Intento de salir con cambios sin guardar */}
+      <Modal isOpen={blocker.state === 'blocked'} onClose={() => blocker.reset?.()} title="Cambios sin guardar">
+        <div className="form">
+          <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
+            Hiciste cambios en Ajustes que todavía no se han guardado. ¿Qué quieres hacer?
+          </p>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => blocker.reset?.()}>
+              Cancelar
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => blocker.proceed?.()}>
+              Salir sin guardar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={async () => {
+                await handleSaveProfile();
+                blocker.proceed?.();
+              }}
+            >
+              <Save size={16} /> Guardar y salir
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

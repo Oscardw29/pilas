@@ -397,9 +397,11 @@ export interface Settings {
   userGender?: UserGender;
   /** El coach no lee en voz alta sus respuestas */
   coachMuted?: boolean;
+  /** Foto de perfil (WebP en data URL, 256×256). Se sincroniza cifrada; pasará a Supabase con los perfiles públicos */
+  avatarDataUrl?: string;
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
   minimumRatio: number;
-  /** Máximo recomendado de hábitos activos antes de sugerir revisión */
+  /** @deprecated Ya no se configura: el límite es fijo para todos (`MAX_ACTIVE_HABITS` en lib/limits.ts) */
   maxActiveHabits: number;
   maxActiveGoals: number;
   /** Plataforma de IA seleccionada */
