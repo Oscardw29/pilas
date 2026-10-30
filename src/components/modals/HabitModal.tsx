@@ -108,6 +108,8 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
   const [selectedGoals, setSelectedGoals] = useState<{ goalId: string; weight: number }[]>(
     habitToEdit?.goals ?? []
   );
+  // Perfil público: apagado por defecto; al editar se respeta lo que ya tenía
+  const [publicVisible, setPublicVisible] = useState<boolean>(Boolean(habitToEdit?.publicVisible));
 
   const handleCategoryChange = (newCat: string) => {
     setCategory(newCat);
@@ -181,6 +183,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
         startDate: startDate.trim() || undefined,
         endDate: endDate.trim() || undefined,
         status: habitToEdit?.status ?? ('active' as const),
+        publicVisible,
       };
 
     if (habitToEdit) {
@@ -655,6 +658,26 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
             </div>
           </div>
         )}
+
+        {/* Perfil público: solo los hábitos marcados salen del dispositivo (nombre, icono y cumplimiento por día) */}
+        <div className="field">
+          <label className="custom-switch">
+            <input
+              type="checkbox"
+              checked={publicVisible}
+              onChange={(e) => setPublicVisible(e.target.checked)}
+              aria-describedby="habit-public-hint"
+            />
+            <span className="custom-switch-track">
+              <span className="custom-switch-thumb" />
+            </span>
+            <span style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 500 }}>Visible en mi perfil</span>
+          </label>
+          <span className="hint" id="habit-public-hint">
+            Su nombre, icono y cumplimiento por día se verán en tu perfil público. Los demás hábitos nunca salen cifrados de tu
+            dispositivo.
+          </span>
+        </div>
 
         <div className="modal-foot">
           <button type="button" className="btn btn-ghost" onClick={onClose}>

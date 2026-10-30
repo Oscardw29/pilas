@@ -1,37 +1,85 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useStore } from '@/store/useStore';
+import { assetUrl } from '@/social/api';
+import { useCatalogItem, useSocial } from '@/social/useSocial';
+import { useInView } from '@/social/useInView';
+import type { Cosmetic } from '@/social/types';
 import './profile.css';
 
+/** Por debajo de este tamaño los marcos se dibujan con su fotograma fijo (un WebP animado por fila pesa demasiado) */
+export const STATIC_BELOW_PX = 40;
+
 /**
- * Foto de perfil. Es el único componente que la dibuja: cuando lleguen los marcos (animados o no), se añaden aquí
- * y se ven en todos los sitios donde aparece la persona (ver docs/plan-social.md, «Componentes de identidad»).
+ * Elige la imagen de un cosmético: la animada solo si se ve en pantalla y el tamaño lo merece; si no, el fotograma fijo.
+ */
+export function useCosmeticSrc(c: Cosmetic | null | undefined, size: number, ref: React.RefObject<Element | null>) {
+  const animated = Boolean(c?.animated && c.path && size >= STATIC_BELOW_PX);
+  const inView = useInView(ref, animated);
+  if (!c?.path) return undefined;
+  if (!c.animated) return assetUrl('catalog', c.path);
+  return assetUrl('catalog', animated && inView ? c.path : (c.thumb ?? c.path));
+}
+
+/**
+ * Foto de perfil con su marco. Es el único componente que la dibuja: los marcos (normales, animados o personalizados)
+ * se ven así en todos los sitios donde aparece la persona (ver docs/plan-social.md, «Componentes de identidad»).
  * Sin foto se muestran las iniciales sobre un degradado.
  */
-export const Avatar: React.FC<{ src?: string; name?: string; size?: number; className?: string }> = ({
+export const Avatar: React.FC<{ src?: string; name?: string; size?: number; className?: string; frame?: Cosmetic | null }> = ({
   src,
   name = '',
   size = 36,
   className = '',
+  frame,
 }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const frameSrc = useCosmeticSrc(frame, size, ref);
   const initials =
     name
       .trim()
-      .split(/\s+/)
+      .replace(/^@/, '')
+      .split(/[\s_]+/)
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? '')
       .join('') || '?';
+  const face = (
+    <span
+      ref={frameSrc ? undefined : ref}
+      className={`avatar ${frameSrc ? '' : className}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      aria-hidden="true"
+    >
+      {src ? <img src={src} alt="" width={size} height={size} draggable={false} loading="lazy" decoding="async" /> : initials}
+    </span>
+  );
+  if (!frameSrc) return face;
   return (
-    <span className={`avatar ${className}`} style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }} aria-hidden="true">
-      {src ? <img src={src} alt="" width={size} height={size} draggable={false} /> : initials}
+    <span ref={ref} className={`avatar-framed ${className}`} style={{ width: size, height: size }} aria-hidden="true">
+      {face}
+      <img className="avatar-frame" src={frameSrc} alt="" draggable={false} decoding="async" />
     </span>
   );
 };
 
-/** Avatar de la persona con sesión iniciada */
+/** Avatar de la persona con sesión iniciada (con el marco equipado en su perfil público) */
 export const MyAvatar: React.FC<{ size?: number; className?: string }> = (props) => {
   const src = useStore((s) => s.settings.avatarDataUrl);
   const name = useStore((s) => s.settings.userName);
-  return <Avatar src={src} name={name} {...props} />;
+  const frameId = useSocial((s) => s.profile?.frame_item);
+  const alias = useSocial((s) => s.profile?.alias);
+  const item = useCatalogItem(frameId);
+  const frame = item ? { path: item.asset_path, thumb: item.thumb_path, animated: item.animated } : null;
+  return <Avatar src={src} name={name || alias} frame={frame} {...props} />;
+};
+
+/** Avatar de otra persona a partir de lo que devuelve el servidor */
+export const PersonAvatar: React.FC<{
+  person: { alias: string; avatar_path: string | null; frame_path?: string | null; frame_thumb?: string | null; frame_animated?: boolean | null };
+  size?: number;
+  className?: string;
+}> = ({ person, size = 36, className }) => {
+  const frame = person.frame_path ? { path: person.frame_path, thumb: person.frame_thumb ?? null, animated: Boolean(person.frame_animated ?? person.frame_thumb) } : null;
+  return <Avatar src={assetUrl('avatars', person.avatar_path)} name={person.alias} size={size} className={className} frame={frame} />;
 };
 
 /**

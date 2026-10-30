@@ -1,6 +1,7 @@
 # Plan: perfiles, social, clasificaciones, tienda y panel del creador
 
-> Estado: **propuesta para revisar** (actualizada el 2026-10-29: podio, ligas con premios, logros, cosméticos en todas partes y ánimos). No se ha tocado código.
+> Estado: **F1–F9 programadas** (2026-10-29). Falta aplicar `supabase/migrations/0002_social.sql` en Supabase
+> (ver docs/supabase.md, paso 7) y la prueba manual con dos cuentas de la F9.
 > Fuentes: tu mensaje, [Reglas de XP y monedas](https://claude.ai/artifact/VbBsiP8dHq4rGL3arvqhph) y
 > [Especificación de la app](https://claude.ai/artifact/RTnhhxyjbMzcJMJssEjwhy).
 > Presupuesto: **0 USD** (Supabase Free, sin servicios de pago).
@@ -152,6 +153,28 @@ pruebas de cada ejemplo resuelto del documento (116.5 XP, 318.1 XP, 132.8 XP, el
 - **Premios propios:** al poner el precio se muestra «Este premio equivale a N días de tu ritmo actual», con los avisos suaves del documento.
 
 ### F4 · Servidor: capa pública (Supabase) · ≈5–7 días
+
+> ✅ **Hecha (2026-10-29).** `supabase/migrations/0002_social.sql`, probada con `tests/social.sql.test.ts` (Postgres en memoria).
+> Decisiones donde el plan no era explícito:
+> - **Nada se publica sin perfil público.** Al crearlo, la persona acepta qué se publica y el servidor recibe una sola vez
+>   el «punto de partida» (racha, récord, XP, saldo y hábitos cumplidos hasta anteayer), con tope por antigüedad de la
+>   cuenta (+1 año por el historial anterior). Queda registrado y el creador lo ve en Moderación.
+> - **Racha:** sube como mucho 1 por día transcurrido desde el último día publicado (así un día sin conexión no la deja
+>   desfasada). Cuenta como vigente si se publicó en los últimos 2 días.
+> - **Topes de XP:** 1070 al día y 1590 con multiplicador (la cifra de la F3; el 1605 de arriba era una estimación).
+> - **Monedas:** el saldo que se ve sigue siendo el del dispositivo; el del servidor es el que cobra la tienda de cosméticos
+>   y el multiplicador. Se mantienen iguales así: los gastos y extras del dispositivo (premios propios, protector, retos…)
+>   se envían al servidor (extras con tope de 500 al día) y los premios de liga y logros, las compras y los ajustes del
+>   creador vuelven al dispositivo como movimientos `srv-…`, sin duplicarse.
+> - **Semana perfecta:** 7 días publicados y todos los programados cumplidos.
+> - **Grupos de liga:** al cerrar la semana se forman por XP (nivel parecido); quien entra después ocupa el primer grupo
+>   con sitio.
+> - **Fotos:** el bucket `avatars` es de lectura pública (las URL llevan un id imposible de adivinar), como `catalog`.
+> - Borrar el perfil público quita los hábitos visibles y las publicaciones y oculta las cifras, pero no las reinicia.
+> - **Versiones de la economía:** rigen por días completos de Colombia (publicar a las 14:00 aplica desde las 00:00 de
+>   ese día), igual en el dispositivo y en el servidor, que topa cada día con la versión de ese día.
+> - Límites de solicitudes de amistad (20/día) y publicaciones (3/día) cuentan intentos, no filas: cancelar o borrar no
+>   los reinicia.
 Nueva migración `supabase/migrations/0002_social.sql`:
 
 | Tabla / función | Para qué | Quién escribe |
@@ -189,6 +212,10 @@ Nueva migración `supabase/migrations/0002_social.sql`:
   - El proyecto se pausa tras una semana sin uso.
 
 ### F5 · Perfil propio, perfil público y clasificaciones · ≈5–6 días
+
+> ✅ **Hecha (2026-10-29).** `/perfil` (tarjeta «Perfil público»), `/u/:alias`, `/clasificaciones` (Racha, XP de la semana y
+> total, Mi liga) con el podio, y los componentes de identidad (`Avatar` con marco, `ProfileBanner`, `RankCard`).
+> El alias no se rellena con el nombre del coach para no hacer público un dato privado.
 - **`/perfil`:**
   - Subir foto (se recorta a cuadrado y se convierte a WebP en el dispositivo), elegir banner y marco entre los que tienes, y el alias.
   - Elegir qué tarjetas se muestran: racha, XP de la semana, «miembro desde» y hábitos visibles.
@@ -225,6 +252,9 @@ Para que no pesen:
 - Cada archivo se descarga una vez y queda en la caché del dispositivo.
 
 ### F5b · Ligas semanales y logros · ≈5–6 días
+
+> ✅ **Hecha (2026-10-29).** Pestaña «Mi liga» con zonas, premios y cuenta atrás; `/logros` con progreso y % de personas.
+> El cierre semanal lo hace `close_week()` con pg_cron (lunes 05:00 UTC).
 **Ligas semanales con premio en monedas**
 - Cinco ligas: **Bronce → Plata → Oro → Platino → Diamante**. Todo el mundo empieza en Bronce.
 - Cada semana (de lunes a domingo, hora de Colombia) compites con las personas de tu liga, ordenadas por la XP de la semana. Si
@@ -292,6 +322,10 @@ Logros iniciales (inventados; los editas desde el panel del creador):
 - Se eligen en `/perfil` y se pueden cambiar cuando quieras. Tocar un logro muestra su descripción y la fecha en que se consiguió.
 
 ### F6 · Social: amigos, publicaciones, reacciones, notificaciones · ≈5–6 días
+
+> ✅ **Hecha (2026-10-29).** `/amigos` (búsqueda, solicitudes, bloqueos y publicaciones de amigos), `/notificaciones`
+> (contador en el menú de perfil y avisos en tiempo real), publicaciones desde plantillas que rellena el servidor,
+> reacciones, reportes y ánimos o felicitaciones desde el perfil.
 - **Amigos:** enviar, aceptar o rechazar solicitudes, y eliminar o bloquear.
 - **Modal de publicación:**
   - Lista de **plantillas** que solo aparecen si se cumple la condición. Ejemplos:
@@ -318,12 +352,19 @@ Logros iniciales (inventados; los editas desde el panel del creador):
     bloqueó. No dan XP ni monedas; solo cuentan para el logro «Animador».
 
 ### F7 · Tienda de cosméticos · ≈4–5 días
+
+> ✅ **Hecha (2026-10-29).** Sección «Personalización» en `/recompensas`. Las compras y el multiplicador los cobra el
+> servidor con el saldo verificado; el protector sigue en el dispositivo (su gasto se envía al servidor).
 - La página de recompensas suma una sección **Personalización**: banners, marcos y tarjetas de ranking, normales y animados.
   Los compras con monedas (por `purchase()` en el servidor), los equipas y se ven en tu perfil y en el ranking.
 - **Recompensas fijas:** el protector de racha y el multiplicador 1.5× de XP.
 - Los WebP animados solo se reproducen mientras están en pantalla. En el ranking, solo las filas visibles.
 
 ### F8 · Panel del creador (solo tu cuenta) · ≈6–8 días
+
+> ✅ **Hecha (2026-10-29).** `/creador` (aparece en el menú de perfil si `is_admin()`): catálogo con vista previa e
+> «Importar muestras» (12 WebP generados en el dispositivo, como borradores), economía versionada con simulación,
+> ligas y logros, moderación con cola de reportes y registro, y ajustes de prueba.
 Página `/creador`, visible solo si `is_admin()` responde que sí:
 - **Catálogo:** un modal de creación por tipo (banner, marco, tarjeta de ranking, recompensa).
   - Se sube el WebP, se pone nombre, precio y rareza, y se elige entre borrador y publicado.
@@ -346,6 +387,10 @@ Página `/creador`, visible solo si `is_admin()` responde que sí:
 - **Ajustes de prueba:** los contenedores que se ocultan en la F1 se siguen viendo aquí.
 
 ### F9 · Verificación · ≈3 días
+
+> ✅ **Automática hecha (2026-10-29):** `tests/social.sql.test.ts` (permisos, topes, compras, multiplicador, cierre
+> semanal, logros, ánimos, vetos, economía versionada), `tests/social.client.test.ts` y `tests/creatorEconomy.test.ts`.
+> ⏳ **Pendiente:** aplicar la migración en Supabase, la prueba manual con dos cuentas y medir los fps en la `.exe`.
 - **Pruebas automáticas:**
   - La economía, contra los ejemplos del documento.
   - Las políticas RLS: un usuario normal **no** puede escribir en el catálogo, vetar, cambiar su saldo, subir algo que no sea WebP ni publicar más XP del tope.

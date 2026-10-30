@@ -10,6 +10,9 @@ export interface RewardCelebrationData {
   icon: string;
   cost?: number;
   isFreeze?: boolean;
+  /** Textos propios (p. ej. un logro de la comunidad) en lugar de los de una recompensa canjeada */
+  kicker?: string;
+  subtitle?: string;
 }
 
 type Listener = (data: RewardCelebrationData) => void;
@@ -287,7 +290,7 @@ export const RewardCelebrationOverlay: React.FC = () => {
       onClick={handleTap}
       role="alertdialog"
       aria-live="assertive"
-      aria-label={isFreeze ? `Protector de racha activado` : `Recompensa canjeada: ${active.name}`}
+      aria-label={isFreeze ? `Protector de racha activado` : `${active.kicker ?? 'Recompensa canjeada'}: ${active.name}`}
     >
       <div className="celebrate-rays reward" aria-hidden="true" />
 
@@ -343,13 +346,13 @@ export const RewardCelebrationOverlay: React.FC = () => {
         <div className="celebrate-copy">
           <div className="celebrate-kicker">
             {isFreeze ? <Snowflake size={15} aria-hidden="true" /> : <Gift size={15} aria-hidden="true" />}
-            {isFreeze ? 'Escudo activo' : '¡Recompensa reclamada!'}
+            {isFreeze ? 'Escudo activo' : (active.kicker ?? '¡Recompensa reclamada!')}
           </div>
           <h2 className="celebrate-title">{active.name}</h2>
           <p className="celebrate-sub">
             {isFreeze
               ? 'Tu racha queda protegida por 1 día si no completas hábitos.'
-              : 'Te lo ganaste a punta de constancia. ¡Disfrútalo!'}
+              : (active.subtitle ?? 'Te lo ganaste a punta de constancia. ¡Disfrútalo!')}
           </p>
           {typeof active.cost === 'number' && (
             <span className="reward-cost">

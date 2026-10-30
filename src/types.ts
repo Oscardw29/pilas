@@ -88,6 +88,8 @@ export interface Habit {
   archivedAt?: DateKey;
   /** Si el hábito nació de un reto */
   fromChallengeId?: ID;
+  /** «Visible en mi perfil»: su nombre, icono y cumplimiento por día se publican en el perfil público. Apagado por defecto */
+  publicVisible?: boolean;
 }
 
 /* ---------------- Registro diario ---------------- */

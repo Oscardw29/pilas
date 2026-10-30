@@ -1,0 +1,77 @@
+/* ===== Capa pública: identidad (marco, banner, tarjeta de ranking) y piezas comunes =====
+   Regla de rendimiento (F2): lo animado solo usa transform/opacity, sin blur ni sombras animadas. */
+
+/* Avatar con marco: el marco es un WebP cuadrado con el centro transparente, un 36 % más grande que la foto */
+.avatar-framed { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
+.avatar-framed > .avatar { width: 100%; height: 100%; }
+.avatar-frame {
+  position: absolute; left: -18%; top: -18%; width: 136%; height: 136%;
+  pointer-events: none; object-fit: contain; user-select: none;
+}
+
+/* Banner con imagen */
+.profile-banner { position: relative; overflow: hidden; }
+.profile-banner.has-image { background: var(--surface-2); }
+.profile-banner > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Tarjeta de ranking */
+.rank-card {
+  position: relative; overflow: hidden; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface); min-width: 0; text-align: left; width: 100%;
+}
+.rank-card.is-clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
+.rank-card.is-clickable:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.rank-card.is-me { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft) inset; }
+.rank-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rank-card.has-image::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(12, 12, 16, .82), rgba(12, 12, 16, .45) 55%, rgba(12, 12, 16, .7));
+}
+.rank-card-body { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 58px; }
+
+/* Insignia de rareza */
+.rarity { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  padding: 2px 8px; border-radius: 999px; color: var(--r, var(--muted)); background: color-mix(in srgb, var(--r, var(--muted)) 14%, transparent); }
+
+/* Aviso de veto */
+.ban-screen {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  padding: 36px 22px; border-radius: var(--radius); border: 1px solid rgba(248, 113, 113, .35); background: var(--danger-soft);
+}
+.ban-screen h2 { font-size: 18px; }
+.ban-screen p { color: var(--text-2); max-width: 460px; }
+
+/* Llamada a crear el perfil público */
+.social-cta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.social-cta > div { flex: 1; min-width: 220px; }
+
+/* Lista de personas (amigos, solicitudes, búsqueda) */
+.people-list { display: flex; flex-direction: column; gap: 8px; }
+.person-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); }
+.person-row .person-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.person-row .person-name strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-row .person-name span { font-size: 12px; color: var(--muted); }
+.person-row .person-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Contador de notificaciones */
+.notif-count {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-grid; place-items: center;
+  font-size: 11px; font-weight: 700; background: var(--danger); color: #fff; line-height: 1;
+}
+.notif-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg-2); }
+
+/* Nombre con brillo (1.º del podio): una franja de luz que recorre el texto. Solo transform (sin blur ni repintar el texto) */
+.shine-name { position: relative; display: inline-block; overflow: hidden; color: #fde68a; vertical-align: bottom; max-width: 100%; }
+.shine-name::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent);
+  transform: translateX(-120%); opacity: 0;
+}
+.shine-name.is-playing::after { animation: shineSweep 3.2s ease-in-out infinite; }
+@keyframes shineSweep {
+  0% { transform: translateX(-120%); opacity: 0; }
+  10% { opacity: 1; }
+  45% { transform: translateX(220%); opacity: 1; }
+  46%, 100% { transform: translateX(220%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .shine-name.is-playing::after { animation: none; } }

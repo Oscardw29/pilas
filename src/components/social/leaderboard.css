@@ -1,0 +1,159 @@
+/* ===== Clasificaciones, podio, ligas y logros =====
+   Regla de rendimiento (F2): lo animado solo usa transform/opacity, sin blur, filtros ni sombras animadas,
+   y se pausa fuera de pantalla (clase .is-playing que pone useInView). */
+
+.lb-page { min-width: 0; }
+.lb-tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lb-tabs .segmented button { display: inline-flex; align-items: center; gap: 6px; }
+.lb-hint { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: -8px; }
+.lb-hint svg { flex-shrink: 0; }
+
+.lb-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 32px 12px; color: var(--muted); font-size: 13.5px; }
+.lb-error { align-items: flex-start; }
+.lb-error-body { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.lb-error-body p { font-size: 13.5px; color: var(--text-2); }
+
+/* Filas */
+.lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lb-list > li { min-width: 0; }
+.lb-list .rank-card { display: block; font: inherit; color: inherit; }
+.lb-list .rank-card:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.lb-rank {
+  width: 28px; flex-shrink: 0; text-align: center; font-weight: 700; font-size: 14px;
+  color: var(--text-2); font-variant-numeric: tabular-nums;
+}
+.lb-rank.top-1 { color: #fde68a; }
+.lb-rank.top-2 { color: #d1d5db; }
+.lb-rank.top-3 { color: #e8a36b; }
+.lb-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.lb-name strong { font-size: 14px; }
+.lb-name span { font-size: 11.5px; color: var(--muted); }
+.lb-name span.success { color: var(--success); }
+.lb-name span.danger { color: var(--danger); }
+.lb-metric { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.25; flex-shrink: 0; max-width: 46%; }
+.lb-metric strong { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lb-metric span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.rank-card.has-image .lb-name span, .rank-card.has-image .lb-metric span { color: rgba(255, 255, 255, .72); }
+.lb-more { align-self: center; }
+.lb-pinned { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--border-2); }
+
+@media (max-width: 420px) {
+  .lb-list .rank-card-body { gap: 9px; padding: 9px 10px; }
+  .lb-rank { width: 22px; font-size: 13px; }
+}
+
+/* Podio */
+.podium-card { overflow: hidden; }
+.podium { list-style: none; margin: 0; padding: 26px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; }
+.podium-slot { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.podium-person {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; min-width: 0;
+  padding: 4px 2px 10px; border-radius: var(--radius-sm); color: inherit; font: inherit; transition: transform .15s;
+}
+button.podium-person { cursor: pointer; }
+button.podium-person:hover { transform: translateY(-2px); }
+button.podium-person:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.podium-avatar { position: relative; display: inline-grid; place-items: center; }
+.podium-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 13px; }
+.place-1 .podium-name { font-size: 14.5px; font-weight: 700; }
+.podium-xp { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.place-1 .podium-xp { color: #fde68a; font-weight: 600; }
+.podium-free {
+  display: grid; place-items: center; border-radius: 50%; border: 2px dashed var(--border-2);
+  color: var(--muted); font-weight: 700;
+}
+.podium-step {
+  width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
+  padding-top: 8px; border-radius: 12px 12px 0 0; font-size: 18px; line-height: 1;
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2)); border: 1px solid var(--border-2); border-bottom: 0;
+}
+.podium-step span { font-size: 13px; font-weight: 700; color: var(--text-2); }
+.place-1 .podium-step { height: 76px; background: linear-gradient(180deg, rgba(245, 197, 66, .22), var(--surface-2)); border-color: rgba(245, 197, 66, .35); }
+.place-2 .podium-step { height: 54px; }
+.place-3 .podium-step { height: 40px; }
+
+/* Corona y halo del 1.º: estáticos, con un vaivén (transform) y un pulso (opacity) solo en pantalla */
+.podium-crown {
+  position: absolute; top: -26px; left: 50%; font-size: 24px; line-height: 1;
+  transform: translateX(-50%) rotate(-8deg); z-index: 2; pointer-events: none;
+}
+.podium-crown.is-playing { animation: crownBob 3.2s ease-in-out infinite; }
+.podium-halo {
+  position: absolute; inset: -22%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(253, 230, 138, .34) 0%, rgba(253, 230, 138, .12) 45%, transparent 70%);
+  opacity: .8;
+}
+.podium-halo.is-playing { animation: haloPulse 3.2s ease-in-out infinite; }
+@keyframes crownBob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-8deg); }
+  50% { transform: translateX(-50%) translateY(-4px) rotate(-4deg); }
+}
+@keyframes haloPulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .podium-crown.is-playing, .podium-halo.is-playing { animation: none; }
+}
+@media (max-width: 420px) {
+  .podium { gap: 4px; padding-top: 24px; }
+  .podium-name { font-size: 12px; }
+  .place-1 .podium-name { font-size: 13px; }
+  .place-1 .podium-step { height: 64px; }
+  .place-2 .podium-step { height: 46px; }
+  .place-3 .podium-step { height: 34px; }
+}
+
+/* Mi liga */
+.lb-league-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 14px; border-color: color-mix(in srgb, var(--lc) 40%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--lc) 12%, var(--surface)), var(--surface) 60%); }
+.lb-league-icon { font-size: 34px; line-height: 1; }
+.lb-league-title { min-width: 0; }
+.lb-league-title h2 { font-size: var(--fs-h2); font-weight: 700; color: var(--lc); }
+.lb-countdown { font-variant-numeric: tabular-nums; }
+.lb-prizes { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.lb-prizes li { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
+.lb-prizes li > span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.lb-prizes strong { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--warning); font-variant-numeric: tabular-nums; }
+.lb-prizes svg { width: 14px; height: 14px; }
+@media (max-width: 480px) {
+  .lb-league-head { grid-template-columns: auto minmax(0, 1fr); }
+  .lb-countdown { grid-column: 1 / -1; justify-self: start; }
+  .lb-prizes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.lb-league-row.zone-up { border-left: 3px solid var(--success); }
+.lb-league-row.zone-down { border-left: 3px solid var(--danger); }
+.lb-league-row.zone-up .lb-rank { color: var(--success); }
+.lb-league-row.zone-down .lb-rank { color: var(--danger); }
+.lb-league-row.is-idle { opacity: .6; }
+.lb-note { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.lb-legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-left: 2px; }
+.lb-legend.up { background: var(--success); }
+.lb-legend.down { background: var(--danger); margin-left: 8px; }
+
+/* Logros */
+.ach-counter svg { width: 13px; height: 13px; }
+.ach-filter-n { margin-left: 4px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ach-grid { align-items: stretch; }
+.ach-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+.ach-card.is-done { border-color: color-mix(in srgb, var(--r) 45%, var(--border)); }
+.ach-top { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+/* Solo en las tarjetas de /logros: el perfil público usa .ach-icon en sus chips con otro tamaño */
+.ach-card .ach-icon {
+  position: relative; flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+  font-size: 32px; line-height: 1; background: color-mix(in srgb, var(--r) 14%, var(--surface-2));
+}
+.ach-lock {
+  position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface-3); color: var(--muted); border: 2px solid var(--surface);
+}
+.ach-text { min-width: 0; }
+.ach-text h3 { font-size: 15px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.ach-text p { font-size: 13px; color: var(--text-2); line-height: 1.45; margin-top: 2px; overflow-wrap: anywhere; }
+.ach-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.ach-progress { display: flex; align-items: center; gap: 10px; }
+.ach-count { font-size: 12px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ach-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.ach-foot > span { display: inline-flex; align-items: center; gap: 6px; }
+.ach-foot svg { flex-shrink: 0; }
+/* Bloqueados en gris (filtro estático, sin animar) */
+.ach-card.is-locked .ach-icon { filter: grayscale(1); opacity: .55; background: var(--surface-2); }
+.ach-card.is-locked .ach-text h3 { color: var(--text-2); }
+.ach-card.is-locked .rarity { opacity: .75; }

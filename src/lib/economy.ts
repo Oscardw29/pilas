@@ -2,7 +2,8 @@ import type { AppData, DateKey, HabitLog, Settings, XpBoost } from '@/types';
 import { addDaysKey, todayKey, toKey } from './dates';
 import { doneCountByDate, getDayStreakStatus, isDoneLog } from './metrics';
 import {
-  ECONOMY, boostPrice, dayCoins, dayXp, freezePrice, logBaseXp, rewardEquivalence, round1, type RewardEquivalence,
+  ECONOMY, boostPrice, dayCoins, dayXp, economyRevision, freezePrice, logBaseXp, paramsFor, rewardEquivalence, round1,
+  type RewardEquivalence,
 } from './economyRules';
 
 /**
@@ -77,7 +78,7 @@ let cacheKey: unknown[] = [];
 let cacheValue: EconomySummary | null = null;
 
 export function economySummary(data: EconomyData, ref: DateKey = todayKey()): EconomySummary {
-  const key = [data.habits, data.logs, data.pointEvents, data.redemptions, data.streakFreezes, data.xpBoosts, data.settings.minimumRatio, data.settings.economyStartDate, ref];
+  const key = [data.habits, data.logs, data.pointEvents, data.redemptions, data.streakFreezes, data.xpBoosts, data.settings.minimumRatio, data.settings.economyStartDate, ref, economyRevision];
   if (cacheValue && key.length === cacheKey.length && key.every((v, i) => v === cacheKey[i])) return cacheValue;
 
   // Sin fecha (cuenta nueva aún sin migrar) rigen las reglas nuevas, igual que al registrar en el store
@@ -100,9 +101,11 @@ export function economySummary(data: EconomyData, ref: DateKey = todayKey()): Ec
   let xpTotal = 0;
   for (const [date, logs] of byDate) {
     const newRules = date >= start;
+    // Cada día con los parámetros que regían ese día (el creador puede cambiarlos con fecha)
+    const p = paramsFor(date);
     logs.sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
     const sumCoins = logs.reduce((s, l) => s + (l.points || 0), 0);
-    const coins = newRules ? dayCoins(sumCoins) : sumCoins;
+    const coins = newRules ? dayCoins(sumCoins, p) : sumCoins;
 
     const entries = logs.map((l) => {
       const h = habits.get(l.habitId);
@@ -110,16 +113,19 @@ export function economySummary(data: EconomyData, ref: DateKey = todayKey()): Ec
       // ni un registro marcado más de 1 día tarde
       const blocked = newRules && ((h && h.createdAt === date) || isBackdated(date, l.loggedAt));
       // Hábito ya eliminado: se conserva la XP que dio (como acción directa)
-      const xp = blocked ? 0 : h ? logBaseXp(h, l.status, l, ratio) : logBaseXp({ kind: 'action', points: l.points }, l.status, l, ratio);
+      const xp = blocked ? 0 : h ? logBaseXp(h, l.status, l, ratio, p) : logBaseXp({ kind: 'action', points: l.points }, l.status, l, ratio, p);
       return { xp, boosted: isBoostActiveAt(data.xpBoosts, l.loggedAt) };
     });
     const status = getDayStreakStatus(data, date, doneIdx);
-    const xp = dayXp({
-      entries,
-      streak: streaks.get(date) ?? 0,
-      perfect: status.isSuperStreak && status.scheduledCount >= ECONOMY.perfectDayMinHabits,
-      frozen: frozen.has(date),
-    });
+    const xp = dayXp(
+      {
+        entries,
+        streak: streaks.get(date) ?? 0,
+        perfect: status.isSuperStreak && status.scheduledCount >= p.perfectDayMinHabits,
+        frozen: frozen.has(date),
+      },
+      p,
+    );
     days.set(date, { coins, xp });
     fromLogs += coins;
     xpTotal += xp;

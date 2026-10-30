@@ -19,8 +19,14 @@ import {
   Maximize2,
   X,
   LayoutGrid,
+  Crown,
+  Award,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
+import { useSocialRuntime } from '@/social/runtime';
+import { useSocial } from '@/social/useSocial';
+import { SocialNotices } from '@/components/social/SocialNotices';
 import { useStore } from '@/store/useStore';
 import { levelFromXp } from '@/lib/metrics';
 import { useEconomy } from '@/store/useEconomy';
@@ -85,8 +91,27 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/recompensas', label: 'Recompensas', icon: Gift },
     ],
   },
+  {
+    label: 'Comunidad',
+    items: [
+      { to: '/clasificaciones', label: 'Clasificaciones', short: 'Ranking', icon: Crown },
+      { to: '/logros', label: 'Logros', icon: Award },
+      { to: '/amigos', label: 'Amigos', icon: Users },
+    ],
+  },
 ];
+/** Sin la capa pública en el servidor (migración 0002 sin aplicar) no se muestra «Comunidad» */
+const SOCIAL_GROUP = 'Comunidad';
 // «Ajustes» y «Mi perfil» no están en la navegación: se abren desde el menú de perfil (abajo del panel o en la cabecera móvil)
+
+/** Títulos de la cabecera móvil para las páginas que no están en la navegación */
+const PAGE_TITLES: [string, string][] = [
+  ['/perfil', 'Mi perfil'],
+  ['/ajustes', 'Ajustes'],
+  ['/u', 'Perfil'],
+  ['/notificaciones', 'Notificaciones'],
+  ['/creador', 'Panel del creador'],
+];
 
 /** Pestañas fijas de la barra inferior en móvil; el resto vive en «Más» */
 const BOTTOM_TABS = ['/', '/semana', '/objetivos', '/coach'];
@@ -110,10 +135,18 @@ export const Shell: React.FC = () => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
+  // Capa pública: estado, publicación del día y avisos en tiempo real
+  useSocialRuntime();
+  const socialAvailable = useSocial((s) => s.available);
+
   const coachName = useCoachPersona().name;
   const navGroups = useMemo(
-    () => NAV_GROUPS.map((g) => ({ ...g, items: g.items.map((i) => (i.to === '/coach' ? { ...i, label: coachName } : i)) })),
-    [coachName],
+    () =>
+      NAV_GROUPS.filter((g) => socialAvailable || g.label !== SOCIAL_GROUP).map((g) => ({
+        ...g,
+        items: g.items.map((i) => (i.to === '/coach' ? { ...i, label: coachName } : i)),
+      })),
+    [coachName, socialAvailable],
   );
   const allItems = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
 
@@ -204,7 +237,7 @@ export const Shell: React.FC = () => {
           <div className="brand">
             <BrandMark size={28} className="brand-logo sm" />
             <span className="mobile-topbar-title">
-              {currentItem?.label ?? (isActivePath(pathname, '/perfil') ? 'Mi perfil' : isActivePath(pathname, '/ajustes') ? 'Ajustes' : '¡Pilas!')}
+              {currentItem?.label ?? PAGE_TITLES.find(([to]) => isActivePath(pathname, to))?.[1] ?? '¡Pilas!'}
             </span>
           </div>
           <div className="row" style={{ gap: 6 }}>
@@ -387,6 +420,9 @@ export const Shell: React.FC = () => {
       {/* OVERLAYS DE CELEBRACIÓN */}
       <StreakCelebrationOverlay />
       <RewardCelebrationOverlay />
+
+      {/* AVISOS DE LA COMUNIDAD (notificaciones nuevas, logros, veto) */}
+      <SocialNotices />
     </div>
   );
 };

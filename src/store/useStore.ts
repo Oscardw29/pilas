@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import type {
   AbandonmentCheckin, AiConversation, AppData, Challenge, DateKey, EnergyEntry, Experiment, FailReason, Goal, Habit,
-  HabitRelation, HabitReviewEntry, ID, Level5, LogStatus, PointEvent, RecommendationFeedback, Reward, Secrets, Session,
+  HabitRelation, HabitReviewEntry, ID, Level5, LogStatus, PointEvent, RecommendationFeedback, Redemption, Reward, Secrets, Session,
   SessionStatus, Settings, WeeklyReview,
 } from '@/types';
 import { doneCountByDate, getDayStreakStatus, logKey, pointsFor, previousCountedDay } from '@/lib/metrics';
@@ -24,6 +24,22 @@ export interface FinishTimerInput {
   experimentId?: ID;
   variantId?: ID;
 }
+
+export interface ServerLedgerEntry {
+  id: number;
+  amount: number;
+  kind: 'purchase' | 'league' | 'achievement' | 'admin';
+  ref: string;
+  note: string | null;
+  created_at: string;
+}
+
+const LEDGER_LABEL: Record<ServerLedgerEntry['kind'], string> = {
+  purchase: 'Compra en la tienda',
+  league: 'Premio de liga',
+  achievement: 'Premio de logro',
+  admin: 'Ajuste del creador',
+};
 
 export interface Actions {
   /* Objetivos */
@@ -88,8 +104,16 @@ export interface Actions {
   redeem: (rewardId: ID) => boolean;
   /** Comprar el protector de racha al precio dinámico del momento (máx. 1 guardado y 7 al mes) */
   buyStreakFreeze: () => boolean;
-  /** Comprar el multiplicador 1.5× de XP durante 12 h (espera de 24 h, máx. 4 al mes) */
-  buyXpBoost: () => boolean;
+  /**
+   * Comprar el multiplicador 1.5× de XP durante 12 h (espera de 24 h, máx. 4 al mes).
+   * Con perfil público la compra la hace el servidor (`server`): se guarda con sus ids para no duplicarla.
+   */
+  buyXpBoost: (server?: { id: string; startedAt: string; endsAt: string; price: number; ledgerId: number }) => boolean;
+  /**
+   * Refleja en el saldo del dispositivo los movimientos que nacen en el servidor (premios de liga y logros, compras
+   * de la tienda, ajustes del creador). Ids `srv-<id>`: idempotente aunque lleguen por dos dispositivos.
+   */
+  mergeServerLedger: (entries: ServerLedgerEntry[]) => number;
   /**
    * Consume automáticamente el protector si el último día que contaba rompió la racha y el anterior la tenía.
    * Devuelve la fecha protegida o null si no hizo falta.
@@ -560,8 +584,20 @@ export const useStore = create<Store>()(
         });
         return true;
       },
-      buyXpBoost: () => {
+      buyXpBoost: (server) => {
         const s = get();
+        if (server) {
+          // El servidor ya cobró y comprobó la espera y el límite del mes
+          if ((s.xpBoosts ?? []).some((b) => b.id === server.id)) return true;
+          set({
+            xpBoosts: [...(s.xpBoosts ?? []), { id: server.id, startedAt: server.startedAt, endsAt: server.endsAt, cost: server.price }],
+            redemptions: [
+              { id: `srv-${server.ledgerId}`, rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: server.price, date: server.startedAt },
+              ...s.redemptions.filter((r) => r.id !== `srv-${server.ledgerId}`),
+            ],
+          });
+          return true;
+        }
         const offer = boostOffer(s);
         if (offer.blocked || economySummary(s).balance < offer.price) return false;
         const start = new Date();
@@ -574,6 +610,41 @@ export const useStore = create<Store>()(
           ],
         });
         return true;
+      },
+      mergeServerLedger: (entries) => {
+        const s = get();
+        const haveR = new Set(s.redemptions.map((r) => r.id));
+        const haveP = new Set(s.pointEvents.map((p) => p.id));
+        const newR: Redemption[] = [];
+        const newP: PointEvent[] = [];
+        for (const e of entries) {
+          const id = `srv-${e.id}`;
+          const amount = Number(e.amount);
+          if (e.kind === 'purchase') {
+            if (!haveR.has(id) && amount < 0) {
+              const boost = e.ref.startsWith('boost:');
+              newR.push({
+                id,
+                rewardId: boost ? BOOST_REWARD_ID : e.ref,
+                name: e.note || LEDGER_LABEL.purchase,
+                icon: boost ? '⚡' : '🎨',
+                cost: -amount,
+                date: e.created_at,
+              });
+            }
+          } else if (!haveP.has(id) && amount !== 0) {
+            newP.push({
+              id,
+              at: e.created_at,
+              amount,
+              reason: e.note || LEDGER_LABEL[e.kind],
+              source: e.kind === 'achievement' ? 'achievement' : 'other',
+              refId: e.ref,
+            });
+          }
+        }
+        if (newR.length || newP.length) set({ redemptions: [...newR, ...s.redemptions], pointEvents: [...s.pointEvents, ...newP] });
+        return newR.length + newP.length;
       },
       applyStreakFreeze: (ref = todayKey()) => {
         const s = get();

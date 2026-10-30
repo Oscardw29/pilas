@@ -5,7 +5,11 @@ import { useSession } from '@/store/useSession';
 import { supabase, isSupabaseConfigured } from '@/sync/supabase';
 import { useToast } from '@/components/ui/ToastContext';
 import { personaFor } from '@/components/coach/coachPersona';
-import { Avatar, imageFileToAvatar } from '@/components/profile/Avatar';
+import { MyAvatar, imageFileToAvatar } from '@/components/profile/Avatar';
+import { PublicProfileCard } from '@/components/profile/PublicProfileCard';
+import { reportSocialError, syncPublicAvatar } from '@/components/profile/publicProfile';
+import { ProfileBanner, cosmeticOf } from '@/components/social/Identity';
+import { useCatalogItem, useSocial } from '@/social/useSocial';
 import { playSound } from '@/lib/sound';
 import type { UserGender } from '@/types';
 import '@/components/profile/profile.css';
@@ -19,8 +23,8 @@ const GENDERS: [UserGender, string][] = [
 /**
  * PERFIL (página propia)
  * Foto, nombre y género del coach (antes estaban en Ajustes). La foto se procesa en el dispositivo (WebP 256×256)
- * y se sincroniza cifrada con el resto de ajustes. Con los perfiles públicos (docs/plan-social.md, F5) se suman
- * el alias, el banner, el marco y las tarjetas.
+ * y se sincroniza cifrada con el resto de ajustes. Con perfil público (docs/plan-social.md, F5) la misma foto se
+ * sube también al servidor (WebP) y se suman el alias, el banner, el marco, las tarjetas y los hábitos visibles.
  */
 export const ProfileView: React.FC = () => {
   const settings = useStore((s) => s.settings);
@@ -33,6 +37,8 @@ export const ProfileView: React.FC = () => {
   const [gender, setGender] = useState<UserGender>(settings.userGender || 'other');
   const [uploading, setUploading] = useState(false);
   const [memberSince, setMemberSince] = useState<string | null>(null);
+  const alias = useSocial((s) => s.profile?.alias);
+  const bannerItem = useCatalogItem(useSocial((s) => s.profile?.banner_item));
   const dirty = name.trim() !== (settings.userName || '').trim() || gender !== (settings.userGender || 'other');
   const persona = personaFor(gender);
 
@@ -59,12 +65,35 @@ export const ProfileView: React.FC = () => {
     e.target.value = '';
     if (!file) return;
     setUploading(true);
+    let url: string;
     try {
-      updateSettings({ avatarDataUrl: await imageFileToAvatar(file) });
+      url = await imageFileToAvatar(file);
+      updateSettings({ avatarDataUrl: url });
       playSound.pop();
       showToast('Foto de perfil actualizada', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'No se pudo usar esa imagen', 'error');
+      setUploading(false);
+      return;
+    }
+    // Con perfil público, la nueva foto también se publica
+    try {
+      await syncPublicAvatar(url);
+    } catch (err) {
+      reportSocialError(err, showToast, 'No se pudo actualizar la foto de tu perfil público');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onRemovePhoto = async () => {
+    updateSettings({ avatarDataUrl: undefined });
+    playSound.delete();
+    setUploading(true);
+    try {
+      await syncPublicAvatar(undefined);
+    } catch (err) {
+      reportSocialError(err, showToast, 'No se pudo quitar la foto de tu perfil público');
     } finally {
       setUploading(false);
     }
@@ -87,11 +116,12 @@ export const ProfileView: React.FC = () => {
       </div>
 
       <section className="profile-hero" aria-label="Tu perfil">
-        <div className="profile-banner" />
+        <ProfileBanner banner={cosmeticOf(bannerItem)} />
         <div className="profile-hero-body">
-          <Avatar src={settings.avatarDataUrl} name={name || settings.userName} size={96} />
+          <MyAvatar size={96} />
           <div className="profile-hero-name">
             <h1>{name.trim() || 'Sin nombre'}</h1>
+            {alias && <p className="profile-hero-alias">@{alias}</p>}
             <p>
               {email}
               {memberSince && ` · Miembro desde el ${memberSince}`}
@@ -103,14 +133,7 @@ export const ProfileView: React.FC = () => {
               <Camera aria-hidden /> {uploading ? 'Procesando…' : settings.avatarDataUrl ? 'Cambiar foto' : 'Subir foto'}
             </button>
             {settings.avatarDataUrl && (
-              <button
-                type="button"
-                className="btn btn-ghost sm"
-                onClick={() => {
-                  updateSettings({ avatarDataUrl: undefined });
-                  playSound.delete();
-                }}
-              >
+              <button type="button" className="btn btn-ghost sm" onClick={() => void onRemovePhoto()} disabled={uploading}>
                 <Trash2 aria-hidden /> Quitar
               </button>
             )}
@@ -162,6 +185,8 @@ export const ProfileView: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <PublicProfileCard />
     </div>
   );
 };

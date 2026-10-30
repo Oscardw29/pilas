@@ -323,6 +323,13 @@ export async function regenerateRecoveryCode(sb: SupabaseClient, userId: string,
 /** Borra la cuenta y todos sus datos en la nube (pide la contraseña para confirmar) */
 export async function deleteAccount(sb: SupabaseClient, userId: string, email: string, password: string): Promise<void> {
   (await rootFromPassword(sb, userId, email, password)).root.fill(0);
+  // Fotos del perfil público: Storage no las borra en cascada con la cuenta (si falla, se sigue igual)
+  try {
+    const { data } = await sb.storage.from('avatars').list(userId, { limit: 100 });
+    if (data?.length) await sb.storage.from('avatars').remove(data.map((f) => `${userId}/${f.name}`));
+  } catch {
+    /* sin capa pública o sin conexión con Storage */
+  }
   const { error } = await sb.rpc('delete_my_account');
   if (error) throw authError(error);
 }

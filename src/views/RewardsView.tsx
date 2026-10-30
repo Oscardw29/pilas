@@ -15,6 +15,10 @@ import { triggerRewardCelebration } from '../components/ui/RewardCelebrationOver
 import { CoachAvatar } from '../components/coach/CoachAvatar';
 import { useCoachPersona } from '../components/coach/coachPersona';
 import { CashRegister, ShopAwning, ShopBackShelf } from '../components/shop/ShopArt';
+import { CosmeticsShop } from '../components/shop/CosmeticsShop';
+import { purchaseBoost, SocialError } from '../social/api';
+import { refreshSocialStatus } from '../social/runtime';
+import { useSocial } from '../social/useSocial';
 import '../components/shop/shop.css';
 
 /** «3 h 20 min» */
@@ -91,15 +95,34 @@ export const RewardsView: React.FC = () => {
     return () => clearTimeout(t);
   }, [typed, lineChars.length]);
 
+  const socialBoost = useSocial((s) => Boolean(s.profile && s.available && !s.ban));
+  const serverBalance = useSocial((s) => s.serverBalance);
+
   const handleConfirmRedeem = () => {
     if (!rewardToRedeem) return;
 
     if (rewardToRedeem === 'xp_boost') {
       const cost = boost.price;
-      if (buyXpBoost()) {
-        triggerRewardCelebration({ name: 'Multiplicador 1.5× de XP', icon: '⚡', cost, isFreeze: false });
+      const celebrateBoost = (paid: number) => {
+        triggerRewardCelebration({ name: 'Multiplicador 1.5× de XP', icon: '⚡', cost: paid, isFreeze: false });
         setCheerKey((k) => k + 1);
         showToast(`¡Multiplicador activo! Durante ${ECONOMY.boostHours} h, cada hábito que completes da 1.5× de XP.`, 'reward');
+      };
+      // Con perfil público lo cobra el servidor (comprueba la espera de 24 h y el límite del mes)
+      const social = useSocial.getState();
+      if (social.profile && social.available && !social.ban) {
+        void purchaseBoost()
+          .then((res) => {
+            buyXpBoost({ id: res.id, startedAt: res.started_at, endsAt: res.ends_at, price: res.price, ledgerId: res.ledger_id });
+            useSocial.getState().set({ serverBalance: Number(res.balance) });
+            celebrateBoost(res.price);
+          })
+          .catch((err: unknown) => {
+            showToast(err instanceof Error && err.message ? err.message : 'No se pudo activar el multiplicador', 'warning');
+            if (err instanceof SocialError && err.banned) void refreshSocialStatus();
+          });
+      } else if (buyXpBoost()) {
+        celebrateBoost(cost);
       } else {
         showToast('Ahora no se puede comprar el multiplicador', 'warning');
       }
@@ -151,7 +174,9 @@ export const RewardsView: React.FC = () => {
   };
 
   const canAffordFreeze = pts.balance >= freeze.price;
-  const canBuyBoost = !boost.blocked && pts.balance >= boost.price;
+  // Con perfil público el multiplicador lo cobra el servidor: cuenta su saldo verificado
+  const boostBalance = socialBoost && serverBalance !== null ? Math.min(pts.balance, serverBalance) : pts.balance;
+  const canBuyBoost = !boost.blocked && boostBalance >= boost.price;
 
   return (
     <div className="stack fade-up shop-page">
@@ -368,7 +393,7 @@ export const RewardsView: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Lock size={13} /> Faltan {Math.ceil(boost.price - pts.balance)}
+                      <Lock size={13} /> Faltan {Math.ceil(boost.price - boostBalance)}
                     </>
                   )}
                 </button>
@@ -457,6 +482,9 @@ export const RewardsView: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* PERSONALIZACIÓN: cosméticos que cobra el servidor */}
+      <CosmeticsShop />
 
       {/* RECIBOS: historial de canjes */}
       <section className="shop-receipt" aria-labelledby="shop-receipt-title">

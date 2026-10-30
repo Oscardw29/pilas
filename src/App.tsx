@@ -25,6 +25,13 @@ const RewardsView = lazy(() => import('./views/RewardsView').then((m) => ({ defa
 const AiCoachView = lazy(() => import('./views/AiCoachView').then((m) => ({ default: m.AiCoachView })));
 const ProfileView = lazy(() => import('./views/ProfileView').then((m) => ({ default: m.ProfileView })));
 const SettingsView = lazy(() => import('./views/SettingsView').then((m) => ({ default: m.SettingsView })));
+// Capa pública (docs/plan-social.md)
+const LeaderboardView = lazy(() => import('./views/LeaderboardView').then((m) => ({ default: m.LeaderboardView })));
+const AchievementsView = lazy(() => import('./views/AchievementsView').then((m) => ({ default: m.AchievementsView })));
+const PublicProfileView = lazy(() => import('./views/PublicProfileView').then((m) => ({ default: m.PublicProfileView })));
+const FriendsView = lazy(() => import('./views/FriendsView').then((m) => ({ default: m.FriendsView })));
+const NotificationsView = lazy(() => import('./views/NotificationsView').then((m) => ({ default: m.NotificationsView })));
+const CreatorView = lazy(() => import('./views/CreatorView').then((m) => ({ default: m.CreatorView })));
 
 export const App: React.FC = () => {
   const { toast } = useToast();
@@ -153,6 +160,16 @@ export const App: React.FC = () => {
 
         {/* Perfil */}
         <Route path="/perfil" element={<ProfileView />} />
+
+        {/* Comunidad */}
+        <Route path="/clasificaciones" element={<LeaderboardView />} />
+        <Route path="/logros" element={<AchievementsView />} />
+        <Route path="/u/:alias" element={<PublicProfileView />} />
+        <Route path="/amigos" element={<FriendsView />} />
+        <Route path="/notificaciones" element={<NotificationsView />} />
+
+        {/* Panel del creador (lo protege el servidor con is_admin) */}
+        <Route path="/creador" element={<CreatorView />} />
 
         {/* Ajustes */}
         <Route path="/ajustes" element={<SettingsView />} />

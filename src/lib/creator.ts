@@ -1,16 +1,22 @@
 import { useSession } from '@/store/useSession';
+import { useSocial } from '@/social/useSocial';
 
 /**
  * CUENTA DEL CREADOR
- * Por ahora solo decide qué ajustes de prueba se muestran en la interfaz (sonido, notificaciones detalladas,
- * animaciones de prueba, seguridad de claves, restablecer datos): son preferencias del propio dispositivo, sin riesgo.
+ * El rol lo da el servidor (`is_admin()`, tabla `app_admins` en supabase/migrations/0002_social.sql) y se recuerda en el
+ * dispositivo para la interfaz sin conexión. Todo lo que afecta a otras personas (vetar, la tienda, la economía…) lo
+ * vuelve a comprobar el servidor: ocultar o mostrar botones aquí nunca da permisos.
  *
- * ⚠️ No es una medida de seguridad. Cuando existan acciones con efecto sobre otros usuarios (vetar, editar la
- * tienda, la economía…), el permiso lo dará el servidor con `is_admin()` (ver docs/plan-social.md, F4), nunca
- * esta comparación de correo.
+ * Mientras el servidor no tenga la capa pública (migración 0002 sin aplicar) se usa el correo solo para mostrar los
+ * ajustes de prueba de este dispositivo (sonido, animaciones…), que no tienen efecto sobre nadie más.
  */
 const CREATOR_EMAIL = 'oscarwis2009@gmail.com';
 
 export const isCreatorEmail = (email: string | undefined | null) => (email ?? '').trim().toLowerCase() === CREATOR_EMAIL;
 
-export const useIsCreator = (): boolean => useSession((s) => isCreatorEmail(s.user?.email));
+export const useIsCreator = (): boolean => {
+  const isAdmin = useSocial((s) => s.isAdmin);
+  const available = useSocial((s) => s.available);
+  const byEmail = useSession((s) => isCreatorEmail(s.user?.email));
+  return isAdmin || (!available && byEmail);
+};

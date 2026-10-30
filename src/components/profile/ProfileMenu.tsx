@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Settings as SettingsIcon, UserRound } from 'lucide-react';
+import { Bell, LogOut, Settings as SettingsIcon, ShieldCheck, UserRound } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useSession } from '@/store/useSession';
 import { signOut } from '@/account/runtime';
@@ -9,6 +9,8 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/ToastContext';
 import { playSound } from '@/lib/sound';
 import { MyAvatar } from './Avatar';
+import { useSocial } from '@/social/useSocial';
+import '@/components/social/social.css';
 import './profile.css';
 
 // ConfirmModal llama a onClose justo después de onConfirm: cada paso solo se cierra a sí mismo
@@ -23,6 +25,12 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
   const { showToast } = useToast();
   const userName = useStore((s) => s.settings.userName);
   const email = useSession((s) => s.user?.email ?? '');
+  const alias = useSocial((s) => s.profile?.alias);
+  const unread = useSocial((s) => s.unread);
+  const isAdmin = useSocial((s) => s.isAdmin);
+  const socialAvailable = useSocial((s) => s.available);
+  // Con perfil público se muestra el alias; el correo sigue siendo solo para ti
+  const subline = alias ? `@${alias}` : email;
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
   const [step, setStep] = useState<Step>(null);
@@ -44,8 +52,8 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
     // Nunca fuera de la pantalla, aunque el disparador quede cerca de un borde
     setPos(
       variant === 'header'
-        ? { left, top: Math.min(r.bottom + 8, window.innerHeight - 220) }
-        : { left, bottom: Math.min(Math.max(8, window.innerHeight - r.top + 8), window.innerHeight - 220) },
+        ? { left, top: Math.min(r.bottom + 8, window.innerHeight - 320) }
+        : { left, bottom: Math.min(Math.max(8, window.innerHeight - r.top + 8), window.innerHeight - 320) },
     );
   }, [variant]);
 
@@ -115,14 +123,15 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
           className="profile-avatar-btn"
           onClick={() => go('/perfil')}
           title="Mi perfil"
-          aria-label="Mi perfil"
+          aria-label={unread > 0 ? `Mi perfil (${unread} notificaciones sin leer)` : 'Mi perfil'}
           data-no-sound="true"
         >
           <MyAvatar size={34} />
+          {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
         </button>
         <div className="profile-block-name">
           <strong>{displayName}</strong>
-          <span>{email}</span>
+          <span>{subline}</span>
         </div>
         <button
           ref={anchorRef}
@@ -145,9 +154,10 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Menú de perfil"
+        aria-label={unread > 0 ? `Menú de perfil, ${unread} notificaciones sin leer` : 'Menú de perfil'}
       >
         <MyAvatar size={32} />
+        {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
       </button>
     );
 
@@ -164,15 +174,30 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
               <MyAvatar size={36} />
               <div>
                 <strong>{displayName}</strong>
-                <span>{email}</span>
+                <span>{subline}</span>
               </div>
             </div>
             <button type="button" role="menuitem" className="profile-menu-item" onClick={() => go('/perfil')}>
               <UserRound aria-hidden /> Mi perfil
             </button>
+            {socialAvailable && (
+              <button type="button" role="menuitem" className="profile-menu-item" onClick={() => go('/notificaciones')}>
+                <Bell aria-hidden /> Notificaciones
+                {unread > 0 && (
+                  <span className="notif-count" style={{ marginLeft: 'auto' }} aria-label={`${unread} sin leer`}>
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </button>
+            )}
             <button type="button" role="menuitem" className="profile-menu-item" onClick={() => go('/ajustes')}>
               <SettingsIcon aria-hidden /> Ajustes
             </button>
+            {isAdmin && (
+              <button type="button" role="menuitem" className="profile-menu-item" onClick={() => go('/creador')}>
+                <ShieldCheck aria-hidden /> Panel del creador
+              </button>
+            )}
             <div className="profile-menu-sep" role="separator" />
             <button
               type="button"
