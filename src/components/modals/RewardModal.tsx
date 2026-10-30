@@ -12,7 +12,8 @@ interface RewardModalProps {
   rewardToEdit?: Reward;
 }
 
-const REWARD_ICONS = ['🎮', '🛍️', '🍕', '🎬', '☕', '🍦', '🎧', '📱', '🏖️', '🛋️', '🎁', '🍫', '📺', '🎟️', '✈️', '💆'];
+/** Iconos para elegir (también los usa la edición de varias recompensas a la vez) */
+export const REWARD_ICONS = ['🎮', '🛍️', '🍕', '🎬', '☕', '🍦', '🎧', '📱', '🏖️', '🛋️', '🎁', '🍫', '📺', '🎟️', '✈️', '💆'];
 
 export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewardToEdit }) => {
   const addReward = useStore((s) => s.addReward);
@@ -44,13 +45,15 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !(cost > 0)) return;
+    // Las monedas son siempre enteras
+    const price = Math.min(100000, Math.round(cost));
+    if (!name.trim() || !(price > 0)) return;
 
     if (rewardToEdit) {
-      updateReward(rewardToEdit.id, { name: name.trim(), icon, cost, description: description.trim() || undefined });
+      updateReward(rewardToEdit.id, { name: name.trim(), icon, cost: price, description: description.trim() || undefined });
       toast(`Recompensa «${name}» actualizada`, 'success');
     } else {
-      addReward({ name: name.trim(), icon, cost, description: description.trim() || undefined });
+      addReward({ name: name.trim(), icon, cost: price, description: description.trim() || undefined });
       toast(`Recompensa «${name}» creada`, 'success');
     }
     onClose();
@@ -106,6 +109,8 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
               type="number"
               min={1}
               max={100000}
+              step={1}
+              inputMode="numeric"
               className="input"
               style={{ width: 120 }}
               value={cost}

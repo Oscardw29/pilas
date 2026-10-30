@@ -391,8 +391,8 @@ export const ReviewView: React.FC = () => {
                     style={
                       isPaused
                         ? {
-                            background: 'rgba(234, 179, 8, 0.05)',
-                            borderLeft: '3px solid #eab308',
+                            background: 'color-mix(in srgb, var(--yellow) 5%, transparent)',
+                            borderLeft: '3px solid var(--yellow)',
                           }
                         : undefined
                     }
@@ -400,7 +400,7 @@ export const ReviewView: React.FC = () => {
                     <td>
                       <div className="row" style={{ alignItems: 'center', gap: 8 }}>
                         <span className="entity-icon sm">{item.habit.icon}</span>
-                        <span className="bold" style={{ color: isPaused ? '#eab308' : undefined }}>
+                        <span className="bold" style={{ color: isPaused ? 'var(--yellow)' : undefined }}>
                           {item.habit.name}
                         </span>
                         {isPaused && (

@@ -128,9 +128,14 @@ export const BackupCard: React.FC<{ onDataReplaced: () => void }> = ({ onDataRep
           </p>
 
           <div className="form" style={{ marginBottom: 14 }}>
-            <label className="checkbox">
+            <label className="custom-switch">
               <input type="checkbox" checked={encrypt} onChange={(e) => setEncrypt(e.target.checked)} />
-              Cifrar el respaldo con contraseña (recomendado: incluye tus notas y chats)
+              <span className="custom-switch-track">
+                <span className="custom-switch-thumb" />
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>
+                Cifrar el respaldo con contraseña (recomendado: incluye tus notas y chats)
+              </span>
             </label>
             {encrypt && (
               <input
@@ -210,7 +215,7 @@ export const BackupCard: React.FC<{ onDataReplaced: () => void }> = ({ onDataRep
           onClose={() => setPendingImport(null)}
           onConfirm={confirmImport}
           title="¿Restaurar este respaldo?"
-          message={`Se reemplazarán todos tus datos actuales por los del respaldo (${pendingImport?.summary ?? ''}), también en tus otros dispositivos. Tus claves de API y preferencias de voz/IA se conservan. Esta acción no se puede deshacer.`}
+          message={`Se reemplazarán todos tus datos actuales por los del respaldo (${pendingImport?.summary ?? ''}), también en tus otros dispositivos, y tu progreso público (racha, XP, logros) se recalculará con los datos del respaldo. Tus claves de API y preferencias de voz/IA se conservan. Esta acción no se puede deshacer.`}
           confirmLabel="Restaurar respaldo"
           confirmVariant="warning"
           zIndex={1300}

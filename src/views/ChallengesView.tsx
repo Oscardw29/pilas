@@ -37,12 +37,12 @@ export const ChallengesView: React.FC = () => {
   const handleClaimReward = (challenge: Challenge) => {
     if (challenge.status === 'completed') return;
     addPointEvent({
-      amount: challenge.rewardPoints,
+      amount: Math.round(challenge.rewardPoints),
       reason: `Completar reto: ${challenge.name}`,
       source: 'challenge',
     });
     updateChallenge(challenge.id, { status: 'completed' });
-    showToast(`¡Reto superado! +${challenge.rewardPoints} puntos otorgados.`, 'reward');
+    showToast(`¡Reto superado! +${Math.round(challenge.rewardPoints)} puntos otorgados.`, 'reward');
   };
 
   const handleConvertToHabit = (challenge: Challenge) => {
@@ -124,7 +124,7 @@ export const ChallengesView: React.FC = () => {
               <h3 className="card-title">Avance de retos (Días acumulados)</h3>
               <p className="card-sub">Días completados respecto a la meta de cada reto</p>
             </div>
-            <span className="badge" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#facc15', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+            <span className="badge" style={{ background: 'color-mix(in srgb, var(--yellow) 15%, transparent)', color: 'var(--gold)', border: '1px solid color-mix(in srgb, var(--yellow) 30%, transparent)' }}>
               {challengesChartData.length} retos
             </span>
           </div>
@@ -153,18 +153,18 @@ export const ChallengesView: React.FC = () => {
                       return (
                         <div
                           style={{
-                            background: 'rgba(20, 21, 33, 0.96)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: 'color-mix(in srgb, var(--popover) 96%, transparent)',
+                            border: '1px solid color-mix(in srgb, var(--tint) 12%, transparent)',
                             borderRadius: 10,
                             padding: '8px 12px',
-                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+                            boxShadow: '0 8px 24px color-mix(in srgb, var(--shadow-color) 70%, transparent)',
                             fontSize: 12,
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: 2 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--popover-text)', marginBottom: 2 }}>
                             {item.name}
                           </div>
-                          <div style={{ color: '#facc15', fontWeight: 600 }}>
+                          <div style={{ color: 'var(--gold)', fontWeight: 600 }}>
                             {item.diasCompletados} de {item.metaDias} días ({item.pct}%)
                           </div>
                           <div style={{ color: 'var(--muted)', fontSize: 11, textTransform: 'capitalize' }}>
@@ -177,7 +177,7 @@ export const ChallengesView: React.FC = () => {
                   }}
                   wrapperStyle={{ pointerEvents: 'none', zIndex: 50 }}
                 />
-                <Bar dataKey="diasCompletados" fill="#eab308" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="diasCompletados" fill="var(--yellow)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -315,7 +315,7 @@ export const ChallengesView: React.FC = () => {
                     <div className="row" style={{ color: 'var(--warning)' }}>
                       <Gift size={16} />
                       <span className="small bold">
-                        +{challenge.rewardPoints} pts
+                        +{Math.round(challenge.rewardPoints)} pts
                       </span>
                       {challenge.rewardText && (
                         <span className="small muted">({challenge.rewardText})</span>
@@ -327,7 +327,7 @@ export const ChallengesView: React.FC = () => {
                         <button
                           type="button"
                           className="btn btn-secondary sm"
-                          style={{ color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
+                          style={{ color: 'var(--warning)', borderColor: 'color-mix(in srgb, var(--warning) 40%, transparent)' }}
                           onClick={() => handleClaimReward(challenge)}
                         >
                           <Sparkles size={14} /> Reclamar victoria

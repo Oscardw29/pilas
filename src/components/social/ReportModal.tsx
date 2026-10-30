@@ -1,11 +1,12 @@
 import React, { useEffect, useId, useState } from 'react';
 import { Flag } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { useToast } from '@/components/ui/ToastContext';
 import { playSound } from '@/lib/sound';
 import { report, SocialError } from '@/social/api';
 import { refreshSocialStatus } from '@/social/runtime';
-import { REPORT_REASONS } from '@/social/texts';
+import { personName, REPORT_REASONS } from '@/social/texts';
 import type { ReportRow } from '@/social/types';
 import './community.css';
 
@@ -16,14 +17,15 @@ export const ReportModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   targetUser: string;
-  alias?: string;
+  /** Alias (sin «@») y nombre de la persona: se muestra el alias o, si no tiene, el nombre */
+  alias?: string | null;
+  name?: string | null;
   postId?: string | null;
-}> = ({ isOpen, onClose, targetUser, alias, postId }) => {
+}> = ({ isOpen, onClose, targetUser, alias, name, postId }) => {
   const { showToast } = useToast();
   const [reason, setReason] = useState<ReportRow['reason']>(REPORT_REASONS[0].id);
   const [details, setDetails] = useState('');
   const [sending, setSending] = useState(false);
-  const reasonId = useId();
   const detailsId = useId();
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export const ReportModal: React.FC<{
     }
   };
 
-  const who = alias ? `@${alias}` : 'esta persona';
+  const who = alias || name?.trim() ? personName({ alias, display_name: name }) : 'esta persona';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={postId ? 'Reportar publicación' : `Reportar a ${who}`}>
@@ -60,16 +62,15 @@ export const ReportModal: React.FC<{
           {postId ? `Cuéntanos qué pasa con esta publicación de ${who}.` : `Cuéntanos qué pasa con ${who}.`} Nadie más verá quién lo reportó.
         </p>
         <div className="field">
-          <label className="label" htmlFor={reasonId}>
+          <span className="label" aria-hidden="true">
             Motivo
-          </label>
-          <select id={reasonId} className="select" value={reason} onChange={(e) => setReason(e.target.value as ReportRow['reason'])}>
-            {REPORT_REASONS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+          </span>
+          <CustomSelect<ReportRow['reason']>
+            value={reason}
+            onChange={setReason}
+            options={REPORT_REASONS.map((r) => ({ value: r.id, label: r.label }))}
+            ariaLabel="Motivo del reporte"
+          />
         </div>
         <div className="field">
           <label className="label" htmlFor={detailsId}>
@@ -189,8 +190,12 @@ export const ReasonModal: React.FC<{
                 onChange={(e) => setDays(e.target.value)}
                 style={{ width: 120 }}
               />
-              <label className="row" style={{ gap: 6, fontSize: 13.5 }}>
-                <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} /> Permanente
+              <label className="custom-switch">
+                <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
+                <span className="custom-switch-track">
+                  <span className="custom-switch-thumb" />
+                </span>
+                <span style={{ fontSize: 13.5, fontWeight: 500 }}>Permanente</span>
               </label>
             </div>
           </div>

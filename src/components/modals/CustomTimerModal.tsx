@@ -106,7 +106,7 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
       className="modal-backdrop"
       style={{
         zIndex: 1300,
-        background: 'rgba(5, 5, 10, 0.82)',
+        background: 'var(--overlay)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
@@ -130,11 +130,11 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
           maxWidth: 480,
           maxHeight: 'calc(100dvh - 40px)',
           overflowY: 'auto',
-          background: 'linear-gradient(180deg, #181822 0%, #111118 100%)',
+          background: 'linear-gradient(180deg, var(--popover) 0%, var(--popover-end) 100%)',
           border: '1px solid var(--border-2)',
           borderRadius: 24,
           padding: '28px 24px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85)',
+          boxShadow: '0 24px 60px color-mix(in srgb, var(--shadow-color) 85%, transparent)',
           animation: isSettled ? 'none' : 'modalIn .2s ease both',
           position: 'relative',
         }}
@@ -155,8 +155,8 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
               width: 42,
               height: 42,
               borderRadius: 12,
-              background: 'rgba(234, 179, 8, 0.15)',
-              color: '#eab308',
+              background: 'color-mix(in srgb, var(--yellow) 15%, transparent)',
+              color: 'var(--yellow)',
               display: 'grid',
               placeItems: 'center',
             }}

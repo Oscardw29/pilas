@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { History, RotateCcw, Rocket, Save, Trash2, Undo2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { CustomDatePicker } from '@/components/ui/CustomDatePicker';
+import { CustomTimePicker } from '@/components/ui/CustomTimePicker';
 import { useToast } from '@/components/ui/ToastContext';
 import { todayKey, toKey } from '@/lib/dates';
 import { applyEconomyVersions } from '@/lib/economyRules';
@@ -21,13 +23,13 @@ type Closure = Awaited<ReturnType<typeof adminClosures>>[number];
 
 const fmtDate = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('es', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-const fmtNum = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 });
+/** Monedas, XP y personas: siempre enteros */
+const fmtNum = (n: number) => Math.round(n).toLocaleString('es');
 
-/** «2026-10-29T14:05» en hora local (lo que espera un input datetime-local) */
-const localInputNow = () => {
+/** Fecha y hora locales de ahora, en el formato de los selectores propios («2026-10-29» y «14:05») */
+const localNow = () => {
   const d = new Date();
-  d.setSeconds(0, 0);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  return { date: toKey(d), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` };
 };
 
 /** Tabla de premios de las ligas (5 ligas × 4 puestos). La usa también la pestaña de ligas en modo lectura */
@@ -66,10 +68,9 @@ export const PrizeTable: React.FC<{
                       <input
                         className={`prize-input ${errors[key] ? 'invalid' : ''}`}
                         style={changed?.has(key) ? { borderColor: 'var(--accent)' } : undefined}
-                        type="number"
+                        type="text"
                         inputMode="numeric"
-                        min={0}
-                        step={1}
+                        autoComplete="off"
                         value={text[key] ?? ''}
                         aria-label={`${league.name}, ${place} puesto`}
                         aria-invalid={Boolean(errors[key])}
@@ -108,13 +109,12 @@ const FieldsGroup: React.FC<{
             {f.label}
             {changed.has(f.key) && <span className="badge accent" style={{ marginLeft: 6 }}>cambia</span>}
           </span>
+          {/* Texto con teclado numérico (sin las flechas del campo numérico del sistema); admite «1,5» */}
           <input
             className={`input ${errors[f.key] ? 'invalid' : ''}`}
-            type="number"
-            inputMode="decimal"
-            step={f.step ?? (f.integer ? 1 : 'any')}
-            min={f.min}
-            max={f.max}
+            type="text"
+            inputMode={f.integer ? 'numeric' : 'decimal'}
+            autoComplete="off"
             value={text[f.key] ?? ''}
             aria-invalid={Boolean(errors[f.key])}
             onChange={(e) => onChange(f.key, e.target.value)}
@@ -142,7 +142,7 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [effectiveFrom, setEffectiveFrom] = useState(localInputNow());
+  const [effectiveFrom, setEffectiveFrom] = useState(localNow);
   const [revertTarget, setRevertTarget] = useState<EconomyVersion | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pendingLoad, setPendingLoad] = useState<{ v: EconomyVersion | null; asDraft: boolean } | null>(null);
@@ -249,8 +249,9 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
   };
 
   const onPublish = async () => {
-    const when = new Date(effectiveFrom);
-    if (Number.isNaN(when.getTime())) {
+    // «AAAA-MM-DDTHH:mm» sin zona se lee en la hora de este dispositivo
+    const when = new Date(`${effectiveFrom.date}T${effectiveFrom.time || '00:00'}`);
+    if (!effectiveFrom.date || Number.isNaN(when.getTime())) {
       showToast('Elige una fecha válida.', 'warning');
       return;
     }
@@ -301,7 +302,7 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
   if (versions === null) return <p className="muted">Cargando la economía…</p>;
 
   const sorted = [...versions].sort((a, b) => b.version - a.version);
-  const groupOrder: Record<string, number> = { Ejemplos: 0, Topes: 1, Precios: 2 };
+  const groupOrder: Record<string, number> = { Ejemplos: 0, Topes: 1, Precios: 2, Ligas: 3 };
 
   return (
     <div className="stack">
@@ -358,7 +359,7 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
               className="btn btn-primary"
               disabled={busy || hasErrors}
               onClick={() => {
-                setEffectiveFrom(localInputNow());
+                setEffectiveFrom(localNow());
                 setPublishOpen(true);
               }}
             >
@@ -378,7 +379,10 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
         <div className="card-head">
           <div>
             <h2 className="card-title">Simulación</h2>
-            <p className="card-sub">Los ejemplos del documento de reglas con la versión vigente y con este borrador.</p>
+            <p className="card-sub">
+              Los ejemplos del documento de reglas, los precios y el reparto de las ligas con la versión vigente y con este borrador. Todo en
+              números enteros.
+            </p>
           </div>
         </div>
         <div className="creator-table-wrap">
@@ -402,14 +406,14 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
               {[...rows]
                 .sort((a, b) => groupOrder[a.group] - groupOrder[b.group])
                 .map((r) => {
-                  const diff = Math.round((r.after - r.before) * 10) / 10;
+                  const diff = Math.round(r.after - r.before);
                   return (
                     <tr key={r.id}>
                       <td>
                         <strong>{r.label}</strong>
                         {r.detail && <div className="card-sub">{r.detail}</div>}
                       </td>
-                      <td>{r.unit === 'XP' ? 'XP' : r.group === 'Precios' ? 'Precio' : 'Monedas'}</td>
+                      <td>{r.unit === 'XP' ? 'XP' : r.unit === 'personas' ? 'Personas' : r.group === 'Precios' ? 'Precio' : 'Monedas'}</td>
                       <td className="num">{fmtNum(r.before)}</td>
                       <td className="num">{fmtNum(r.after)}</td>
                       <td className={`num ${diff > 0 ? 'diff-up' : diff < 0 ? 'diff-down' : 'muted'}`}>
@@ -540,11 +544,18 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
             Cada día se calcula con la versión que regía ese día: <strong>los días anteriores conservan sus valores</strong>. Hasta la fecha elegida sigue rigiendo la versión
             actual.
           </p>
-          <label className="field">
+          <div className="field">
             <span className="label">Rige desde</span>
-            <input className="input" type="datetime-local" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                <CustomDatePicker value={effectiveFrom.date} onChange={(date) => setEffectiveFrom((f) => ({ ...f, date }))} />
+              </div>
+              <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                <CustomTimePicker value={effectiveFrom.time} onChange={(time) => setEffectiveFrom((f) => ({ ...f, time }))} align="right" />
+              </div>
+            </div>
             <span className="hint">Por defecto, ahora. Hora de este dispositivo.</span>
-          </label>
+          </div>
         </div>
         <div className="modal-foot">
           <button type="button" className="btn btn-ghost" onClick={() => setPublishOpen(false)} disabled={busy}>

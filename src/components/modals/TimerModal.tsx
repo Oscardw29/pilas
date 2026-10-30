@@ -102,14 +102,14 @@ export const TimerModal: React.FC = () => {
 
   // Color de stroke:
   const activeStrokeColor = isCustom
-    ? '#eab308'
+    ? 'var(--yellow)'
     : hasReachedMinimum
-    ? '#f97316'
+    ? 'var(--orange)'
     : (habit?.color || 'var(--accent)');
   const strokeGlow = isCustom
-    ? 'rgba(234, 179, 8, 0.6)'
+    ? 'color-mix(in srgb, var(--yellow) 60%, transparent)'
     : hasReachedMinimum
-    ? 'rgba(249, 115, 22, 0.7)'
+    ? 'color-mix(in srgb, var(--orange) 70%, transparent)'
     : `${activeStrokeColor}66`;
 
   // Muesca en la posición de la versión mínima dentro de la meta
@@ -128,7 +128,7 @@ export const TimerModal: React.FC = () => {
           className="modal-backdrop"
           style={{
             zIndex: 1200,
-            background: 'rgba(5, 5, 10, 0.78)',
+            background: 'var(--overlay)',
             backdropFilter: 'blur(22px)',
             WebkitBackdropFilter: 'blur(22px)',
             display: 'flex',
@@ -153,13 +153,13 @@ export const TimerModal: React.FC = () => {
               maxWidth: 440,
               maxHeight: 'calc(100dvh - 32px)',
               overflowY: 'auto',
-              background: 'linear-gradient(180deg, #181822 0%, #111118 100%)',
-              border: `1px solid ${hasReachedMinimum ? 'rgba(249, 115, 22, 0.4)' : 'var(--border-2)'}`,
+              background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%)',
+              border: `1px solid ${hasReachedMinimum ? 'color-mix(in srgb, var(--orange) 40%, transparent)' : 'var(--border-2)'}`,
               borderRadius: 28,
               padding: '36px 24px 30px',
               boxShadow: hasReachedMinimum
-                ? '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(249, 115, 22, 0.25)'
-                : '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(139, 92, 246, 0.12)',
+                ? '0 30px 80px color-mix(in srgb, var(--shadow-color) 90%, transparent), 0 0 40px rgba(249, 115, 22, 0.25)'
+                : '0 30px 80px color-mix(in srgb, var(--shadow-color) 90%, transparent), 0 0 40px rgba(139, 92, 246, 0.12)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -177,7 +177,7 @@ export const TimerModal: React.FC = () => {
                 zIndex: 2,
                 top: 16,
                 right: 16,
-                background: 'rgba(255, 255, 255, 0.06)',
+                background: 'color-mix(in srgb, var(--text) 6%, transparent)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-2)',
               }}
@@ -208,7 +208,7 @@ export const TimerModal: React.FC = () => {
                   cy={size / 2}
                   r={radius}
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.06)"
+                  stroke="color-mix(in srgb, var(--text) 6%, transparent)"
                   strokeWidth={strokeWidth}
                 />
                 {/* Círculo activo que se va vaciando */}
@@ -234,10 +234,10 @@ export const TimerModal: React.FC = () => {
                     y1={tickY1}
                     x2={tickX2}
                     y2={tickY2}
-                    stroke="#f97316"
+                    stroke="var(--orange)"
                     strokeWidth={4}
                     strokeLinecap="round"
-                    style={{ filter: 'drop-shadow(0 0 4px #f97316)' }}
+                    style={{ filter: 'drop-shadow(0 0 4px var(--orange))' }}
                   />
                 )}
               </svg>
@@ -269,7 +269,7 @@ export const TimerModal: React.FC = () => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    color: '#fff',
+                    color: 'var(--text)',
                   }}
                   title={timerTitle}
                 >
@@ -291,7 +291,7 @@ export const TimerModal: React.FC = () => {
                     ? `Hecho hoy: ${alreadyLoggedMin}m · Resta: ${remainingTargetMin}m`
                     : `Meta diaria: ${habitTargetMin} min`}
                   {!isCustom && minMin > 0 && (
-                    <span style={{ color: hasReachedMinimum ? '#f97316' : 'var(--minimum)' }}>
+                    <span style={{ color: hasReachedMinimum ? 'var(--orange)' : 'var(--minimum)' }}>
                       {' '}· mín: {minMin}m
                     </span>
                   )}
@@ -310,9 +310,8 @@ export const TimerModal: React.FC = () => {
                       : isCompleted
                       ? 'var(--success)'
                       : hasReachedMinimum
-                      ? '#f97316'
-                      : '#fff',
-                    textShadow: '0 2px 14px rgba(0, 0, 0, 0.8)',
+                      ? 'var(--orange)'
+                      : 'var(--text)',
                   }}
                 >
                   {formatClock(remainingSec)}
@@ -331,7 +330,7 @@ export const TimerModal: React.FC = () => {
                       : isCompleted
                       ? 'var(--success)'
                       : hasReachedMinimum
-                      ? '#f97316'
+                      ? 'var(--orange)'
                       : 'var(--accent-2)',
                   }}
                 >

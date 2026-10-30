@@ -173,10 +173,10 @@ const WheelColumn: React.FC<WheelColumnProps> = ({
               fontVariantNumeric: 'tabular-nums',
               letterSpacing: '-0.02em',
               color: isSelected
-                ? '#ffffff'
+                ? 'var(--text-strong)'
                 : isAdjacent
-                ? 'rgba(255, 255, 255, 0.55)'
-                : 'rgba(255, 255, 255, 0.2)',
+                ? 'color-mix(in srgb, var(--text-strong) 55%, transparent)'
+                : 'color-mix(in srgb, var(--text-strong) 20%, transparent)',
               transform: `scale(${isSelected ? 1.15 : isAdjacent ? 0.95 : 0.82})`,
               transition: 'transform 0.1s ease, font-size 0.1s ease, color 0.1s ease',
               userSelect: 'none',
@@ -545,12 +545,12 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
             ...(align === 'right' ? { right: 0, left: 'auto' } : { left: 0 }),
             zIndex: 150,
             width: 'min(270px, calc(100vw - 32px))',
-            background: 'linear-gradient(180deg, #181822 0%, #121219 100%)',
+            background: 'linear-gradient(180deg, var(--popover) 0%, var(--popover-end) 100%)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid var(--border-2)',
             borderRadius: 16,
-            boxShadow: '0 18px 48px rgba(0, 0, 0, 0.85), 0 0 24px rgba(139, 92, 246, 0.18)',
+            boxShadow: '0 18px 48px color-mix(in srgb, var(--shadow-color) 85%, transparent), 0 0 24px rgba(139, 92, 246, 0.18)',
             padding: '14px 14px 10px 14px',
             display: 'flex',
             flexDirection: 'column',
@@ -578,7 +578,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'color-mix(in srgb, var(--tint) 5%, transparent)',
                 padding: '3px 8px',
                 borderRadius: 8,
                 border: '1px solid rgba(139, 92, 246, 0.25)',
@@ -669,7 +669,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
               width: '100%',
               height: ITEM_HEIGHT * VISIBLE_ITEMS, // 220px exactos
               borderRadius: 12,
-              background: 'rgba(255, 255, 255, 0.02)',
+              background: 'color-mix(in srgb, var(--tint) 2%, transparent)',
               overflow: 'hidden',
             }}
           >
@@ -682,7 +682,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
                 top: ITEM_HEIGHT * 2, // Exactamente en la fila central (88px)
                 height: ITEM_HEIGHT, // 44px
                 borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.07)',
+                background: 'color-mix(in srgb, var(--tint) 7%, transparent)',
                 border: '1px solid rgba(139, 92, 246, 0.35)',
                 boxShadow: '0 0 16px rgba(139, 92, 246, 0.16)',
                 pointerEvents: 'none',
@@ -698,7 +698,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
                 left: 0,
                 right: 0,
                 height: 72,
-                background: 'linear-gradient(180deg, #181822 15%, rgba(24, 24, 34, 0) 100%)',
+                background: 'linear-gradient(180deg, var(--popover) 15%, transparent 100%)',
                 pointerEvents: 'none',
                 zIndex: 2,
               }}
@@ -710,7 +710,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
                 left: 0,
                 right: 0,
                 height: 72,
-                background: 'linear-gradient(0deg, #121219 15%, rgba(18, 18, 25, 0) 100%)',
+                background: 'linear-gradient(0deg, var(--popover-end) 15%, transparent 100%)',
                 pointerEvents: 'none',
                 zIndex: 2,
               }}
@@ -783,7 +783,7 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'var(--text-1)';
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--tint) 5%, transparent)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = 'var(--muted)';
@@ -797,8 +797,8 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
               type="button"
               onClick={handleConfirm}
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'color-mix(in srgb, var(--tint) 5%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--tint) 10%, transparent)',
                 color: 'var(--text-1)',
                 fontSize: 13.5,
                 fontWeight: 700,
@@ -816,8 +816,8 @@ export const CustomTimePicker: React.FC<CustomTimePickerProps> = ({
                 e.currentTarget.style.transform = 'translateY(-1px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--tint) 5%, transparent)';
+                e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--tint) 10%, transparent)';
                 e.currentTarget.style.color = 'var(--text-1)';
                 e.currentTarget.style.boxShadow = 'none';
                 e.currentTarget.style.transform = 'translateY(0)';

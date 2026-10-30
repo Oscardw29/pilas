@@ -140,7 +140,7 @@ export interface Session {
   mood?: Level5;
   /** Dificultad percibida 1-5 */
   difficulty?: Level5;
-  /** Energía registrada antes de empezar */
+  /** Energía registrada antes de empezar (ya no se registra: solo en sesiones antiguas) */
   energy?: Level5;
   note?: string;
   experimentId?: ID;
@@ -154,7 +154,6 @@ export interface ActiveTimer {
   pausedMs: number;
   /** Si está en pausa, desde cuándo */
   pausedAt?: ISODate;
-  energy?: Level5;
   /** Temporizador personalizado de un solo uso (sin hábito asociado) */
   isCustom?: boolean;
   customTitle?: string;
@@ -320,7 +319,6 @@ export type InsightKind =
   | 'duration'
   | 'weekday'
   | 'correlation'
-  | 'energy'
   | 'failure'
   | 'trend'
   | 'goal'
@@ -412,6 +410,20 @@ export interface Settings {
   economyStartDate?: DateKey;
   /** Foto de perfil (WebP en data URL, 256×256). Se sincroniza cifrada; pasará a Supabase con los perfiles públicos */
   avatarDataUrl?: string;
+  /** Foto por defecto (1–5, ver lib/defaultAvatars.ts) cuando no hay foto propia. Se elige al azar en la bienvenida */
+  avatarPreset?: number;
+  /** Alias elegido en la bienvenida que aún no llegó al perfil público (se aplica al crearlo). Opcional */
+  pendingAlias?: string;
+  /** Hay datos de demostración cargados: nada se publica en la comunidad mientras tanto */
+  demoMode?: boolean;
+  /**
+   * Última vez (ISO) que los datos cambiaron por completo: cargar o quitar la demostración, empezar de cero o importar
+   * una copia. Viaja con los ajustes a los otros dispositivos; al verla más nueva que la última atendida, la capa pública
+   * borra lo publicado en el servidor y lo recalcula con los datos nuevos (ver social/runtime.ts)
+   */
+  dataResetAt?: string;
+  /** Tema de la interfaz. Sin valor = claro */
+  theme?: 'light' | 'dark';
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
   minimumRatio: number;
   /** @deprecated Ya no se configura: el límite es fijo para todos (`MAX_ACTIVE_HABITS` en lib/limits.ts) */

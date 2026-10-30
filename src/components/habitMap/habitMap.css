@@ -31,7 +31,8 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
 /* Nodos */
 .hm-node { cursor: pointer; outline: none; transition: opacity .2s; }
 .hm-node-base { fill: var(--surface-2); }
-.hm-node.is-habit .hm-node-box { fill: var(--surface-2); stroke: var(--border-2); stroke-width: 1.2; }
+/* --hm-node-stroke: borde de los hábitos en reposo (el tema claro lo oscurece; ver al final) */
+.hm-node.is-habit .hm-node-box { fill: var(--surface-2); stroke: var(--hm-node-stroke, var(--border-2)); stroke-width: 1.2; }
 .hm-node.is-goal .hm-node-box { fill-opacity: .16; stroke-width: 2; }
 .hm-node-icon-bg { fill-opacity: .22; }
 .hm-node-icon { font-size: 16px; pointer-events: none; }
@@ -152,17 +153,17 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
 .hm-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: end; }
 .hm-swap { margin-bottom: 4px; }
 .hm-types { border: 0; gap: 6px; }
-.hm-types legend { margin-bottom: 7px; }
+.hm-types > .label { margin-bottom: 1px; }
 .hm-type {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 9px 12px; border-radius: var(--radius-sm);
   background: var(--surface-2); border: 1px solid var(--border-2);
+  color: inherit; font: inherit; text-align: left;
   cursor: pointer; transition: border-color .15s, background .15s;
 }
-.hm-type input { position: absolute; opacity: 0; pointer-events: none; }
 .hm-type:hover { border-color: var(--accent); }
 .hm-type.active { border-color: var(--accent); background: var(--accent-soft); }
-.hm-type:has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.hm-type:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .hm-type-title { display: block; font-weight: 600; font-size: 13.5px; }
 .hm-type-example { display: block; font-size: 12px; color: var(--muted); }
 .hm-preview { padding: 10px 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border-2); font-size: 13.5px; }
@@ -195,3 +196,13 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
   .hm-detail { animation: none; }
   .hm-canvas.is-connecting .hm-node.is-target .hm-node-box { animation: none; }
 }
+
+/* ===== Tema claro (ver «AJUSTES DEL TEMA CLARO» en global.css: mismo prefijo sin especificidad) =====
+   Lienzo lavanda con nodos blancos de borde marcado: con los tokens tal cual, nodo y fondo casi se fundían */
+:where(:root:not([data-theme="dark"])) .hm-bg { fill: var(--bg); }
+:where(:root:not([data-theme="dark"])) .hm-dot { fill: #cfc9df; }
+:where(:root:not([data-theme="dark"])) .hm-node-base { fill: var(--surface); }
+:where(:root:not([data-theme="dark"])) .hm-node.is-habit .hm-node-box { fill: var(--surface); }
+:where(:root:not([data-theme="dark"])) .hm-canvas { --hm-node-stroke: #bdb6d1; }
+:where(:root:not([data-theme="dark"])) .hm-node-paused svg { color: var(--on-status); }
+:where(:root:not([data-theme="dark"])) .hm-more { background: linear-gradient(to bottom, transparent, var(--bg) 70%); }

@@ -1,4 +1,4 @@
-import type { AppData, Habit, Level5, Recommendation } from '@/types';
+import type { AppData, Habit, Recommendation } from '@/types';
 import { diffDays, hourOf, todayKey, weekdayIndex } from './dates';
 import { consistency, getLog, habitStart, isDoneLog, lastActivity } from './metrics';
 
@@ -8,7 +8,6 @@ import { consistency, getLog, habitStart, isDoneLog, lastActivity } from './metr
 
 export interface WhatToDoInput {
   availableMinutes: number; // Ej. 15, 30, 45, 60, 90
-  currentEnergy: Level5; // 1 😫 ... 5 🔥
   currentHour?: number;
 }
 
@@ -29,7 +28,7 @@ export interface WhatToDoResult {
 /**
  * "¿Qué debería hacer ahora?" (Punto 5)
  * Analiza hábitos pendientes para hoy o hábitos atrasados, prioridades,
- * tiempo disponible, energía actual, duración estimada y última realización.
+ * tiempo disponible, duración estimada y última realización.
  */
 export function recommendWhatToDo(data: AppData, input: WhatToDoInput, ref = todayKey()): WhatToDoResult {
   const currentHour = input.currentHour ?? new Date().getHours();
@@ -56,8 +55,8 @@ export function recommendWhatToDo(data: AppData, input: WhatToDoInput, ref = tod
     const lastDone = lastActivity(data, h.id);
     const daysSinceLast = lastDone ? diffDays(lastDone, ref) : 10;
 
-    // Si la energía es baja (1-2), sugerir versión mínima preferentemente
-    const preferMinimum = input.currentEnergy <= 2 || (h.targetMinutes ?? 30) > input.availableMinutes;
+    // Si la meta completa no entra en el tiempo disponible, sugerir la versión mínima
+    const preferMinimum = (h.targetMinutes ?? 30) > input.availableMinutes;
     const mode: 'full' | 'minimum' = preferMinimum && h.minimumMinutes ? 'minimum' : 'full';
     const duration = mode === 'full' ? (h.targetMinutes ?? 25) : (h.minimumMinutes ?? 10);
 
@@ -86,15 +85,6 @@ export function recommendWhatToDo(data: AppData, input: WhatToDoInput, ref = tod
     // Coincidencia horaria (+20)
     if (h.preferredTime === timeOfDay || h.preferredTime === 'any') {
       score += 20;
-    }
-
-    // Ajuste por energía
-    if (input.currentEnergy <= 2 && mode === 'minimum') {
-      score += 25;
-      reasons.push('Versión mínima ideal para tu nivel de energía actual');
-    } else if (input.currentEnergy >= 4 && mode === 'full') {
-      score += 15;
-      reasons.push('Aprovecha tu energía alta para la sesión completa');
     }
 
     // Relación con objetivos de alta prioridad
@@ -138,12 +128,7 @@ export function recommendWhatToDo(data: AppData, input: WhatToDoInput, ref = tod
 
   const totalMin = selected.reduce((a, s) => a + s.estimatedMinutes, 0);
 
-  let message = `Tienes aproximadamente ${input.availableMinutes} minutos.`;
-  if (input.currentEnergy <= 2) {
-    message += ' Como tu energía está baja, te recomendamos versiones mínimas para no perder el ritmo.';
-  } else if (input.currentEnergy >= 4) {
-    message += ' Con tu energía alta hoy es un gran momento para avanzar con hábitos de alta prioridad.';
-  }
+  const message = `Tienes aproximadamente ${input.availableMinutes} minutos.`;
 
   return {
     message,

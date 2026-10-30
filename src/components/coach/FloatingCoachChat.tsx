@@ -12,6 +12,7 @@ import { extractActionAndText } from './extractAction';
 import { CoachAvatar } from './CoachAvatar';
 import { CoachTeaser } from './CoachTeaser';
 import { useCoachPersona } from './coachPersona';
+import { useCoachMute } from './useCoachMute';
 
 /** Mismo formato de mensaje que la página del coach: ambas comparten la conversación activa */
 interface ChatMessage {
@@ -23,9 +24,6 @@ interface ChatMessage {
   [extra: string]: unknown;
 }
 
-const welcomeText = (name: string) =>
-  `¡Hola! Soy ${name}. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página.`;
-
 const QUICK_PROMPTS = ['¿Qué hago ahora mismo?', '¿Cómo salvo mi racha hoy?', 'Resume mi semana'];
 
 const DEFAULT_TITLES = ['Conversación principal', 'Nueva conversación', 'Chat sin título'];
@@ -35,6 +33,11 @@ const currentData = () => selectData(useStore.getState());
 
 /** El cliente de IA es pesado: se descarga solo cuando se envía el primer mensaje (no en el arranque) */
 const loadAi = () => import('@/lib/gemini');
+/** Catálogo de frases fijas (la bienvenida tiene voz grabada): se descarga al abrir el chat */
+const loadPhrases = () => import('@/lib/coachPhrases');
+
+/** La bienvenida se dice en voz alta una sola vez por sesión, al abrir el chat sin conversación */
+let welcomeSpoken = false;
 
 /**
  * CHAT FLOTANTE DEL COACH
@@ -51,12 +54,12 @@ export const FloatingCoachChat: React.FC = () => {
   const createConversation = useStore((s) => s.createConversation);
   const renameConversation = useStore((s) => s.renameConversation);
   const setConversationMessages = useStore((s) => s.setConversationMessages);
-  const muted = useStore((s) => Boolean(s.settings.coachMuted));
-  const updateSettings = useStore((s) => s.updateSettings);
+  const { muted, toggleMute } = useCoachMute();
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [welcome, setWelcome] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -65,8 +68,27 @@ export const FloatingCoachChat: React.FC = () => {
   const conversation = conversations?.find((c) => c.id === activeConversationId);
   const messages = (conversation?.messages as ChatMessage[] | undefined) ?? [];
   const visibleMessages: ChatMessage[] =
-    messages.length > 0 ? messages : [{ id: 'welcome', sender: 'assistant', content: welcomeText(persona.name), timestamp: '' }];
+    messages.length > 0 ? messages : welcome ? [{ id: 'welcome', sender: 'assistant', content: welcome, timestamp: '' }] : [];
   const onlyWelcome = !messages.some((m) => m.sender === 'user');
+
+  // Bienvenida del catálogo (con voz grabada): al abrir sin conversación, el coach la dice una vez por sesión
+  const greetOnOpen = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void loadPhrases().then(({ phraseText }) => {
+      if (!alive) return;
+      const text = phraseText('bienvenida.flotante', persona.gender);
+      setWelcome(text);
+      if (!greetOnOpen.current) return;
+      greetOnOpen.current = false;
+      welcomeSpoken = true;
+      if (!useStore.getState().settings.coachMuted && panelRef.current) void speakCoach(text, persona.gender);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, persona.gender]);
 
   // Bajar al último mensaje al abrir y con cada mensaje nuevo
   useEffect(() => {
@@ -142,16 +164,13 @@ export const FloatingCoachChat: React.FC = () => {
     playSound.modalClose();
   };
 
-  const toggleMute = () => {
-    if (!muted) stopCoachVoice({ fade: true });
-    updateSettings({ coachMuted: !muted });
-    playSound.toggle();
-  };
-
   const toggle = () => {
     if (open) {
       close();
     } else {
+      // Abrir es un gesto: desbloquea el audio por si toca decir la bienvenida
+      unlockCoachVoice();
+      greetOnOpen.current = !welcomeSpoken && onlyWelcome && !loading;
       setOpen(true);
       playSound.chatOpen();
     }

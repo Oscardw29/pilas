@@ -10,10 +10,9 @@ import { postText } from '@/social/texts';
 import { useCatalogItem, useSocial } from '@/social/useSocial';
 import type { Post, TemplateOption } from '@/social/types';
 import { BanScreen } from './BanScreen';
-import { PostCard, useSocialFail } from './PostCard';
+import { POST_COMMENT_MAX as COMMENT_MAX, PostCard, useSocialFail } from './PostCard';
 import './community.css';
 
-const COMMENT_MAX = 200;
 const keyOf = (t: TemplateOption) => `${t.template}:${t.ref ?? ''}`;
 
 /**
@@ -60,13 +59,14 @@ export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPoste
 
   const chosen = templates?.find((t) => keyOf(t) === selected) ?? null;
 
-  // Vista previa con tu foto, tu marco y tu alias
+  // Vista previa con tu foto, tu marco y tu nombre (el alias o, sin alias, el nombre)
   const preview: Post | null = useMemo(() => {
     if (!chosen || !profile) return null;
     return {
       id: 'preview',
       user_id: myUserId() ?? profile.user_id,
       alias: profile.alias,
+      display_name: profile.display_name,
       avatar_path: profile.avatar_path,
       frame_path: frame?.asset_path ?? null,
       frame_thumb: frame?.thumb_path ?? null,
@@ -75,6 +75,7 @@ export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPoste
       data: chosen.data ?? {},
       comment: comment.trim() || null,
       created_at: new Date().toISOString(),
+      edited_at: null,
       reactions: { fire: 0, muscle: 0, clap: 0 },
       mine: [],
     };
@@ -103,8 +104,8 @@ export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPoste
         <BanScreen compact />
       ) : !profile ? (
         <div className="empty" style={{ padding: '20px 8px' }}>
-          <h3>Primero crea tu perfil público</h3>
-          <p>Elige un alias en tu perfil para poder publicar y que tus amigos te encuentren.</p>
+          <h3>Tu perfil público aún no está listo</h3>
+          <p>Revisa tu perfil (nombre y, si quieres, un alias) para poder publicar y que tus amigos te encuentren.</p>
           <Link to="/perfil" className="btn btn-primary" onClick={onClose}>
             Ir a mi perfil
           </Link>

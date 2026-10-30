@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Award, CheckCircle2, Coins, Lock, Users } from 'lucide-react';
+import { Award, CheckCircle2, Coins, Eye, Lock, Users } from 'lucide-react';
 import { BanScreen } from '@/components/social/BanScreen';
 import { getAchievementDefs, getAchievementProgress, getAchievementRates, getUserAchievements, socialAvailable } from '@/social/api';
 import { useSocial } from '@/social/useSocial';
 import { myUserId } from '@/social/runtime';
+import { localPreviewStats, type LocalPreviewStats } from '@/social/publish';
 import { METRIC_LABEL, RARITY } from '@/social/texts';
-import type { AchievementDef } from '@/social/types';
+import type { AchievementDef, AchievementMetric } from '@/social/types';
+import { useDemoMode, useStore } from '@/store/useStore';
+import { todayKey } from '@/lib/dates';
 import { LoadError, ProfileCta, SocialUnavailable } from '@/components/social/SocialStates';
 import '@/components/social/social.css';
 import '@/components/social/leaderboard.css';
@@ -14,9 +17,38 @@ import '@/components/social/leaderboard.css';
  * LOGROS (docs/plan-social.md, F5b)
  * Los otorga el servidor (check_achievements) a partir de los datos públicos: aquí solo se muestran con su progreso,
  * la fecha en que se consiguieron y el % de personas que los tienen.
+ * Modo demostración (nada se publica): las métricas que se pueden calcular en el dispositivo (racha, XP total,
+ * hábitos cumplidos, monedas gastadas y semanas perfectas) muestran el progreso de los datos de demostración y
+ * cuentan como conseguidas al llegar a la meta. Es solo una vista previa: el servidor no se entera.
  */
 
 type Filter = 'all' | 'done' | 'pending';
+
+/** Métricas que se calculan en el dispositivo en modo demostración (mismas reglas que el servidor) */
+const LOCAL_METRIC: Partial<Record<AchievementMetric, (s: LocalPreviewStats) => number>> = {
+  streak: (s) => s.bestStreak,
+  xp_total: (s) => s.xpTotal,
+  habits_done: (s) => s.habitsDone,
+  coins_spent: (s) => s.coinsSpent,
+  perfect_weeks: (s) => s.perfectWeeks,
+};
+
+/** Cifras locales con los datos de demostración (se recalculan cuando cambian) */
+function useDemoStats(): LocalPreviewStats | null {
+  const demo = useDemoMode();
+  const habits = useStore((s) => s.habits);
+  const logs = useStore((s) => s.logs);
+  const redemptions = useStore((s) => s.redemptions);
+  const pointEvents = useStore((s) => s.pointEvents);
+  const streakFreezes = useStore((s) => s.streakFreezes);
+  const xpBoosts = useStore((s) => s.xpBoosts);
+  return useMemo(
+    () => (demo ? localPreviewStats(useStore.getState(), todayKey()) : null),
+    // Los datos se leen del store al recalcular; estas dependencias solo dicen cuándo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [demo, habits, logs, redemptions, pointEvents, streakFreezes, xpBoosts],
+  );
+}
 
 interface Data {
   defs: AchievementDef[];
@@ -28,16 +60,22 @@ interface Data {
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 const fmtPct = (n: number) => n.toLocaleString('es', { maximumFractionDigits: n < 10 ? 1 : 0 });
 
-const AchievementCard: React.FC<{ def: AchievementDef; at?: string; rate?: number; value: number | null }> = ({ def, at, rate, value }) => {
+const AchievementCard: React.FC<{ def: AchievementDef; at?: string; rate?: number; value: number | null; demoGot?: boolean }> = ({
+  def,
+  at,
+  rate,
+  value,
+  demoGot,
+}) => {
   const rarity = RARITY[def.rarity] ?? RARITY.common;
-  const got = Boolean(at);
+  const got = Boolean(at) || Boolean(demoGot);
   const target = Math.max(1, Number(def.threshold) || 1);
   const shown = got ? target : Math.min(target, Math.max(0, Math.floor(value ?? 0)));
   const metric = METRIC_LABEL[def.metric] ?? def.metric;
   return (
     <article
       className={`card ach-card ${got ? 'is-done' : 'is-locked'}`}
-      style={{ '--r': rarity.color } as React.CSSProperties}
+      style={{ '--r': rarity.color, '--r-text': rarity.text } as React.CSSProperties}
       aria-label={`${def.name}${got ? ', conseguido' : ', pendiente'}`}
     >
       <div className="ach-top">
@@ -88,6 +126,10 @@ const AchievementCard: React.FC<{ def: AchievementDef; at?: string; rate?: numbe
           <span className="success">
             <CheckCircle2 size={14} aria-hidden="true" /> Conseguido el {fmtDate(at)}
           </span>
+        ) : got ? (
+          <span className="ach-demo-tag">
+            <Eye aria-hidden="true" /> Conseguido con los datos de demostración
+          </span>
         ) : (
           value == null && <span className="muted">Meta: {target} {metric}</span>
         )}
@@ -110,6 +152,7 @@ export const AchievementsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const ready = available && socialAvailable();
+  const demoStats = useDemoStats();
 
   const load = useCallback(async () => {
     setError(null);
@@ -139,18 +182,37 @@ export const AchievementsView: React.FC = () => {
     if (ready) void load();
   }, [ready, load]);
 
+  /** Progreso de cada logro: el local en modo demostración (si la métrica se calcula aquí) o el del servidor */
+  const valueOf = useCallback(
+    (d: AchievementDef): number | null => {
+      const local = demoStats ? LOCAL_METRIC[d.metric] : undefined;
+      if (local && demoStats) return local(demoStats);
+      return data?.progress ? Number(data.progress[d.metric] ?? 0) : null;
+    },
+    [data, demoStats],
+  );
+
+  /** Conseguido solo con los datos de demostración (el servidor no lo tiene) */
+  const demoGot = useCallback(
+    (d: AchievementDef) =>
+      Boolean(demoStats && LOCAL_METRIC[d.metric] && !data?.earned.has(d.id) && (valueOf(d) ?? 0) >= Math.max(1, Number(d.threshold) || 1)),
+    [data, demoStats, valueOf],
+  );
+
+  const isDone = useCallback((d: AchievementDef) => Boolean(data?.earned.has(d.id)) || demoGot(d), [data, demoGot]);
+
   const counts = useMemo(() => {
     const total = data?.defs.length ?? 0;
-    const done = data ? data.defs.filter((d) => data.earned.has(d.id)).length : 0;
+    const done = data ? data.defs.filter(isDone).length : 0;
     return { total, done, pending: total - done };
-  }, [data]);
+  }, [data, isDone]);
 
   const list = useMemo(() => {
     if (!data) return [];
-    if (filter === 'done') return data.defs.filter((d) => data.earned.has(d.id));
-    if (filter === 'pending') return data.defs.filter((d) => !data.earned.has(d.id));
+    if (filter === 'done') return data.defs.filter(isDone);
+    if (filter === 'pending') return data.defs.filter((d) => !isDone(d));
     return data.defs;
-  }, [data, filter]);
+  }, [data, filter, isDone]);
 
   const FILTERS: [Filter, string, number][] = [
     ['all', 'Todos', counts.total],
@@ -177,8 +239,18 @@ export const AchievementsView: React.FC = () => {
       ) : (
         <>
           {ban && <BanScreen compact />}
-          {!hasProfile && !ban && (
+          {!hasProfile && !ban && !demoStats && (
             <ProfileCta text="Tu progreso en los logros empieza a contar cuando tienes un perfil público. Mientras tanto puedes ver todos los que existen." />
+          )}
+          {demoStats && (
+            <div className="callout ach-demo-note" role="note">
+              <Eye aria-hidden="true" />
+              <p>
+                <strong>Datos de demostración · no se publican.</strong> La racha, la XP total, los hábitos cumplidos, las monedas
+                gastadas y las semanas perfectas se calculan con los datos de demostración de este dispositivo. El resto de logros
+                (podio, ligas, amigos…) muestra lo que hay en el servidor.
+              </p>
+            </div>
           )}
 
           {error ? (
@@ -227,7 +299,8 @@ export const AchievementsView: React.FC = () => {
                       def={d}
                       at={data.earned.get(d.id)}
                       rate={data.rates.get(d.id)}
-                      value={data.progress ? Number(data.progress[d.metric] ?? 0) : null}
+                      value={valueOf(d)}
+                      demoGot={demoGot(d)}
                     />
                   ))}
                 </div>

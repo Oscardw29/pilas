@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Gift, Shield, Snowflake, Coins } from 'lucide-react';
-import { fireRewardCelebration, fireIceFreezeCelebration } from '@/lib/confetti';
+import { clearConfetti, fireRewardCelebration, fireIceFreezeCelebration } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
-import { celebrationEnded, enqueueCelebration } from '@/lib/celebrationQueue';
+import { celebrationEnded, currentCelebration, enqueueCelebration } from '@/lib/celebrationQueue';
 
 export interface RewardCelebrationData {
   name: string;
@@ -105,6 +105,8 @@ export const RewardCelebrationOverlay: React.FC = () => {
   const [shownCost, setShownCost] = useState(0);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Turno de la cola de celebraciones que se está mostrando (ver lib/celebrationQueue) */
+  const turnRef = useRef(0);
   const seqTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shownAt = useRef(0);
@@ -130,6 +132,7 @@ export const RewardCelebrationOverlay: React.FC = () => {
       closingRef.current = false;
       setClosing(false);
       setActive({ ...data, key: Date.now() });
+      turnRef.current = currentCelebration();
     };
     listeners.add(handler);
     return () => {
@@ -148,7 +151,7 @@ export const RewardCelebrationOverlay: React.FC = () => {
       setActive(null);
       setClosing(false);
       closingRef.current = false;
-      celebrationEnded();
+      celebrationEnded(turnRef.current);
     }, EXIT_MS);
   };
 
@@ -176,6 +179,8 @@ export const RewardCelebrationOverlay: React.FC = () => {
   useEffect(() => {
     if (!active) return;
     const reduced = prefersReducedMotion();
+    // Fuera el confeti que quedara en el aire: no se mezcla con el de esta celebración
+    clearConfetti();
     shownAt.current = performance.now();
     revealed.current = reduced;
     opened.current = false;
@@ -188,10 +193,10 @@ export const RewardCelebrationOverlay: React.FC = () => {
       opened.current = true;
       if (active.isFreeze) {
         playSound.freeze();
-        fireIceFreezeCelebration(0);
+        fireIceFreezeCelebration(0, true);
       } else {
         playSound.redeemReward();
-        fireRewardCelebration(0);
+        fireRewardCelebration(0, true);
       }
     };
 

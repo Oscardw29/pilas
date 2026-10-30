@@ -1,5 +1,131 @@
 /* ===== ¡Pilas! · sistema de diseño global ===== */
-:root {
+
+/* =====================================================================
+   TEMAS: claro (por defecto) y oscuro
+   <html data-theme="light|dark"> lo pone el ajuste Settings.theme. Sin atributo se ve el tema claro.
+   Cualquier subárbol puede forzar un tema con data-theme="dark" / data-theme="light" (o la clase .theme-dark).
+   Las celebraciones a pantalla completa (.celebrate-overlay) son siempre oscuras: el fuego, los halos con
+   mix-blend-mode: screen y los títulos blanco → oro están pensados para un escenario a oscuras.
+
+   Tokens nuevos (definidos en los dos temas):
+   --text-strong     texto de máximo contraste (antes #fff fijo en títulos, activos y hovers)
+   --input-border    borde de campos de formulario (≥ 3:1 sobre el fondo en claro, WCAG 1.4.11)
+   --info-soft, --minimum-soft  fondos suaves que faltaban
+   --streak, --super, --freeze  tonos de racha (naranja), súper racha (morado) y protector (hielo) aptos para
+                     texto e iconos: en oscuro los de siempre (#fb923c, #c084fc, #38bdf8), en claro ≥ 5:1
+   --yellow          amarillo de «hábito en pausa» y del temporizador libre (#eab308 en oscuro)
+   --orange          naranja de «mínimo alcanzado» en los temporizadores (#f97316)
+   --gold            amarillo de los retos de 30 días (#facc15)
+   --lime            verde lima del nivel 4 de la escala 1-5 de ánimo (#a3e635)
+   --emerald, --cyan, --red  verde, cian y rojo «500» de Ajustes (#10b981, #06b6d4, #ef4444) como texto e iconos
+   --league-*, --rarity-*  color de TEXTO de ligas y rarezas (LEAGUES/RARITY[x].text en social/texts.ts):
+                     en oscuro, el mismo hex que `.color`; en claro, su versión oscura ≥ 4.5:1 (también sobre su tinte al 14 %)
+   --lilac, --orchid, --mint, --aqua, --aqua-2  tonos claros de texto e iconos de las tarjetas del panel
+                     (#c4b5fd, #d8b4fe, #6ee7b7, #67e8f9, #a5f3fc en oscuro; en claro su versión oscura ≥ 4.5:1)
+   --popover-end     final del degradado de los desplegables (selector, calendario, reloj)
+   --on-status       texto o icono sobre un color de estado sólido (--success, --minimum, --warning)
+   --overlay         velo de modales y hojas
+   --well            fondo «hundido» dentro de una tarjeta (detalles, recuadros)
+   --toast-bg        fondo de las notificaciones
+   --popover, --popover-text, --popover-muted  menús flotantes y tooltips de gráficos
+   --chart-grid      líneas de rejilla de los gráficos
+   --scrollbar       pulgar de las barras de desplazamiento
+   --ring            anillo de foco grueso de los botones de color (coach, género…)
+   --shadow-card     sombra de las tarjetas (ninguna en oscuro)
+   --tint            «tinta» de contraste con el fondo: blanco en oscuro, violeta muy oscuro en claro.
+                     Sustituye a rgba(255,255,255,A): color-mix(in srgb, var(--tint) A%, transparent)
+   --shadow-color    color base de las sombras: negro en oscuro, violeta translúcido en claro.
+                     Sustituye a rgba(0,0,0,A) en sombras: color-mix(in srgb, var(--shadow-color) A%, transparent)
+                     (en oscuro da exactamente el valor de antes; en claro se atenúa sola)
+   Igual con los estados: rgba(52,211,153,A) → color-mix(in srgb, var(--success) A%, transparent), etc.
+   ===================================================================== */
+
+/* ---------- Tema claro (por defecto) ----------
+   Fondo lavanda muy suave, tarjetas blancas y el violeta del logo (#a78bfa → #7c3aed → #4c1d95) como acento.
+   Contrastes sobre blanco: --text 16:1 · --text-2 10:1 · --muted 6.5:1 · --faint 5.5:1 · --accent-2 7.1:1 ·
+   estados ≥ 6:1 y ≥ 4.5:1 sobre su propio --*-soft (también encima de --surface-2). */
+:root, [data-theme="light"] {
+  --bg: #f5f4fa;
+  --bg-2: #fcfbfe;
+  --surface: #ffffff;
+  --surface-2: #f6f4fb;
+  --surface-3: #ebe8f4;
+  --border: #e6e2f0;
+  --border-2: #d6d0e5;
+  --input-border: #8a84a3;
+  --text: #1b1730;
+  --text-strong: #110d20;
+  --text-2: #423d58;
+  --muted: #5f5a76;
+  --faint: #6b6681;
+  --accent: #7c3aed;
+  /* Botones con texto blanco: 5.7:1 (hover 7.1:1) */
+  --accent-strong: #7c3aed;
+  --accent-strong-hover: #6d28d9;
+  /* Texto de acento (enlaces, insignias, iconos activos): 7.1:1 sobre blanco, 6.1:1 sobre --accent-soft */
+  --accent-2: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --success: #04694c;
+  --success-soft: rgba(5, 150, 105, 0.12);
+  --danger: #b91c1c;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+  /* Ámbar de los puntos: tono tostado para que el texto llegue a AA (el amarillo del rayo queda en logo e iconos) */
+  --warning: #9e4c08;
+  --warning-soft: rgba(245, 158, 11, 0.15);
+  --info: #0b6b84;
+  --info-soft: rgba(8, 145, 178, 0.12);
+  --minimum: #0b6a63;
+  --minimum-soft: rgba(13, 148, 136, 0.12);
+  --streak: #b13c0b;
+  --super: #7e22ce;
+  --freeze: #0369a1;
+  --yellow: #8a5a00;
+  --orange: #b13c0b;
+  --gold: #8a5a00;
+  --lime: #4d7c0f;
+  --emerald: #04694c;
+  --cyan: #0b6b84;
+  --red: #b91c1c;
+  --league-bronze: #8f5317;
+  --league-silver: #556070;
+  --league-gold: #8a5a00;
+  --league-platinum: #0369a1;
+  --league-diamond: #6d28d9;
+  --rarity-common: #5b6270;
+  --rarity-rare: #1d4ed8;
+  --rarity-epic: #6d28d9;
+  --rarity-legendary: #9e4c08;
+  --lilac: #6d28d9;
+  --orchid: #7e22ce;
+  --mint: #04694c;
+  --aqua: #0b6b84;
+  --aqua-2: #0b6b84;
+  --on-status: #ffffff;
+  --ring: #7c3aed;
+
+  --overlay: rgba(30, 20, 56, 0.42);
+  --well: rgba(46, 16, 101, 0.045);
+  --toast-bg: #ffffff;
+  --popover: #ffffff;
+  --popover-end: #faf9fd;
+  --popover-text: #1b1730;
+  --popover-muted: #5f5a76;
+  --chart-grid: #e6e2f0;
+  --scrollbar: #cdc7dc;
+  --tint: #2e1065;
+  --shadow-color: rgba(46, 16, 101, 0.22);
+  --shadow: 0 20px 50px -20px rgba(46, 16, 101, 0.24), 0 2px 8px -2px rgba(46, 16, 101, 0.08);
+  --shadow-card: 0 1px 2px rgba(46, 16, 101, 0.04), 0 6px 18px -10px rgba(46, 16, 101, 0.1);
+
+  /* Alias de tokens que se usaban sin estar definidos (se repiten en cada tema para resolverse con sus colores) */
+  --text-1: var(--text);
+  --bg-hover: var(--surface-3);
+
+  color-scheme: light;
+}
+
+/* ---------- Tema oscuro (el de siempre, sin cambios) ---------- */
+[data-theme="dark"], .theme-dark, .celebrate-overlay {
   --bg: #0c0c10;
   --bg-2: #0f0f14;
   --surface: #15151b;
@@ -7,7 +133,9 @@
   --surface-3: #24242e;
   --border: #23232c;
   --border-2: #31313d;
+  --input-border: #31313d;
   --text: #ececf1;
+  --text-strong: #ffffff;
   --text-2: #c4c4d0;
   --muted: #8b8b99;
   /* Antes #5d5d6b (contraste 2.8:1 sobre las tarjetas). Ahora ≥ 4.5:1 */
@@ -25,14 +153,60 @@
   --warning: #fbbf24;
   --warning-soft: rgba(251, 191, 36, 0.12);
   --info: #22d3ee;
+  --info-soft: rgba(34, 211, 238, 0.12);
   --minimum: #2dd4bf;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+  --minimum-soft: rgba(45, 212, 191, 0.12);
+  --streak: #fb923c;
+  --super: #c084fc;
+  --freeze: #38bdf8;
+  --yellow: #eab308;
+  --orange: #f97316;
+  --gold: #facc15;
+  --lime: #a3e635;
+  --emerald: #10b981;
+  --cyan: #06b6d4;
+  --red: #ef4444;
+  --league-bronze: #cd7f32;
+  --league-silver: #c0c7d1;
+  --league-gold: #f5c542;
+  --league-platinum: #7dd3fc;
+  --league-diamond: #a78bfa;
+  --rarity-common: #9ca3af;
+  --rarity-rare: #60a5fa;
+  --rarity-epic: #a78bfa;
+  --rarity-legendary: #f59e0b;
+  --lilac: #c4b5fd;
+  --orchid: #d8b4fe;
+  --mint: #6ee7b7;
+  --aqua: #67e8f9;
+  --aqua-2: #a5f3fc;
+  --on-status: #0c0c10;
+  --ring: #c4b5fd;
 
-  /* Alias de tokens que se usaban sin estar definidos */
+  --overlay: rgba(6, 6, 12, 0.78);
+  --well: rgba(0, 0, 0, 0.22);
+  --toast-bg: #22222b;
+  --popover: #181822;
+  --popover-end: #121219;
+  --popover-text: #ffffff;
+  --popover-muted: #a1a1aa;
+  --chart-grid: #23232c;
+  --scrollbar: #24242e;
+  --tint: #ffffff;
+  --shadow-color: #000000;
+  --shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+  --shadow-card: none;
+
   --text-1: var(--text);
   --bg-hover: var(--surface-3);
+
+  color-scheme: dark;
+}
+
+/* ---------- Tokens comunes a los dos temas ---------- */
+:root {
+  --radius: 18px;
+  --radius-sm: 12px;
 
   /* Espaciado */
   --space-1: 4px;
@@ -54,11 +228,15 @@
   --fs-h1: clamp(22px, 2.2vw + 14px, 30px);
   --fs-stat: clamp(20px, 1.6vw + 14px, 28px);
 
-  /* Capas */
+  /* Capas (de abajo arriba). Los modales apilados llegan a 1450 (ConfirmModal 1300, AiCoachView 1400/1450):
+     los toasts van por encima de todos ellos y por debajo de las animaciones a pantalla completa
+     (.celebrate-overlay 2000, regalo 99990, lienzo del confeti 2100/9999/100000) */
   --z-sticky: 40;
   --z-nav: 50;
   --z-modal: 1000;
-  --z-toast: 1100;
+  --z-popover: 1050;
+  --z-toast: 1500;
+  --z-celebrate: 2000;
 
   /* Áreas seguras (notch / indicador de inicio en PWA) */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -68,7 +246,6 @@
   --bottom-nav-h: 64px;
 
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color-scheme: dark;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -81,7 +258,7 @@ a { color: inherit; text-decoration: none; }
 ul, ol { list-style: none; }
 ::selection { background: rgba(139, 92, 246, 0.35); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; border: 2px solid var(--bg); }
 
 /* ===== Utilidades ===== */
 .muted { color: var(--muted); }
@@ -120,6 +297,8 @@ ul, ol { list-style: none; }
 
 /* ===== Card ===== */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; min-width: 0; }
+/* Sombra suave solo en claro (en oscuro --shadow-card es none). Con :where() no pisa ninguna sombra propia */
+:where(.card) { box-shadow: var(--shadow-card); }
 .card.flush { padding: 0; overflow: hidden; }
 .card.interactive { transition: border-color .15s, transform .15s; cursor: pointer; }
 .card.interactive:hover { border-color: var(--border-2); transform: translateY(-1px); }
@@ -151,8 +330,8 @@ ul, ol { list-style: none; }
 .btn-danger:hover:not(:disabled) { background: #dc2626; }
 .btn-danger-solid { background: #dc2626; color: #fff; border-color: #dc2626; }
 .btn-danger-solid:hover:not(:disabled) { background: #b91c1c; }
-.btn-success { background: var(--success-soft); color: var(--success); border-color: rgba(52, 211, 153, 0.3); }
-.btn-success:hover:not(:disabled) { background: rgba(52, 211, 153, 0.2); }
+.btn-success { background: var(--success-soft); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+.btn-success:hover:not(:disabled) { background: color-mix(in srgb, var(--success) 20%, transparent); }
 .btn:disabled { opacity: .45; }
 .btn.sm { padding: 6px 12px; font-size: 12.5px; border-radius: 10px; }
 .btn.lg { padding: 13px 20px; font-size: 15px; border-radius: 14px; }
@@ -171,7 +350,7 @@ ul, ol { list-style: none; }
 .badge.success { background: var(--success-soft); color: var(--success); }
 .badge.danger { background: var(--danger-soft); color: var(--danger); }
 .badge.warning { background: var(--warning-soft); color: var(--warning); }
-.badge.info { background: rgba(34, 211, 238, 0.12); color: var(--info); }
+.badge.info { background: var(--info-soft); color: var(--info); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { padding: 7px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-2); font-size: 12.5px; font-weight: 500; transition: .15s; cursor: pointer; }
 .chip:hover { border-color: var(--accent); color: var(--accent-2); }
@@ -206,7 +385,7 @@ ul, ol { list-style: none; }
 .field > .label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .field .hint { font-size: 12px; color: var(--faint); }
 .input, .textarea, .select {
-  width: 100%; padding: 10px 13px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border-2); outline: none; transition: border-color .15s, box-shadow .15s;
+  width: 100%; padding: 10px 13px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--input-border); outline: none; transition: border-color .15s, box-shadow .15s;
 }
 .textarea { resize: vertical; min-height: 80px; }
 .select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 34px; }
@@ -216,7 +395,25 @@ ul, ol { list-style: none; }
 @media (min-width: 640px) { .form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .form-error { color: var(--danger); font-size: 13px; }
 .checkbox { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; }
-.checkbox input { accent-color: var(--accent); width: 16px; height: 16px; }
+.checkbox input {
+  /* Casilla propia (no la del sistema): caja con borde del tema y marca blanca sobre el acento */
+  appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 0; display: grid; place-items: center;
+  border: 1.5px solid var(--input-border, var(--border-2)); border-radius: 5px; background: var(--surface); cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.checkbox input::after {
+  content: ''; width: 9px; height: 5px; border: solid #fff; border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg) scale(0);
+  transition: transform .15s ease;
+}
+.checkbox input:checked { background: var(--accent-strong); border-color: var(--accent-strong); }
+.checkbox input:checked::after { transform: translateY(-1px) rotate(-45deg) scale(1); }
+.checkbox input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.checkbox input:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Campos numéricos sin las flechas del sistema (se escribe el número; el teclado numérico lo da inputmode) */
+input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 .emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
 .emoji-opt { display: grid; place-items: center; height: 38px; border-radius: 10px; font-size: 18px; background: var(--surface-2); border: 1.5px solid transparent; transition: .15s; }
@@ -234,7 +431,7 @@ ul, ol { list-style: none; }
 .segmented { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); gap: 2px; flex-wrap: wrap; }
 .segmented button { padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 500; color: var(--muted); transition: .15s; }
 .segmented button:hover { color: var(--text); }
-.segmented button.active { background: var(--surface-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.segmented button.active { background: var(--surface-3); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, var(--shadow-color) 30%, transparent); }
 
 /* ===== Escala 1-5 (energía / ánimo) ===== */
 .level-picker { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -273,9 +470,9 @@ ul, ol { list-style: none; }
 /* ===== Callout / insight ===== */
 .callout { display: flex; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border-2); }
 .callout svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
-.callout.positive { background: var(--success-soft); border-color: rgba(52, 211, 153, 0.25); }
+.callout.positive { background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 25%, transparent); }
 .callout.positive > svg { color: var(--success); }
-.callout.attention { background: var(--warning-soft); border-color: rgba(251, 191, 36, 0.25); }
+.callout.attention { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 25%, transparent); }
 .callout.attention > svg { color: var(--warning); }
 .callout.neutral > svg { color: var(--accent-2); }
 .callout .title { font-weight: 600; }
@@ -288,7 +485,7 @@ ul, ol { list-style: none; }
   width: 100%;
   height: 100%;
   z-index: 1000;
-  background: rgba(6, 6, 12, 0.78);
+  background: var(--overlay);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   display: flex;
@@ -306,7 +503,7 @@ ul, ol { list-style: none; }
   border: 1px solid var(--border-2);
   border-radius: 22px;
   padding: 24px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--shadow-color) 85%, transparent);
   animation: modalIn .2s ease both;
   margin: 0 auto;
   position: relative;
@@ -360,15 +557,16 @@ ul, ol { list-style: none; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
 
 /* ===== Toasts ===== */
-.toast-root { position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
-.toast { display: flex; align-items: center; gap: 10px; padding: 11px 12px 11px 16px; border-radius: 12px; background: #22222b; border: 1px solid var(--border-2); box-shadow: var(--shadow); font-size: 13.5px; animation: toastIn .25s ease both; pointer-events: auto; width: min(360px, calc(100vw - 32px)); }
+/* Por encima de los modales y por debajo de las celebraciones a pantalla completa y del confeti (ver Capas) */
+.toast-root { position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 24px; z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toast { display: flex; align-items: center; gap: 10px; padding: 11px 12px 11px 16px; border-radius: 12px; background: var(--toast-bg); border: 1px solid var(--border-2); box-shadow: var(--shadow); font-size: 13.5px; animation: toastIn .25s ease both; pointer-events: auto; width: min(360px, calc(100vw - 32px)); }
 .toast-body { display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; }
 .toast-body small { color: var(--muted); font-size: 12px; }
 .toast-close { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--muted); flex-shrink: 0; }
 .toast-close:hover { background: var(--surface-3); color: var(--text); }
-.toast.warning { border-color: rgba(251, 191, 36, 0.35); }
+.toast.warning { border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
 .toast.warning svg { color: var(--warning); }
-.toast.error { border-color: rgba(248, 113, 113, 0.35); }
+.toast.error { border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 /* Móvil: centrados y por encima de la barra inferior */
 @media (max-width: 639.98px) {
   .toast-root { left: 16px; right: 16px; bottom: calc(var(--bottom-nav-h) + 16px + var(--safe-bottom)); align-items: stretch; }
@@ -381,34 +579,34 @@ ul, ol { list-style: none; }
 .toast.error svg { color: var(--danger); }
 .toast b { color: var(--success); }
 
-/* ===== Recharts (tema oscuro) ===== */
-.recharts-cartesian-grid line { stroke: var(--border); }
+/* ===== Recharts (tokens del tema) ===== */
+.recharts-cartesian-grid line { stroke: var(--chart-grid); }
 .recharts-text { fill: var(--muted); font-size: 11.5px; }
-.recharts-tooltip-cursor { fill: rgba(255, 255, 255, 0.04); }
+.recharts-tooltip-cursor { fill: color-mix(in srgb, var(--tint) 4%, transparent); }
 .recharts-default-tooltip {
-  background-color: #181822 !important;
+  background-color: var(--popover) !important;
   border: 1px solid var(--border-2) !important;
   border-radius: 12px !important;
-  color: #ffffff !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85) !important;
+  color: var(--popover-text) !important;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow-color) 85%, transparent) !important;
   padding: 8px 14px !important;
 }
 .recharts-tooltip-item {
-  color: #ffffff !important;
+  color: var(--popover-text) !important;
 }
 .recharts-tooltip-item-name,
 .recharts-tooltip-item-value {
-  color: #ffffff !important;
+  color: var(--popover-text) !important;
   font-weight: 600;
 }
 .recharts-tooltip-label {
-  color: #a1a1aa !important;
+  color: var(--popover-muted) !important;
   font-size: 11.5px;
   margin-bottom: 4px;
 }
-.chart-tooltip { background: #181822; border: 1px solid var(--border-2); border-radius: 12px; padding: 8px 14px; font-size: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85); color: #fff; }
-.chart-tooltip .t-label { color: #a1a1aa; font-size: 11px; margin-bottom: 2px; }
-.chart-tooltip .t-row { display: flex; align-items: center; gap: 6px; color: #fff; }
+.chart-tooltip { background: var(--popover); border: 1px solid var(--border-2); border-radius: 12px; padding: 8px 14px; font-size: 12px; box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow-color) 85%, transparent); color: var(--popover-text); }
+.chart-tooltip .t-label { color: var(--popover-muted); font-size: 11px; margin-bottom: 2px; }
+.chart-tooltip .t-row { display: flex; align-items: center; gap: 6px; color: var(--popover-text); }
 .chart-tooltip .t-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 /* ===== Animaciones ===== */
@@ -577,7 +775,7 @@ ul, ol { list-style: none; }
 .challenge-day-btn.checked {
   background: var(--success);
   border-color: var(--success);
-  color: #0c0c10;
+  color: var(--on-status);
   font-weight: 700;
 }
 .challenge-day-btn.today {
@@ -768,6 +966,8 @@ ul, ol { list-style: none; }
   white-space: pre-wrap;
 }
 .chat-bubble.user {
+  /* Sobre el violeta, el texto «fuerte» (negritas y títulos de MarkdownMessage) es blanco en los dos temas */
+  --text-strong: #ffffff;
   align-self: flex-end;
   background: var(--accent);
   color: #fff;
@@ -875,7 +1075,7 @@ ul, ol { list-style: none; }
 .chat-msg-action { display: inline-flex; align-items: center; justify-content: center; padding: 2px; color: var(--text-2); border-radius: 8px; transition: background .15s, color .15s; }
 .chat-msg-action:hover:not(:disabled) { color: var(--text); }
 .chat-msg-action:disabled { cursor: default; }
-.chat-versions-nav { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 8px; font-size: 11px; color: var(--text-2); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 12px; }
+.chat-versions-nav { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 8px; font-size: 11px; color: var(--text-2); background: color-mix(in srgb, var(--tint) 4%, transparent); border: 1px solid var(--border); border-radius: 12px; }
 .chat-version-btn { display: inline-flex; align-items: center; justify-content: center; padding: 1px 3px; color: inherit; }
 .chat-version-btn:disabled { opacity: .3; cursor: default; }
 .chat-send-btn { flex-shrink: 0; }
@@ -924,15 +1124,6 @@ ul, ol { list-style: none; }
   color: var(--text);
 }
 
-/* Range input para Ajustes */
-.range-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 99px;
-  background: var(--surface-3);
-  outline: none;
-  accent-color: var(--accent);
-}
 /* ===== Efectos Especiales ===== */
 .streak-card {
   position: relative;
@@ -969,6 +1160,13 @@ ul, ol { list-style: none; }
 .streak-flame .sf-rays { transform-box: view-box; transform-origin: 24px 25px; }
 .streak-flame .sf-orbit { transform-box: view-box; transform-origin: 24px 26px; }
 .streak-flame .sf-ring { stroke-dasharray: 4 3; }
+/* Tema claro: las capas exteriores de los niveles altos son blancas o casi blancas y sobre una tarjeta blanca
+   la silueta se perdía. Contorno fino con el tono oscuro de cada paleta (--sf-edge), pintado por debajo del relleno */
+:where(:root:not([data-theme="dark"])) .streak-flame .sf-outer {
+  stroke: var(--sf-edge, transparent); stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke;
+}
+/* Las celebraciones son siempre oscuras: allí la llama va sin contorno */
+.celebrate-overlay .streak-flame .sf-outer { stroke: none; }
 .streak-flame .sf-cinder { opacity: .55; }
 
 .streak-flame.is-animated .sf-outer { animation: sfFlicker var(--sf-dur) ease-in-out infinite alternate; }
@@ -1069,7 +1267,7 @@ ul, ol { list-style: none; }
 .card-streak-neon:hover {
   transform: translateY(-5px) scale(1.025);
   border-color: rgba(251, 191, 36, 0.85) !important;
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7), 0 0 52px 6px rgba(251, 191, 36, 0.45), inset 0 0 24px rgba(251, 191, 36, 0.16);
+  box-shadow: 0 16px 36px -8px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 52px 6px rgba(251, 191, 36, 0.45), inset 0 0 24px rgba(251, 191, 36, 0.16);
 }
 .card-streak-neon:hover::before {
   transform: scale(1.08);
@@ -1107,7 +1305,7 @@ ul, ol { list-style: none; }
 .card-streak-neon-super:hover {
   transform: translateY(-5px) scale(1.025);
   border-color: rgba(216, 180, 254, 0.95) !important;
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7), 0 0 58px 8px rgba(168, 85, 247, 0.65), inset 0 0 28px rgba(168, 85, 247, 0.25);
+  box-shadow: 0 16px 36px -8px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 58px 8px rgba(168, 85, 247, 0.65), inset 0 0 28px rgba(168, 85, 247, 0.25);
 }
 .card-streak-neon-super:hover::before {
   transform: scale(1.08);
@@ -1145,7 +1343,7 @@ ul, ol { list-style: none; }
 .card-streak-neon-frozen:hover {
   transform: translateY(-5px) scale(1.025);
   border-color: rgba(125, 211, 252, 0.95) !important;
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7), 0 0 58px 8px rgba(56, 189, 248, 0.65), inset 0 0 28px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 16px 36px -8px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 58px 8px rgba(56, 189, 248, 0.65), inset 0 0 28px rgba(56, 189, 248, 0.25);
 }
 .card-streak-neon-frozen:hover::before {
   transform: scale(1.08);
@@ -1189,10 +1387,10 @@ ul, ol { list-style: none; }
   flex-shrink: 0;
 }
 .btn-habit-check:not(.active):not(.active-min):hover {
-  border: 1.5px dashed rgba(52, 211, 153, 0.85) !important;
-  background: rgba(52, 211, 153, 0.1) !important;
-  color: #fff !important;
-  box-shadow: 0 0 14px rgba(52, 211, 153, 0.25);
+  border: 1.5px dashed color-mix(in srgb, var(--success) 85%, transparent) !important;
+  background: color-mix(in srgb, var(--success) 10%, transparent) !important;
+  color: var(--text-strong) !important;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--success) 25%, transparent);
 }
 .btn-habit-check:not(.active):not(.active-min):hover .check-preview {
   opacity: 0.9;
@@ -1206,15 +1404,13 @@ ul, ol { list-style: none; }
 .btn-habit-check.active-min {
   background: var(--minimum) !important;
   border: 1.5px solid var(--minimum) !important;
-  color: #0c0c10 !important;
+  color: var(--on-status) !important;
   font-weight: 700;
-  box-shadow: 0 4px 16px rgba(45, 212, 191, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--minimum) 40%, transparent);
 }
 
-/* Esquema de color oscuro para selectores de fechas y listas */
-input[type="date"], select, .select, input, textarea {
-  color-scheme: dark;
-}
+/* Selectores de fecha y listas nativos: heredan color-scheme del tema (light/dark en :root),
+   antes se forzaba «dark» aquí */
 
 @keyframes checkPop {
   0% { transform: scale(0.82); }
@@ -1240,43 +1436,12 @@ input[type="date"], select, .select, input, textarea {
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .matrix-cell-btn:not(.filled):hover:not(:disabled) {
-  border: 1.5px dashed rgba(52, 211, 153, 0.75) !important;
-  background: rgba(52, 211, 153, 0.08) !important;
+  border: 1.5px dashed color-mix(in srgb, var(--success) 75%, transparent) !important;
+  background: color-mix(in srgb, var(--success) 8%, transparent) !important;
   transform: scale(1.06);
 }
 .matrix-cell-btn.filled {
   animation: checkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Botón de reanudar hábito en matriz semanal */
-.resume-matrix-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  padding: 0;
-  line-height: 1;
-  background: rgba(234, 179, 8, 0.16);
-  border: 1.5px dashed #eab308;
-  color: #eab308;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.resume-matrix-btn:hover {
-  background: rgba(234, 179, 8, 0.28) !important;
-  border: 1.5px dashed #facc15 !important;
-  color: #facc15 !important;
-  transform: scale(1.08);
-}
-.resume-matrix-btn::before,
-.resume-matrix-btn::after {
-  content: none !important;
-  display: none !important;
 }
 
 /* Calendario: Hover y Transición de Días (acento violeta) */
@@ -1321,7 +1486,7 @@ input[type="date"], select, .select, input, textarea {
   transform: translateY(-5px);
   border-color: rgba(251, 191, 36, 0.8) !important;
   box-shadow: 
-    0 16px 36px -6px rgba(0, 0, 0, 0.7),
+    0 16px 36px -6px color-mix(in srgb, var(--shadow-color) 70%, transparent),
     0 0 28px 2px rgba(251, 191, 36, 0.4),
     0 0 60px 8px rgba(245, 158, 11, 0.22),
     inset 0 0 0 1px rgba(251, 191, 36, 0.35) !important;
@@ -1330,26 +1495,10 @@ input[type="date"], select, .select, input, textarea {
   transform: translateY(-5px);
   border-color: rgba(168, 85, 247, 0.8) !important;
   box-shadow: 
-    0 16px 36px -6px rgba(0, 0, 0, 0.7),
+    0 16px 36px -6px color-mix(in srgb, var(--shadow-color) 70%, transparent),
     0 0 28px 2px rgba(168, 85, 247, 0.42),
     0 0 60px 8px rgba(139, 92, 246, 0.22),
     inset 0 0 0 1px rgba(168, 85, 247, 0.35) !important;
-}
-
-/* Tarjeta especial permanente del Protector de Racha (Hielo) */
-.reward-card.freeze-reward-card {
-  background: linear-gradient(180deg, rgba(14, 165, 233, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%) !important;
-  border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
-  box-shadow: 0 8px 24px -4px rgba(14, 165, 233, 0.25);
-}
-.reward-card.freeze-reward-card:hover {
-  transform: translateY(-5px);
-  border-color: #38bdf8 !important;
-  box-shadow: 
-    0 16px 36px -6px rgba(0, 0, 0, 0.7),
-    0 0 30px 4px rgba(56, 189, 248, 0.5),
-    0 0 65px 10px rgba(14, 165, 233, 0.3),
-    inset 0 0 0 1px rgba(56, 189, 248, 0.45) !important;
 }
 
 /* Animación para el overlay y botón de reanudar hábito */
@@ -1455,13 +1604,13 @@ input[type="date"], select, .select, input, textarea {
 }
 
 .conversation-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--tint) 5%, transparent);
   color: var(--text-1);
 }
 
 .conversation-item.active {
-  background: #1f1f24 !important;
-  color: #ffffff !important;
+  background: #1f1f24 !important; /* en claro: ver «Ajustes del tema claro» al final */
+  color: var(--text-strong) !important;
 }
 
 .conversation-item .conv-title {
@@ -1496,17 +1645,18 @@ input[type="date"], select, .select, input, textarea {
 
 .conversation-item .conv-more-btn:hover,
 .conversation-item .conv-more-btn.menu-open {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--tint) 12%, transparent);
+  color: var(--text-strong);
 }
 
 .conv-portal-dropdown {
   position: fixed;
-  z-index: 99999;
-  background: #18181c;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* Antes 99999 (tapaba celebraciones y toasts): menú de la lista de conversaciones, encima de modales base */
+  z-index: var(--z-popover);
+  background: #18181c; /* en claro: --popover (ver «Ajustes del tema claro») */
+  border: 1px solid color-mix(in srgb, var(--tint) 14%, transparent);
   border-radius: 10px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow-color) 75%, transparent), 0 0 0 1px color-mix(in srgb, var(--tint) 5%, transparent);
   min-width: 155px;
   padding: 5px;
   display: flex;
@@ -1532,11 +1682,11 @@ input[type="date"], select, .select, input, textarea {
 }
 
 .conv-portal-dropdown .dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--tint) 8%, transparent);
 }
 
 .conv-portal-dropdown .dropdown-item.danger {
-  color: #f87171;
+  color: var(--danger);
 }
 
 .conv-portal-dropdown .dropdown-item.danger:hover {
@@ -1576,8 +1726,8 @@ input[type="date"], select, .select, input, textarea {
   width: 44px;
   height: 24px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--tint) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint) 15%, transparent);
   position: relative;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
@@ -1597,7 +1747,7 @@ input[type="date"], select, .select, input, textarea {
   height: 18px;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--shadow-color) 40%, transparent);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1606,7 +1756,7 @@ input[type="date"], select, .select, input, textarea {
 }
 
 .custom-switch:hover .custom-switch-track {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: color-mix(in srgb, var(--tint) 30%, transparent);
 }
 
 .custom-switch input[type="checkbox"]:focus-visible + .custom-switch-track {
@@ -1629,7 +1779,7 @@ input[type="date"], select, .select, input, textarea {
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--tint) 10%, transparent);
   outline: none;
   cursor: pointer;
   margin: 10px 0;
@@ -1654,7 +1804,7 @@ input[type="date"], select, .select, input, textarea {
   border-radius: 50%;
   background: #ffffff;
   border: 3px solid #6366f1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 10px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 10px rgba(99, 102, 241, 0.5);
   cursor: pointer;
   margin-top: -6px;
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, border-color 0.15s ease;
@@ -1663,12 +1813,12 @@ input[type="date"], select, .select, input, textarea {
 .custom-slider-input::-webkit-slider-thumb:hover {
   transform: scale(1.25);
   border-color: #8b5cf6;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(139, 92, 246, 0.85);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color) 80%, transparent), 0 0 16px rgba(139, 92, 246, 0.85);
 }
 
 .custom-slider-input::-webkit-slider-thumb:active {
   transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 22px rgba(139, 92, 246, 1);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--shadow-color) 90%, transparent), 0 0 22px rgba(139, 92, 246, 1);
 }
 
 /* Firefox */
@@ -1684,7 +1834,7 @@ input[type="date"], select, .select, input, textarea {
   border-radius: 50%;
   background: #ffffff;
   border: 3px solid #6366f1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 10px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 10px rgba(99, 102, 241, 0.5);
   cursor: pointer;
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
 }
@@ -1692,7 +1842,7 @@ input[type="date"], select, .select, input, textarea {
 .custom-slider-input::-moz-range-thumb:hover {
   transform: scale(1.25);
   border-color: #8b5cf6;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(139, 92, 246, 0.85);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color) 80%, transparent), 0 0 16px rgba(139, 92, 246, 0.85);
 }
 
 /* ===== Botón Especial Probar Sonido ===== */
@@ -1714,7 +1864,7 @@ input[type="date"], select, .select, input, textarea {
 .btn-sound-test:hover:not(:disabled) {
   background: rgba(99, 102, 241, 0.26);
   border-color: #818cf8;
-  color: #ffffff;
+  color: var(--text-strong);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
 }
@@ -1726,8 +1876,8 @@ input[type="date"], select, .select, input, textarea {
 .btn-sound-test:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: color-mix(in srgb, var(--tint) 8%, transparent);
+  background: color-mix(in srgb, var(--tint) 4%, transparent);
   color: var(--muted);
 }
 
@@ -1757,24 +1907,8 @@ input[type="date"], select, .select, input, textarea {
 .brand-logo { flex-shrink: 0; display: block; filter: drop-shadow(0 4px 12px rgba(124, 58, 237, 0.35)); }
 .brand:hover .brand-mark-bolt { animation: boltZap .5s ease; }
 @keyframes boltZap { 0%, 100% { opacity: 1; } 30% { opacity: .35; } 55% { opacity: 1; } 70% { opacity: .6; } }
-.brand-wordmark { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; color: #fff; white-space: nowrap; }
+.brand-wordmark { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; color: var(--text-strong); white-space: nowrap; }
 .brand-bang { color: #fbbf24; font-weight: 900; }
-.energy-btn { color: var(--warning); }
-/* Sin energía registrada hoy: el rayo vibra en ráfagas cortas para llamar la atención */
-.energy-btn--pending svg { animation: energy-buzz 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
-.energy-btn--pending:hover svg, .energy-btn--pending:focus-visible svg { animation-play-state: paused; }
-@keyframes energy-buzz {
-  0%, 60%, 100% { transform: translate(0, 0) rotate(0); }
-  63% { transform: translate(-1px, 0) rotate(-8deg); }
-  66% { transform: translate(1px, 0) rotate(8deg); }
-  69% { transform: translate(-1px, 0) rotate(-6deg); }
-  72% { transform: translate(1px, 0) rotate(6deg); }
-  75% { transform: translate(-0.5px, 0) rotate(-3deg); }
-  78% { transform: translate(0, 0) rotate(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .energy-btn--pending svg { animation: none; }
-}
 
 /* Sidebar / rail */
 .sidebar { display: none; }
@@ -1797,7 +1931,7 @@ input[type="date"], select, .select, input, textarea {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: calc(10px + var(--safe-top)) max(16px, var(--safe-right)) 10px max(16px, var(--safe-left));
   border-bottom: 1px solid var(--border);
-  background: rgba(12, 12, 16, 0.88);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   position: sticky; top: 0; z-index: var(--z-sticky);
 }
@@ -1809,7 +1943,7 @@ input[type="date"], select, .select, input, textarea {
   display: grid; grid-template-columns: repeat(5, 1fr);
   padding: 6px max(8px, var(--safe-left)) calc(6px + var(--safe-bottom)) max(8px, var(--safe-right));
   min-height: calc(var(--bottom-nav-h) + var(--safe-bottom));
-  background: rgba(21, 21, 27, 0.96);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-2);
 }
@@ -1828,9 +1962,9 @@ input[type="date"], select, .select, input, textarea {
 /* Temporizador minimizado */
 .timer-bar {
   display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(90deg, #1c1c24, #15151b);
+  background: linear-gradient(90deg, var(--surface-2), var(--surface));
   border: 1px solid var(--accent);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color) 45%, transparent);
   z-index: calc(var(--z-nav) - 1);
   /* Móvil: pastilla flotante sobre la barra inferior */
   position: fixed;
@@ -1977,7 +2111,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .icon-label svg { flex-shrink: 0; }
 .legend-cell { width: 16px; height: 16px; border-radius: 5px; display: inline-grid; place-items: center; flex-shrink: 0; }
 .badge.paused-badge {
-  background: var(--warning-soft); color: var(--warning); border: 1px solid rgba(251, 191, 36, 0.32);
+  background: var(--warning-soft); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
   font-size: 10.5px; padding: 1px 7px; gap: 4px; font-weight: 600;
 }
 .level-picker button .level-picker-icon { display: grid; place-items: center; height: 30px; font-size: inherit; }
@@ -1995,7 +2129,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .matrix-cell-btn.resume-cell .resume-cell-hover { display: none; }
 .matrix-cell-btn.resume-cell:hover,
 .matrix-cell-btn.resume-cell:focus-visible {
-  background: rgba(52, 211, 153, 0.14); border-color: var(--success); color: var(--success); transform: scale(1.06);
+  background: color-mix(in srgb, var(--success) 14%, transparent); border-color: var(--success); color: var(--success); transform: scale(1.06);
 }
 .matrix-cell-btn.resume-cell:hover .resume-cell-idle,
 .matrix-cell-btn.resume-cell:focus-visible .resume-cell-idle { display: none; }
@@ -2007,18 +2141,19 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
    ===================================================================== */
 .donut-tip {
   width: 240px; max-width: 70vw;
-  background: rgba(20, 21, 33, 0.97); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
-  padding: 10px 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.7);
+  /* Fondo: en claro, --popover (ver «Ajustes del tema claro») */
+  background: rgba(20, 21, 33, 0.97); border: 1px solid color-mix(in srgb, var(--tint) 12%, transparent); border-radius: 12px;
+  padding: 10px 12px; box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow-color) 70%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   pointer-events: none; animation: fadeIn .12s ease both;
 }
 .donut-tip-head { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: #f8fafc; margin-bottom: 6px; min-width: 0; }
 .donut-tip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.donut-tip-row { padding: 6px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.donut-tip-row { padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--tint) 6%, transparent); }
 .donut-tip-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-.donut-tip-line strong { color: #fff; font-weight: 700; font-size: 12.5px; }
+.donut-tip-line strong { color: var(--text-strong); font-weight: 700; font-size: 12.5px; }
 .donut-tip-note { display: flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 10.5px; font-weight: 600; color: var(--faint); }
-.donut-tip-meter { flex: 0 0 38px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.donut-tip-meter { flex: 0 0 38px; height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--tint) 10%, transparent); overflow: hidden; }
 .donut-tip-meter > span { display: block; height: 100%; border-radius: inherit; }
 
 /* =====================================================================
@@ -2042,7 +2177,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .coach-fab.open::after { animation: none; }
 .coach-fab:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 16px 36px -6px rgba(124, 58, 237, 0.8); }
 .coach-fab:active { transform: scale(.95); }
-.coach-fab:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 3px; }
+.coach-fab:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
 .coach-fab-icon { grid-area: 1 / 1; display: grid; place-items: center; transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), opacity .2s; }
 .coach-fab-icon-close { opacity: 0; transform: rotate(-90deg) scale(.5); }
 .coach-fab.open .coach-fab-icon-bot { opacity: 0; transform: rotate(90deg) scale(.5); }
@@ -2055,9 +2190,9 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   right: max(24px, var(--safe-right)); bottom: calc(96px + var(--safe-bottom));
   width: min(390px, calc(100vw - 32px)); height: min(580px, calc(100dvh - 140px));
   display: flex; flex-direction: column; overflow: hidden;
-  background: linear-gradient(180deg, #18181f 0%, #121218 100%);
+  background: linear-gradient(180deg, #18181f 0%, #121218 100%); /* en claro: ver «Ajustes del tema claro» */
   border: 1px solid var(--border-2); border-radius: 20px;
-  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 30px 70px -20px color-mix(in srgb, var(--shadow-color) 85%, transparent), 0 0 0 1px rgba(139, 92, 246, 0.08);
   transform-origin: bottom right;
   animation: floatPanelIn .28s cubic-bezier(.16, 1, .3, 1) both;
 }
@@ -2079,7 +2214,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .coach-float-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 .coach-float-quick .preset-pill { display: inline-flex; align-items: center; gap: 5px; }
 .coach-float-quick .preset-pill svg { color: var(--accent-2); }
-.coach-float-input { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px calc(10px + var(--safe-bottom) * 0); border-top: 1px solid var(--border); background: rgba(12, 12, 16, 0.6); }
+.coach-float-input { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px calc(10px + var(--safe-bottom) * 0); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 60%, transparent); }
 .coach-float-input .input { resize: none; min-height: 40px; max-height: 120px; padding: 9px 12px; font-size: 13.5px; line-height: 1.4; field-sizing: content; }
 .coach-float-send { width: 40px; height: 40px; padding: 0; border-radius: 12px; flex-shrink: 0; justify-content: center; }
 
@@ -2107,8 +2242,9 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
    CELEBRACIONES A PANTALLA COMPLETA (racha, súper racha y recompensas)
    ===================================================================== */
 .celebrate-overlay {
-  position: fixed; inset: 0; z-index: 2000;
+  position: fixed; inset: 0; z-index: var(--z-celebrate);
   display: grid; place-items: center; padding: 24px; overflow: hidden; cursor: pointer;
+  /* Siempre con los tokens del tema oscuro (ver TEMAS al principio): es un escenario a oscuras en los dos temas */
   /* Sin backdrop-filter: desenfocar toda la pantalla en cada fotograma era lo más costoso. El fondo es casi opaco */
   contain: layout paint; isolation: isolate;
   animation: celebrateFadeIn .35s ease both;
@@ -2483,8 +2619,8 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   border: 1px solid rgba(139, 92, 246, 0.32);
   animation: fadeUp .25s ease both;
 }
-.action-card.tone-delete { background: linear-gradient(135deg, rgba(248, 113, 113, 0.09), transparent 60%), var(--surface-2); border-color: rgba(248, 113, 113, 0.32); }
-.action-card.is-applied { background: var(--surface-2); border-color: rgba(52, 211, 153, 0.35); }
+.action-card.tone-delete { background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 9%, transparent), transparent 60%), var(--surface-2); border-color: color-mix(in srgb, var(--danger) 32%, transparent); }
+.action-card.is-applied { background: var(--surface-2); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
 .action-card.is-dismissed { background: var(--surface-2); border-color: var(--border-2); opacity: .7; }
 .action-card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .action-card-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: var(--accent-soft); color: var(--accent-2); }
@@ -2495,7 +2631,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 .action-card-subject { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action-card-state { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--muted); flex-shrink: 0; }
 .is-applied .action-card-state { background: var(--success-soft); color: var(--success); }
-.action-card-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.22); font-size: 12.5px; }
+.action-card-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--well); font-size: 12.5px; }
 .action-card-row { display: contents; }
 .action-card-row dt { color: var(--muted); }
 .action-card-row dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
@@ -2517,3 +2653,34 @@ body:has(.modal-backdrop) .app-shell *::after {
 /* Llamas fuera de pantalla (ver StreakFlame): sin animación hasta que vuelvan a verse */
 .streak-flame.is-offscreen * { animation-play-state: paused !important; }
 
+
+/* =====================================================================
+   AJUSTES DEL TEMA CLARO
+   Piezas cuyo color pensado para fondo oscuro no sale de un token. El prefijo
+   :where(:root:not([data-theme="dark"])) no suma especificidad: la regla pesa lo mismo que la original y gana
+   por ir después, así los estados (:hover, .active, :disabled…) siguen funcionando y el tema oscuro no cambia.
+   ===================================================================== */
+/* Segmentos: pastilla blanca elevada sobre la pista lila */
+:where(:root:not([data-theme="dark"])) .segmented button.active { background: var(--surface); }
+/* Marca: el «¡» en el ámbar del rayo, oscurecido para llegar a 3:1 (texto grande) sobre el fondo claro */
+:where(:root:not([data-theme="dark"])) .brand-bang { color: #d97706; }
+/* Coach IA: conversación activa, menú y panel flotante */
+:where(:root:not([data-theme="dark"])) .conversation-item.active { background: var(--accent-soft) !important; }
+:where(:root:not([data-theme="dark"])) .conv-portal-dropdown { background: var(--popover); }
+:where(:root:not([data-theme="dark"])) .conv-portal-dropdown .dropdown-item.danger:hover { color: var(--danger); }
+:where(:root:not([data-theme="dark"])) .coach-float-panel { background: linear-gradient(180deg, var(--surface) 0%, var(--bg-2) 100%); }
+/* Cristalería de las ilustraciones (LabArt, ShopArt): el vidrio blanco translúcido no se veía sobre blanco */
+:where(:root:not([data-theme="dark"])) .art-glass { fill: rgba(46, 16, 101, 0.06); stroke: rgba(46, 16, 101, 0.22); stroke-width: 1.4; }
+:where(:root:not([data-theme="dark"])) .art-glass-edge { stroke: rgba(46, 16, 101, 0.3); }
+:where(:root:not([data-theme="dark"])) .lab-art-vapor { fill: #94a3b8; }
+/* Burbuja del usuario (violeta): código en línea legible sobre el violeta */
+:where(:root:not([data-theme="dark"])) .chat-bubble.user { --accent-2: #ede9fe; --tint: #ffffff; }
+/* Tooltip del donut */
+:where(:root:not([data-theme="dark"])) .donut-tip { background: color-mix(in srgb, var(--popover) 97%, transparent); }
+:where(:root:not([data-theme="dark"])) .donut-tip-head { color: var(--text-strong); }
+/* Interruptor: pista visible (borde ≥ 3:1) y pulgar con sombra marcada sobre fondo claro */
+:where(:root:not([data-theme="dark"])) .custom-switch-track { background: var(--surface-3); border-color: var(--input-border); }
+:where(:root:not([data-theme="dark"])) .custom-switch:hover .custom-switch-track { border-color: var(--accent); }
+:where(:root:not([data-theme="dark"])) .custom-switch-thumb { box-shadow: 0 1px 3px rgba(46, 16, 101, 0.35); }
+/* Botón «Probar sonido»: índigo oscuro en vez de #a5b4fc (2:1 sobre blanco) */
+:where(:root:not([data-theme="dark"])) .btn-sound-test { color: #4338ca; }

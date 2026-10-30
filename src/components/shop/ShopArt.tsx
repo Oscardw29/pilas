@@ -35,7 +35,7 @@ export const ShopBackShelf: React.FC = () => (
     {/* Bote de monedas */}
     <g className="shop-art-jar">
       <rect x={104} y={30} width={50} height={10} rx={4} fill="#94a3b8" />
-      <path d="M106 40 H152 V88 Q152 96 144 96 H114 Q106 96 106 88 Z" fill="rgba(255,255,255,0.14)" />
+      <path d="M106 40 H152 V88 Q152 96 144 96 H114 Q106 96 106 88 Z" className="art-glass" fill="rgba(255,255,255,0.14)" />
       {[
         [116, 86], [130, 88], [144, 86], [122, 77], [137, 78], [128, 68], [115, 66], [143, 69],
       ].map(([x, y], i) => (

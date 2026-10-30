@@ -90,7 +90,7 @@ export const GoalsView: React.FC = () => {
               <h3 className="card-title">Avance comparativo de objetivos</h3>
               <p className="card-sub">Porcentaje de cumplimiento estratégico ponderado</p>
             </div>
-            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: 'var(--lilac)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
               {goalsChartData.length} objetivos
             </span>
           </div>
@@ -119,15 +119,15 @@ export const GoalsView: React.FC = () => {
                       return (
                         <div
                           style={{
-                            background: 'rgba(20, 21, 33, 0.96)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: 'color-mix(in srgb, var(--popover) 96%, transparent)',
+                            border: '1px solid color-mix(in srgb, var(--tint) 12%, transparent)',
                             borderRadius: 10,
                             padding: '8px 12px',
-                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+                            boxShadow: '0 8px 24px color-mix(in srgb, var(--shadow-color) 70%, transparent)',
                             fontSize: 12,
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: '#fff', marginBottom: 2 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--popover-text)', marginBottom: 2 }}>
                             {item.icon} {item.name}
                           </div>
                           <div style={{ color: item.color, fontWeight: 600 }}>

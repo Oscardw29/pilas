@@ -83,11 +83,12 @@ export const ExperimentsView: React.FC = () => {
     const totalDuration = relatedSessions.reduce((acc, s) => acc + s.durationSec / 60, 0);
     const avgDuration = relatedSessions.length ? Math.round(totalDuration / relatedSessions.length) : 0;
 
-    const energyVals = relatedSessions
-      .map((s) => s.energy)
-      .filter((e): e is NonNullable<typeof e> => e !== undefined && e !== null);
-    const avgEnergy = energyVals.length
-      ? (energyVals.reduce((acc, val) => acc + Number(val), 0) / energyVals.length).toFixed(1)
+    // Ánimo con el que se terminó cada sesión (1-5)
+    const moodVals = relatedSessions
+      .map((s) => s.mood)
+      .filter((m): m is NonNullable<typeof m> => m !== undefined && m !== null);
+    const avgMood = moodVals.length
+      ? (moodVals.reduce((acc, val) => acc + Number(val), 0) / moodVals.length).toFixed(1)
       : '-';
 
     const diffVals = relatedSessions
@@ -97,7 +98,7 @@ export const ExperimentsView: React.FC = () => {
       ? (diffVals.reduce((acc, val) => acc + Number(val), 0) / diffVals.length).toFixed(1)
       : '-';
 
-    return { completionPct, avgDuration, avgEnergy, avgDiff };
+    return { completionPct, avgDuration, avgMood, avgDiff };
   };
 
   /* El monitor muestra por defecto solo lo que está en curso; los concluidos se incluyen a demanda */
@@ -208,7 +209,7 @@ export const ExperimentsView: React.FC = () => {
                   tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
                 />
                 <Tooltip
-                  cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+                  cursor={{ fill: 'color-mix(in srgb, var(--text) 4%, transparent)' }}
                   content={({ active, payload }: any) => {
                     if (active && payload && payload.length) {
                       const item = payload[0].payload;
@@ -380,8 +381,8 @@ export const ExperimentsView: React.FC = () => {
                                 <small>Duración</small>
                               </div>
                               <div className="lab-metric">
-                                <span>{st.avgEnergy}</span>
-                                <small>Energía /5</small>
+                                <span>{st.avgMood}</span>
+                                <small>Ánimo /5</small>
                               </div>
                               <div className="lab-metric">
                                 <span>{st.avgDiff}</span>

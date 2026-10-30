@@ -1,0 +1,64 @@
+/* =====================================================================
+   BIENVENIDA Y AJUSTES: foto por defecto, alias, privacidad, tema y demostración
+   Solo variables de :root (global.css) o color-mix con ellas: funcionan en el tema claro y en el oscuro.
+   ===================================================================== */
+
+/* ---------- Selector de foto (5 fotos por defecto + la propia) ---------- */
+.avatar-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.avatar-picker-options { display: flex; gap: 10px; flex-wrap: wrap; }
+.avatar-picker-option {
+  width: 52px; height: 52px; padding: 0; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  border: 2px solid var(--border-2); background: var(--surface-2); cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.avatar-picker-option img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.avatar-picker-option:hover { border-color: var(--accent-2); transform: scale(1.06); }
+.avatar-picker-option[aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  transform: scale(1.08);
+}
+.avatar-picker-option:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 3px; }
+.avatar-picker-upload svg { width: 15px; height: 15px; }
+
+/* ---------- Campo de alias (sin «@»: se muestra tal cual) ---------- */
+.alias-field .input.is-bad { border-color: var(--danger); }
+.alias-hint.is-free { color: var(--success); }
+.alias-hint.is-taken, .alias-hint.is-invalid, .alias-hint.is-reserved { color: var(--danger); }
+
+/* ---------- Nota de privacidad de la bienvenida ---------- */
+.privacy-note {
+  display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface-2);
+  font-size: 12.5px; line-height: 1.5; color: var(--text-2);
+}
+.privacy-note p { margin: 0; display: flex; gap: 8px; align-items: flex-start; }
+.privacy-note svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
+.privacy-note .is-public svg { color: var(--accent-2); }
+.privacy-note .is-private svg { color: var(--success); }
+.privacy-note strong { color: var(--text); }
+
+/* ---------- Avisos dentro de una tarjeta (alias ocupado, demostración) ---------- */
+.settings-notice {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.5; color: var(--text-2);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.settings-notice > svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; color: var(--warning); }
+.settings-notice strong { color: var(--text); }
+.settings-notice.is-info {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.settings-notice.is-info > svg { color: var(--accent-2); }
+.settings-notice-body { display: grid; gap: 8px; flex: 1; min-width: 0; }
+
+/* ---------- Tema: botones tipo radio (Claro / Oscuro) con su icono ---------- */
+.theme-option { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.theme-option svg { width: 16px; height: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-picker-option { transition: none; }
+  .avatar-picker-option:hover, .avatar-picker-option[aria-checked='true'] { transform: none; }
+}

@@ -12,8 +12,8 @@
   display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: end;
   padding: 22px 22px 0; border-radius: var(--radius); border: 1px solid rgba(139, 92, 246, 0.35);
   background:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(color-mix(in srgb, var(--tint) 2.5%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, color-mix(in srgb, var(--tint) 2.5%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
     radial-gradient(120% 140% at 0% 0%, rgba(139, 92, 246, 0.2), transparent 55%),
     var(--surface);
 }
@@ -52,8 +52,8 @@
 .lab-screen { max-height: 360px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .lab-monitor-scope { margin-bottom: 12px; }
 .lab-monitor-empty { padding: 24px 0; text-align: center; }
-.lab-tooltip { padding: 8px 12px; border-radius: 10px; font-size: 12px; background: rgba(20, 21, 33, 0.96); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7); }
-.lab-tooltip-title { margin-bottom: 2px; font-weight: 700; color: #fff; }
+.lab-tooltip { padding: 8px 12px; border-radius: 10px; font-size: 12px; background: rgba(20, 21, 33, 0.96); border: 1px solid color-mix(in srgb, var(--tint) 12%, transparent); box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color) 70%, transparent); }
+.lab-tooltip-title { margin-bottom: 2px; font-weight: 700; color: var(--text-strong); }
 .lab-tooltip-sub { font-size: 11px; color: var(--muted); }
 
 /* ---------- Secciones ---------- */
@@ -82,12 +82,12 @@
 .lab-tube-fill i:nth-child(2) { left: 55%; animation-delay: .9s; }
 .lab-tube-fill i:nth-child(3) { left: 80%; animation-delay: 1.7s; }
 @keyframes tubeBub { 0% { transform: translateY(2px) scale(.5); opacity: 0; } 30% { opacity: .8; } 100% { transform: translateY(-6px) scale(1); opacity: 0; } }
-.lab-tube-mark { position: absolute; top: 3px; bottom: 3px; width: 1px; background: rgba(255, 255, 255, 0.12); }
+.lab-tube-mark { position: absolute; top: 3px; bottom: 3px; width: 1px; background: color-mix(in srgb, var(--tint) 12%, transparent); }
 
 /* Hipótesis en hoja de cuaderno */
 .lab-note {
   margin-top: 14px; padding: 10px 14px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-2); border-left: 3px solid var(--accent);
-  background: repeating-linear-gradient(transparent 0 23px, rgba(255, 255, 255, 0.04) 23px 24px), var(--surface-2);
+  background: repeating-linear-gradient(transparent 0 23px, color-mix(in srgb, var(--tint) 4%, transparent) 23px 24px), var(--surface-2);
 }
 .lab-note-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--accent-2); }
 .lab-note p { margin: 0; line-height: 24px; font-size: 13.5px; color: var(--text-2); }
@@ -166,3 +166,12 @@
   .lab-stat-value { font-size: 18px; }
   .lab-hero .btn { width: 100%; }
 }
+
+/* ---------- Tema claro (ver «AJUSTES DEL TEMA CLARO» en global.css: mismo prefijo sin especificidad) ---------- */
+/* Variantes A / B: violeta y ámbar oscuros para que porcentajes y etiquetas lleguen a AA sobre blanco */
+:where(:root:not([data-theme="dark"])) .lab-variant { --v: #6d28d9; }
+:where(:root:not([data-theme="dark"])) .lab-variant.slot-b { --v: #9e4c08; }
+:where(:root:not([data-theme="dark"])) .lab-tooltip { background: color-mix(in srgb, var(--popover) 96%, transparent); }
+/* Capa del hábito en pausa: velo claro en vez del casi negro */
+:where(:root:not([data-theme="dark"])) .lab-resume { background: color-mix(in srgb, var(--surface) 86%, transparent); }
+:where(:root:not([data-theme="dark"])) .lab-resume-title { color: var(--warning); }

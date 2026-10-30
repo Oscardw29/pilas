@@ -4,6 +4,13 @@
 .cos-intro { display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .cos-intro svg { flex-shrink: 0; margin-top: 2px; color: var(--success); }
 .cos-tabs { align-self: flex-start; max-width: 100%; }
+/* Aviso del modo demostración (las compras quedan desactivadas) */
+.cos-demo {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; font-size: 13px; line-height: 1.45;
+  border-radius: var(--radius-sm); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, transparent); color: var(--text-2);
+}
+.cos-demo svg { flex-shrink: 0; margin-top: 2px; color: var(--warning); }
 .cos-empty {
   margin: 0; padding: 28px 16px; text-align: center; font-size: 13.5px; color: var(--muted);
   border: 1px dashed var(--border-2); border-radius: var(--radius);
@@ -15,6 +22,7 @@
 .cos-item {
   display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px;
   border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface);
+  box-shadow: var(--shadow-card); /* sombra de tarjeta: solo en claro (none en oscuro) */
   transition: border-color .15s, transform .15s;
 }
 .cos-item:hover { transform: translateY(-2px); border-color: var(--border-2); }

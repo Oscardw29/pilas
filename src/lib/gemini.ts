@@ -8,6 +8,7 @@ import { getSecrets } from '@/store/useSecrets';
 import { getCoachPersona } from '@/components/coach/coachPersona';
 import { voiceTagsEnabled } from './coachVoice';
 import { VOICE_TAGS_PROMPT } from './voiceTags';
+import { localCoachReply } from './coachLocal';
 
 /** Tiempo máximo para listar modelos */
 const MODELS_TIMEOUT_MS = 15_000;
@@ -401,12 +402,12 @@ export async function generateHabitAdvice(
       } catch (backupErr: unknown) {
         const backupMsg = describeError(backupErr);
         console.warn(`[AI Coach] Modelo de respaldo "${backupModel}" también falló: ${backupMsg}`);
-        const fallback = generateLocalHabitAdvice(data, userPrompt);
+        const fallback = generateLocalHabitAdvice(data, userPrompt, false);
         return `${fallback}\n\n*(⚠️ Nota: Falló el modelo principal «${primaryModel}» [${primaryMsg}] y el de respaldo «${backupModel}» [${backupMsg}]. Se activó el motor analítico local).*`;
       }
     }
 
-    const fallback = generateLocalHabitAdvice(data, userPrompt);
+    const fallback = generateLocalHabitAdvice(data, userPrompt, false);
     return `${fallback}\n\n*(⚠️ Nota: El modelo «${primaryModel}» falló [${primaryMsg}]. Se activó el motor analítico local).*`;
   }
 }
@@ -418,66 +419,12 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Consistencia media (0-1) de los últimos 30 días de los hábitos activos, o null si no hay datos */
-function averageConsistency(data: AppData): number | null {
-  const values = data.habits
-    .filter((h) => h.status === 'active')
-    .map((h) => consistency(data, h, 30))
-    .filter((v): v is number => v != null);
-  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-}
-
-/** Razón de fallo más frecuente registrada por el usuario */
-function topFailReason(data: AppData): string | null {
-  const counts: Record<string, number> = {};
-  for (const l of Object.values(data.logs)) {
-    if (l.status === 'missed' && l.failReason) counts[l.failReason] = (counts[l.failReason] || 0) + 1;
-  }
-  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-  return top ? FAIL_REASON_LABELS[top[0] as keyof typeof FAIL_REASON_LABELS] ?? top[0] : null;
-}
-
 /**
- * Motor analítico de respaldo local. Solo cita cifras calculadas a partir de los datos reales del usuario;
- * el resto son pautas generales presentadas como tales.
+ * Motor de respuestas local (sin IA): intenciones, frases con voz grabada y datos reales en lib/coachLocal.
+ * `withNote`: recuerda de vez en cuando que con una clave de IA el coach responde mejor.
  */
-export function generateLocalHabitAdvice(data: AppData, userPrompt: string): string {
-  const lower = userPrompt.toLowerCase();
-  const activeHabits = data.habits.filter((h) => h.status === 'active');
-  const activeGoals = data.goals.filter((g) => g.status === 'active');
-  const pts = economySummary(data);
-  const avg = averageConsistency(data);
-  const failReason = topFailReason(data);
-  const keyTip = '\n\n(Tip: Configura tu clave de API en Ajustes para obtener respuestas personalizadas del coach con IA).';
-
-  if (lower.includes('ejercicio') || lower.includes('entrenar') || lower.includes('físic')) {
-    const habit = data.habits.find((h) => h.name.toLowerCase().includes('ejercicio') || h.name.toLowerCase().includes('entrenar'));
-    if (!habit) {
-      return `No encuentro un hábito de ejercicio entre tus hábitos. Si quieres empezar, crea uno con una versión mínima muy pequeña (por ejemplo 10 minutos) para que sea fácil no romper la continuidad.${keyTip}`;
-    }
-    const c = consistency(data, habit, 30);
-    const rec = recoveryStats(data, habit);
-    return `Analizando «${habit.name}»:\n\n• Consistencia de los últimos 30 días: ${c != null ? `${Math.round(c * 100)}%` : 'aún sin datos suficientes'}.\n${
-      rec.average != null ? `• Cuando lo interrumpes, tardas de media ${rec.average.toFixed(1)} días en retomarlo.\n` : ''
-    }• Pauta general: en días de alta carga haz la versión mínima (${habit.minimumMinutes || 10} min) en lugar de saltártelo; mantiene la continuidad sin culpa.${keyTip}`;
-  }
-
-  if (lower.includes('energía') || lower.includes('cansad') || lower.includes('agotad')) {
-    return `Sobre la energía:\n\n${
-      failReason ? `• Tu razón de fallo más registrada es «${failReason}».\n` : ''
-    }• Pauta general: con energía baja, activa la versión mínima de tus hábitos prioritarios y deja el resto para otro día. Hacer poco cuenta más que no hacer nada.${keyTip}`;
-  }
-
-  if (lower.includes('objetivo') || lower.includes('meta') || lower.includes('prioridad')) {
-    const topGoal = activeGoals[0];
-    return `Revisión de tus objetivos:\n\n• Tienes ${activeGoals.length} objetivo${activeGoals.length === 1 ? '' : 's'} activo${activeGoals.length === 1 ? '' : 's'}${
-      topGoal ? `; el primero es «${topGoal.name}»` : ''
-    }.\n• Más hábitos no significan más avance: cada hábito asociado debe tener un peso claro dentro del objetivo.\n• Si sientes saturación, pausa los objetivos de prioridad baja y concentra tus sesiones en el principal.${keyTip}`;
-  }
-
-  return `Basándome en tus ${activeHabits.length} hábitos activos y tus ${pts.balance} puntos disponibles:\n\n${
-    avg != null ? `1. Tu consistencia media de los últimos 30 días es del ${Math.round(avg * 100)}%.\n` : '1. Aún no hay datos suficientes para medir tu consistencia.\n'
-  }${failReason ? `2. Tu obstáculo más frecuente es «${failReason}».\n` : ''}• Para consolidar tu progreso, evita crear nuevos hábitos por ahora; blinda los que tienes con versiones mínimas.\n• No se trata de hacerlo perfecto cada día, sino de no fallar dos días seguidos.${keyTip}`;
+export function generateLocalHabitAdvice(data: AppData, userPrompt: string, withNote = true): string {
+  return localCoachReply(data, userPrompt, { withNote });
 }
 
 /**

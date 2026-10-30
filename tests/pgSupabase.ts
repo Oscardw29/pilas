@@ -51,6 +51,7 @@ export async function createTestDb(): Promise<TestDb> {
   await pg.exec(SHIM);
   await pg.exec(migration('0001_init.sql'));
   await pg.exec(migration('0002_social.sql'));
+  await pg.exec(migration('0003_perfiles_ligas.sql'));
 
   const sql = async <T,>(query: string, params: unknown[] = []) => (await pg.query<T>(query, params)).rows;
   const as = async <T,>(uid: string | null, query: string, params: unknown[] = []) => {
@@ -72,4 +73,5 @@ export async function createTestDb(): Promise<TestDb> {
   return { pg, sql, as, user };
 }
 
-export const reapplySocialMigration = (db: TestDb) => db.pg.exec(migration('0002_social.sql'));
+/** Vuelve a ejecutar la última migración de la capa pública (0003 se puede repetir; 0002 ya no se ejecuta encima de 0003) */
+export const reapplySocialMigration = (db: TestDb) => db.pg.exec(migration('0003_perfiles_ligas.sql'));

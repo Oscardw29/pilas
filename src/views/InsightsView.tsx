@@ -180,18 +180,18 @@ export const InsightsView: React.FC = () => {
                 <YAxis dataKey="name" type="category" stroke="var(--muted)" fontSize={12} tickLine={false} width={130} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#181822',
+                    backgroundColor: 'var(--surface)',
                     border: '1px solid var(--border-2)',
                     borderRadius: 12,
-                    color: '#ffffff',
+                    color: 'var(--text)',
                     fontSize: 13,
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.85)',
+                    boxShadow: '0 12px 32px color-mix(in srgb, var(--shadow-color) 85%, transparent)',
                     padding: '8px 14px',
                   }}
-                  itemStyle={{ color: '#ffffff', fontWeight: 600 }}
+                  itemStyle={{ color: 'var(--text)', fontWeight: 600 }}
                   labelStyle={{ color: 'var(--muted)', marginBottom: 4 }}
                   formatter={(value) => [`${value} veces`, 'Frecuencia']}
-                  cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                  cursor={{ fill: 'color-mix(in srgb, var(--text) 5%, transparent)' }}
                 />
                 <Bar dataKey="cantidad" radius={[0, 8, 8, 0]}>
                   {failChartData.map((entry, index) => (

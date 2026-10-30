@@ -12,7 +12,6 @@ import {
   FlaskConical,
   GitFork,
   Gift,
-  Zap,
   Play,
   Pause,
   Square,
@@ -30,9 +29,8 @@ import { SocialNotices } from '@/components/social/SocialNotices';
 import { useStore } from '@/store/useStore';
 import { levelFromXp } from '@/lib/metrics';
 import { useEconomy } from '@/store/useEconomy';
-import { formatClock, todayKey } from '@/lib/dates';
+import { formatClock } from '@/lib/dates';
 import { SessionFinishModal } from '@/components/modals/SessionFinishModal';
-import { EnergyModal } from '@/components/modals/EnergyModal';
 import { TimerModal } from '@/components/modals/TimerModal';
 import { StreakCelebrationOverlay } from '@/components/ui/StreakCelebrationOverlay';
 import { RewardCelebrationOverlay } from '@/components/ui/RewardCelebrationOverlay';
@@ -46,7 +44,6 @@ import { FloatingCoachChat } from '@/components/coach/FloatingCoachChat';
 import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
 import { CoachIcon } from '@/components/ui/icons';
 import { useCoachPersona } from '@/components/coach/coachPersona';
-import { SyncPill } from '@/components/auth/SyncPill';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
 
 interface NavItem {
@@ -128,10 +125,8 @@ export const Shell: React.FC = () => {
   const pauseTimer = useStore((s) => s.pauseTimer);
   const resumeTimer = useStore((s) => s.resumeTimer);
   const cancelTimer = useStore((s) => s.cancelTimer);
-  const energySetToday = useStore((s) => s.energy.some((e) => e.date === todayKey()));
 
   const [showFinishModal, setShowFinishModal] = useState(false);
-  const [showEnergyModal, setShowEnergyModal] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
@@ -184,16 +179,6 @@ export const Shell: React.FC = () => {
             <BrandMark size={34} className="brand-logo" />
             <BrandWordmark className="brand-name" />
           </NavLink>
-          <button
-            type="button"
-            className={`icon-btn sm energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
-            onClick={() => setShowEnergyModal(true)}
-            title="Registrar nivel de energía de hoy"
-            aria-label="Registrar nivel de energía de hoy"
-          >
-            <Zap size={16} />
-          </button>
-          <SyncPill compact />
         </div>
 
         <div className="level-card" aria-label={`Nivel ${levelInfo.level}, ${Math.round(pts.xpTotal)} XP, ${pts.balance} monedas`} title={`${Math.round(pts.xpTotal)} XP · faltan ${Math.ceil(levelInfo.xpForNext - levelInfo.xpInLevel)} para el nivel ${levelInfo.level + 1}`}>
@@ -241,15 +226,6 @@ export const Shell: React.FC = () => {
             </span>
           </div>
           <div className="row" style={{ gap: 6 }}>
-            <SyncPill compact />
-            <button
-              type="button"
-              className={`icon-btn energy-btn${energySetToday ? '' : ' energy-btn--pending'}`}
-              onClick={() => setShowEnergyModal(true)}
-              aria-label="Registrar nivel de energía de hoy"
-            >
-              <Zap size={18} />
-            </button>
             <span className="badge accent" aria-label={`${pts.balance} puntos`}>
               {pts.balance} pts
             </span>
@@ -386,9 +362,6 @@ export const Shell: React.FC = () => {
           }}
         />
       )}
-
-      {/* MODAL DE REGISTRO RÁPIDO DE ENERGÍA */}
-      {showEnergyModal && <EnergyModal isOpen={showEnergyModal} onClose={() => setShowEnergyModal(false)} />}
 
       {/* CONFIRMAR CANCELACIÓN DE TEMPORIZADOR */}
       {showCancelConfirm && (

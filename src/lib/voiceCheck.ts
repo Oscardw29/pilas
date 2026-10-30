@@ -23,7 +23,8 @@ const authFailed = (status: number) => status === 401 || status === 403;
 
 export async function checkTtsKey(platform: TtsPlatform, key: string): Promise<VoiceCheckResult> {
   try {
-    if (platform === 'native') return await checkNativeVoices();
+    // «Sin voz»: no hay clave ni proveedor que comprobar
+    if (platform === 'native') return { state: 'ok', message: 'Sin voz: el coach no habla' };
 
     if (platform === 'elevenlabs') {
       const res = await fetch('https://api.elevenlabs.io/v1/models', {
@@ -72,22 +73,6 @@ export async function checkTtsKey(platform: TtsPlatform, key: string): Promise<V
     const msg = err instanceof Error && err.name === 'TimeoutError' ? 'no respondió a tiempo' : 'sin conexión';
     return { state: 'error', message: `No se pudo comprobar (${msg})` };
   }
-}
-
-async function checkNativeVoices(): Promise<VoiceCheckResult> {
-  if (!('speechSynthesis' in window)) return { state: 'error', message: 'Este navegador no tiene voz' };
-  const synth = window.speechSynthesis;
-  let voices = synth.getVoices();
-  if (!voices.length) {
-    voices = await new Promise((resolve) => {
-      const done = () => resolve(synth.getVoices());
-      synth.addEventListener('voiceschanged', done, { once: true });
-      setTimeout(done, 1500);
-    });
-  }
-  const spanish = voices.filter((v) => v.lang?.toLowerCase().startsWith('es'));
-  if (!spanish.length) return { state: 'error', message: 'No hay voces en español instaladas' };
-  return { state: 'ok', message: `${spanish.length} voces en español detectadas` };
 }
 
 /**

@@ -3,8 +3,8 @@
 // - /assets/* (archivos con hash, inmutables): caché primero.
 // - Nunca se cachean peticiones a /api ni a otros orígenes (IA): pueden llevar claves y datos personales.
 // Nueva versión de caché: obliga a descargar los iconos y el manifiesto con la nueva marca
-const CACHE_NAME = 'pilas-v3';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
+const CACHE_NAME = 'pilas-v4';
+const APP_SHELL = ['/', '/index.html', '/theme-init.js', '/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -41,6 +41,25 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+    );
+    return;
+  }
+
+  // Frases grabadas del coach: el manifiesto, red primero (cambia al regenerar); los audios, caché primero
+  if (url.pathname.startsWith('/coach-voice/')) {
+    const isManifest = url.pathname.endsWith('/manifest.json');
+    const fromNetwork = () =>
+      fetch(request).then((res) => {
+        if (res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(request, copy)).catch(() => undefined);
+        }
+        return res;
+      });
+    event.respondWith(
+      isManifest
+        ? fromNetwork().catch(() => caches.match(request).then((r) => r || Response.error()))
+        : caches.match(request).then((cached) => cached || fromNetwork())
     );
     return;
   }

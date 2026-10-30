@@ -1,0 +1,171 @@
+/* =====================================================================
+   LOGRO DESBLOQUEADO (AchievementUnlockOverlay.tsx)
+   La base (.celebrate-overlay: capa fija a pantalla completa, z-index 2000, fundido de entrada y salida, y la
+   pausa de las animaciones de la página) está en global.css. Aquí, la medalla que se acuña.
+   Secuencia (s): cae girando 0.15–1.3 · destello 1.05 (onda, rayos, chispas, reflejo) · textos 1.0–1.9.
+   Los momentos deben coincidir con FLASH_MS de AchievementUnlockOverlay.tsx. Solo transform/opacity.
+   El color de la rareza llega en --r; el resto son variables del tema. Como todas las celebraciones a pantalla
+   completa va siempre en oscuro: .celebrate-overlay recibe los tokens del tema oscuro también en el claro (global.css).
+   ===================================================================== */
+
+.celebrate-overlay.is-achievement {
+  background:
+    radial-gradient(circle at 50% 36%, color-mix(in srgb, var(--r) 30%, transparent) 0%, color-mix(in srgb, var(--bg) 95%, transparent) 62%),
+    color-mix(in srgb, var(--bg) 86%, transparent);
+}
+.is-achievement.lvl-3 { --rays-o: 1; }
+.is-achievement.lvl-2 { --rays-o: .8; }
+.is-achievement.lvl-1 { --rays-o: .55; }
+
+.ach-unlock-stage {
+  position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 14px; max-width: 440px; width: 100%;
+}
+.is-achievement.is-closing .ach-unlock-stage { animation: achStageOut .38s cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes achStageOut { to { transform: translateY(-30px) scale(1.06); opacity: 0; } }
+
+.ach-unlock-emblem { position: relative; width: 260px; height: 260px; display: grid; place-items: center; }
+
+/* Rayos que giran despacio detrás de la medalla (no en las comunes) */
+.ach-unlock-rays {
+  position: absolute; inset: -55%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--r) 40%, transparent) 0deg 7deg, transparent 7deg 22deg);
+  -webkit-mask-image: radial-gradient(circle, #000 16%, transparent 66%);
+  mask-image: radial-gradient(circle, #000 16%, transparent 66%);
+  animation: achRaysIn .7s ease-out 1s forwards, achSpin 26s linear 1s infinite;
+}
+.lvl-0 .ach-unlock-rays { display: none; }
+@keyframes achRaysIn { to { opacity: var(--rays-o, 1); } }
+@keyframes achSpin { to { transform: rotate(360deg); } }
+
+/* Halo de color que se enciende con el destello */
+.ach-unlock-glow {
+  position: absolute; inset: -6%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--r) 55%, transparent) 0%, color-mix(in srgb, var(--r) 18%, transparent) 42%, transparent 68%);
+  animation: achGlow 1.3s ease-out 1s both;
+}
+@keyframes achGlow {
+  0% { opacity: 0; transform: scale(.6); }
+  30% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: .6; transform: scale(1); }
+}
+
+/* Onda de luz al asentarse */
+.ach-unlock-flash {
+  position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -90px 0 0 -90px;
+  border-radius: 50%; border: 3px solid var(--r); pointer-events: none; opacity: 0;
+  animation: achFlash .9s cubic-bezier(.2, .7, .3, 1) 1.05s both;
+}
+.ach-unlock-flash.second { border-width: 2px; animation-delay: 1.22s; }
+@keyframes achFlash {
+  0% { opacity: .95; transform: scale(.7); }
+  100% { opacity: 0; transform: scale(2.3); }
+}
+
+/* Chispas de cuatro puntas alrededor (posición: --a ángulo, --d distancia) */
+.ach-unlock-sparkles { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.ach-unlock-sparkles span {
+  position: absolute; left: 0; top: 0; opacity: 0;
+  background: radial-gradient(circle, #fff 0 22%, color-mix(in srgb, var(--r) 70%, #fff) 60%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation-name: achSparkle; animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-fill-mode: both;
+}
+@keyframes achSparkle {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--d) * -1)) rotate(calc(var(--a) * -1)) scale(0); }
+  40% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--d) * -1)) rotate(calc(var(--a) * -1 + 45deg)) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--d) * -1.08)) rotate(calc(var(--a) * -1 + 90deg)) scale(0); }
+}
+
+/* Medalla: flota suave cuando ya se asentó; dentro, cae girando sobre su eje vertical */
+.ach-unlock-float { position: relative; width: 176px; height: 176px; perspective: 700px; animation: achFloat 3.2s ease-in-out 1.35s infinite; }
+@keyframes achFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.ach-unlock-medal { position: absolute; inset: 0; animation: achMint 1.15s cubic-bezier(.2, .8, .25, 1) .15s both; }
+@keyframes achMint {
+  0% { opacity: 0; transform: translateY(-120px) scale(.35) rotateY(-720deg); }
+  15% { opacity: 1; }
+  65% { transform: translateY(6px) scale(1.1) rotateY(-24deg); }
+  82% { transform: translateY(-4px) scale(.97) rotateY(8deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+.ach-unlock-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ach-unlock-rosette { fill: var(--r); }
+.ach-unlock-rim { fill: color-mix(in srgb, var(--r) 62%, #000); }
+.ach-unlock-face { fill: color-mix(in srgb, var(--r) 32%, #fff); }
+.ach-unlock-ring { fill: none; stroke: #fff; stroke-opacity: .55; stroke-width: 2; stroke-dasharray: 3 5; }
+
+/* Cintas por detrás, asomando por debajo */
+.ach-unlock-ribbons { position: absolute; left: 50%; top: 62%; width: 116px; height: 88px; margin-left: -58px; }
+.ach-unlock-ribbon.a { fill: color-mix(in srgb, var(--r) 78%, #000); }
+.ach-unlock-ribbon.b { fill: color-mix(in srgb, var(--r) 66%, #000); }
+
+/* Reflejo que cruza la cara: recortado al círculo, así no se ve ninguna caja */
+.ach-unlock-face-clip { position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; border-radius: 50%; overflow: hidden; pointer-events: none; }
+.ach-unlock-glint {
+  position: absolute; top: -20%; bottom: -20%; left: 0; width: 42%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, .7) 50%, transparent 100%);
+  transform: translateX(-170%) skewX(-14deg); opacity: 0;
+  animation: achGlint 3.4s ease-in-out 1.15s infinite;
+}
+@keyframes achGlint {
+  0% { transform: translateX(-170%) skewX(-14deg); opacity: 0; }
+  4% { opacity: 1; }
+  30% { transform: translateX(300%) skewX(-14deg); opacity: 1; }
+  31%, 100% { transform: translateX(300%) skewX(-14deg); opacity: 0; }
+}
+
+.ach-unlock-icon {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 68px; line-height: 1; user-select: none;
+}
+
+/* Textos */
+.ach-unlock-copy { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.ach-unlock-kicker {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--r) 62%, var(--text));
+  animation: achCopy .5s cubic-bezier(.16, 1, .3, 1) 1s both;
+}
+.ach-unlock-rarity {
+  display: inline-flex; align-items: center; padding: 3px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+  color: color-mix(in srgb, var(--r) 68%, var(--text));
+  background: color-mix(in srgb, var(--r) 16%, transparent); border: 1px solid color-mix(in srgb, var(--r) 45%, transparent);
+  animation: achPop .45s cubic-bezier(.34, 1.56, .64, 1) 1.15s both;
+}
+.ach-unlock-title {
+  margin: 0; font-size: clamp(24px, 3vw + 14px, 32px); font-weight: 800; line-height: 1.15; letter-spacing: -.01em;
+  color: var(--text); overflow-wrap: anywhere;
+  animation: achCopy .55s cubic-bezier(.16, 1, .3, 1) 1.2s both;
+}
+.ach-unlock-sub {
+  margin: 0; max-width: 360px; font-size: 14px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere;
+  animation: achCopy .55s cubic-bezier(.16, 1, .3, 1) 1.3s both;
+}
+.ach-unlock-prize {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  animation: achPop .45s cubic-bezier(.34, 1.56, .64, 1) 1.45s both;
+}
+.ach-unlock-hint { font-size: 11px; color: var(--muted); margin-top: 4px; animation: achCopy .5s ease 1.9s both; }
+@keyframes achCopy { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes achPop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes achFade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 639.98px) {
+  .ach-unlock-emblem { width: 220px; height: 220px; }
+  .ach-unlock-float { width: 150px; height: 150px; }
+  .ach-unlock-icon { font-size: 58px; }
+  .ach-unlock-ribbons { width: 100px; height: 76px; margin-left: -50px; }
+}
+
+/* Movimiento reducido: sin giro, rayos, ondas, chispas ni reflejo; la medalla y los textos aparecen con un fundido
+   (con !important para ganar a la regla global que acorta todas las animaciones) */
+@media (prefers-reduced-motion: reduce) {
+  .ach-unlock-rays, .ach-unlock-flash, .ach-unlock-sparkles, .ach-unlock-glint { display: none; }
+  .celebrate-overlay.is-achievement .ach-unlock-float { animation: none !important; }
+  .celebrate-overlay.is-achievement .ach-unlock-medal { animation: achFade .5s ease both !important; }
+  .celebrate-overlay.is-achievement .ach-unlock-glow { animation: none !important; opacity: .5; }
+  .celebrate-overlay.is-achievement .ach-unlock-copy > * { animation: achFade .5s ease .15s both !important; }
+  .celebrate-overlay.is-achievement.is-closing .ach-unlock-stage { animation: achFade .3s ease reverse both !important; }
+}

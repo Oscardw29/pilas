@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useCosmeticSrc } from '@/components/profile/Avatar';
-import type { CatalogItem, Cosmetic } from '@/social/types';
+import { bannerColor } from '@/social/texts';
+import type { BannerColor, CatalogItem, Cosmetic } from '@/social/types';
 import './social.css';
 
 /**
@@ -12,17 +13,26 @@ import './social.css';
 export const cosmeticOf = (item: Pick<CatalogItem, 'asset_path' | 'thumb_path' | 'animated'> | null | undefined): Cosmetic | null =>
   item?.asset_path ? { path: item.asset_path, thumb: item.thumb_path, animated: item.animated } : null;
 
-/** Banner del perfil (propio, público y vista previa). Sin banner: el degradado de la marca */
-export const ProfileBanner: React.FC<{ banner?: Cosmetic | null; className?: string; children?: React.ReactNode }> = ({
-  banner,
-  className = '',
-  children,
-}) => {
+/**
+ * Banner del perfil (propio, público, vista previa y tienda). Sin banner comprado: el degradado del color elegido
+ * (`banner_color`, ver BANNER_COLORS; sin elegir, violeta). `children` va encima (p. ej. el botón «Editar»).
+ */
+export const ProfileBanner: React.FC<{
+  banner?: Cosmetic | null;
+  color?: BannerColor | null;
+  className?: string;
+  children?: React.ReactNode;
+}> = ({ banner, color, className = '', children }) => {
   const ref = useRef<HTMLDivElement>(null);
   // El banner siempre es grande: se anima mientras se ve
   const src = useCosmeticSrc(banner, 999, ref);
+  const c = bannerColor(color);
   return (
-    <div ref={ref} className={`profile-banner ${src ? 'has-image' : ''} ${className}`}>
+    <div
+      ref={ref}
+      className={`profile-banner ${src ? 'has-image' : 'is-default'} ${className}`}
+      style={src ? undefined : ({ '--banner-from': c.from, '--banner-to': c.to } as React.CSSProperties)}
+    >
       {src && <img src={src} alt="" draggable={false} decoding="async" />}
       {children}
     </div>

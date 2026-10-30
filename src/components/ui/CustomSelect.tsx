@@ -283,12 +283,12 @@ export function CustomSelect<T extends string | number>({
             top: 'calc(100% + 6px)',
             ...(align === 'right' ? { right: 0, minWidth: '100%' } : { left: 0, right: 0 }),
             zIndex: 150,
-            background: 'linear-gradient(180deg, #181822 0%, #121219 100%)',
+            background: 'linear-gradient(180deg, var(--popover) 0%, var(--popover-end) 100%)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid var(--border-2)',
             borderRadius: 14,
-            boxShadow: '0 18px 48px rgba(0, 0, 0, 0.8), 0 0 24px rgba(139, 92, 246, 0.15)',
+            boxShadow: '0 18px 48px color-mix(in srgb, var(--shadow-color) 80%, transparent), 0 0 24px rgba(139, 92, 246, 0.15)',
             padding: 6,
             maxHeight: 280,
             display: 'flex',
@@ -307,8 +307,8 @@ export function CustomSelect<T extends string | number>({
                 padding: '8px 10px',
                 marginBottom: 4,
                 borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'color-mix(in srgb, var(--tint) 4%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--tint) 8%, transparent)',
               }}
             >
               <Search size={14} style={{ color: 'var(--muted)' }} aria-hidden="true" />
@@ -327,7 +327,7 @@ export function CustomSelect<T extends string | number>({
                 role="combobox"
                 aria-expanded="true"
                 aria-autocomplete="list"
-                style={{ background: 'transparent', border: 'none', outline: 'none', color: '#fff', width: '100%' }}
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-strong)', width: '100%' }}
               />
             </div>
           )}
@@ -366,13 +366,13 @@ export function CustomSelect<T extends string | number>({
                       padding: '9px 12px',
                       minHeight: 40,
                       borderRadius: 10,
-                      background: isSelected ? 'var(--accent-soft)' : isActive ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
+                      background: isSelected ? 'var(--accent-soft)' : isActive ? 'color-mix(in srgb, var(--tint) 6%, transparent)' : 'transparent',
                       border: isSelected
                         ? '1px solid rgba(139, 92, 246, 0.35)'
                         : isActive
                         ? '1px solid var(--border-2)'
                         : '1px solid transparent',
-                      color: isSelected ? '#fff' : 'var(--text)',
+                      color: isSelected ? 'var(--text-strong)' : 'var(--text)',
                       cursor: 'pointer',
                       transition: 'background 0.12s ease, border-color 0.12s ease',
                     }}
@@ -394,7 +394,7 @@ export function CustomSelect<T extends string | number>({
                           style={{
                             fontSize: 10.5,
                             background: isSelected ? 'rgba(139, 92, 246, 0.3)' : 'var(--surface-3)',
-                            color: isSelected ? '#fff' : 'var(--muted)',
+                            color: isSelected ? 'var(--text-strong)' : 'var(--muted)',
                           }}
                         >
                           {opt.badge}

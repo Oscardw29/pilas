@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import type {
-  AbandonmentCheckin, AiConversation, AppData, Challenge, DateKey, EnergyEntry, Experiment, FailReason, Goal, Habit,
+  AbandonmentCheckin, AiConversation, AppData, Challenge, DateKey, Experiment, FailReason, Goal, Habit,
   HabitRelation, HabitReviewEntry, ID, Level5, LogStatus, PointEvent, RecommendationFeedback, Redemption, Reward, Secrets, Session,
   SessionStatus, Settings, WeeklyReview,
 } from '@/types';
@@ -9,11 +9,13 @@ import { doneCountByDate, getDayStreakStatus, logKey, pointsFor, previousCounted
 import { BOOST_REWARD_ID, FREEZE_REWARD_ID, boostOffer, economySummary, freezeOffer, isBackdated } from '@/lib/economy';
 import { ECONOMY } from '@/lib/economyRules';
 import { todayKey, toKey } from '@/lib/dates';
-import { createDemoData, createEmptyData, defaultSettings } from '@/data/seed';
+import { createDemoData, createEmptyData, defaultSettings, isDemoActive } from '@/data/seed';
 import { LEGACY_SECRET_FIELDS, useSecrets } from '@/store/useSecrets';
 
 export const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 const nowISO = () => new Date().toISOString();
+/** XP, puntos y monedas se guardan siempre como enteros (con decimales el saldo se descuadraba con el del servidor) */
+const int = (n: number) => (Number.isFinite(n) ? Math.round(n) : 0);
 
 export interface FinishTimerInput {
   mood?: Level5;
@@ -62,7 +64,7 @@ export interface Actions {
   /* Temporizador / sesiones */
   isTimerModalOpen: boolean;
   setTimerModalOpen: (open: boolean) => void;
-  startTimer: (habitId: ID, energy?: Level5) => void;
+  startTimer: (habitId: ID) => void;
   startCustomTimer: (params: { title: string; description?: string; icon: string; minutes: number }) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
@@ -72,9 +74,6 @@ export interface Actions {
   addSession: (s: Omit<Session, 'id'>) => Session;
   updateSession: (id: ID, patch: Partial<Session>) => void;
   deleteSession: (id: ID) => void;
-
-  /* Energía */
-  addEnergy: (level: Level5, note?: string) => EnergyEntry;
 
   /* Retos */
   addChallenge: (c: Omit<Challenge, 'id' | 'createdAt' | 'checkins' | 'status'>) => Challenge;
@@ -189,7 +188,7 @@ export function minimumMinutesFor(h: Habit, minimumRatio: number): number {
   return h.minimumMinutes && h.minimumMinutes > 0 ? h.minimumMinutes : Math.max(1, Math.round(target * minimumRatio));
 }
 
-/** Ajustes del dispositivo que sobreviven a reinicios e importaciones */
+/** Ajustes del dispositivo e identidad (nombre, foto, tema) que sobreviven a reinicios e importaciones */
 function preservedSettings(st: Settings): Partial<Settings> {
   return {
     geminiModel: st.geminiModel,
@@ -203,6 +202,12 @@ function preservedSettings(st: Settings): Partial<Settings> {
     // El coach conserva su identidad y su silencio aunque se reinicien los datos
     userGender: st.userGender,
     coachMuted: st.coachMuted,
+    // Quién eres en la comunidad no cambia por reiniciar los datos: el perfil público sigue siendo el mismo
+    userName: st.userName,
+    avatarDataUrl: st.avatarDataUrl,
+    avatarPreset: st.avatarPreset,
+    pendingAlias: st.pendingAlias,
+    theme: st.theme,
   };
 }
 
@@ -297,6 +302,8 @@ export function migrateData(state: any, version: number, adoptSecrets: boolean):
     if (!state.settings.geminiModel || state.settings.geminiModel === 'gemini-3.8-flash') {
       state.settings.geminiModel = 'gemini-3.5-flash-lite';
     }
+    // Sin foto por defecto elegida no se asigna ninguna aquí: la que se ve sale de la cuenta (effectivePreset).
+    // Escribir los ajustes al cargar hacía que un dispositivo desfasado subiera sus ajustes viejos como nuevos
   }
   state.version = STORE_VERSION;
   return state;
@@ -407,7 +414,7 @@ export const useStore = create<Store>()(
             ...s.logs,
             [logKey(date, habitId)]: {
               habitId, date, status,
-              points,
+              points: int(points),
               failReason: status === 'missed' ? extra?.failReason : undefined,
               failNote: status === 'missed' ? extra?.failNote : undefined,
               minutes: extra?.minutes !== undefined ? extra.minutes : prev?.minutes,
@@ -427,7 +434,7 @@ export const useStore = create<Store>()(
       /* Temporizador */
       isTimerModalOpen: false,
       setTimerModalOpen: (open) => set({ isTimerModalOpen: open }),
-      startTimer: (habitId, energy) => set({ activeTimer: { habitId, startedAt: nowISO(), pausedMs: 0, energy }, isTimerModalOpen: true }),
+      startTimer: (habitId) => set({ activeTimer: { habitId, startedAt: nowISO(), pausedMs: 0 }, isTimerModalOpen: true }),
       startCustomTimer: (params) =>
         set({
           activeTimer: {
@@ -476,7 +483,7 @@ export const useStore = create<Store>()(
         const date = toKey(new Date(t.startedAt));
         const session: Session = {
           id: uid(), habitId, date, startedAt: t.startedAt, endedAt: new Date(end).toISOString(),
-          durationSec, targetSec, status, energy: t.energy, mood: input.mood, difficulty: input.difficulty, note: input.note,
+          durationSec, targetSec, status, mood: input.mood, difficulty: input.difficulty, note: input.note,
           experimentId: input.experimentId, variantId: input.variantId,
         };
         set({ sessions: [...s.sessions, session], activeTimer: null, isTimerModalOpen: false });
@@ -500,13 +507,6 @@ export const useStore = create<Store>()(
       },
       updateSession: (id, patch) => set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
-
-      /* Energía */
-      addEnergy: (level, note) => {
-        const e: EnergyEntry = { id: uid(), date: todayKey(), at: nowISO(), level, note };
-        set((s) => ({ energy: [...s.energy, e] }));
-        return e;
-      },
 
       /* Retos */
       addChallenge: (c) => {
@@ -549,23 +549,28 @@ export const useStore = create<Store>()(
 
       /* Gamificación */
       addReward: (r) => {
-        const rw = { ...r, id: uid() };
+        const rw = { ...r, cost: int(r.cost), id: uid() };
         set((s) => ({ rewards: [...s.rewards, rw] }));
         return rw;
       },
-      updateReward: (id, patch) => set((s) => ({ rewards: s.rewards.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
+      updateReward: (id, patch) =>
+        set((s) => ({
+          rewards: s.rewards.map((r) => (r.id === id ? { ...r, ...patch, ...(patch.cost !== undefined ? { cost: int(patch.cost) } : {}) } : r)),
+        })),
       deleteReward: (id) => set((s) => ({ rewards: s.rewards.filter((r) => r.id !== id) })),
       redeem: (rewardId) => {
         const s = get();
         const r = s.rewards.find((x) => x.id === rewardId);
-        if (!r || economySummary(s).balance < r.cost) return false;
-        set({ redemptions: [{ id: uid(), rewardId, name: r.name, icon: r.icon, cost: r.cost, date: nowISO() }, ...s.redemptions] });
+        if (!r) return false;
+        const cost = int(r.cost);
+        if (economySummary(s).balance < cost) return false;
+        set({ redemptions: [{ id: uid(), rewardId, name: r.name, icon: r.icon, cost, date: nowISO() }, ...s.redemptions] });
         return true;
       },
       buyStreakFreeze: () => {
         const s = get();
         const offer = freezeOffer(s);
-        const cost = offer.price;
+        const cost = int(offer.price);
         if (offer.blocked) return false;
         if (economySummary(s).balance < cost) return false;
         set({
@@ -589,23 +594,25 @@ export const useStore = create<Store>()(
         if (server) {
           // El servidor ya cobró y comprobó la espera y el límite del mes
           if ((s.xpBoosts ?? []).some((b) => b.id === server.id)) return true;
+          const price = int(server.price);
           set({
-            xpBoosts: [...(s.xpBoosts ?? []), { id: server.id, startedAt: server.startedAt, endsAt: server.endsAt, cost: server.price }],
+            xpBoosts: [...(s.xpBoosts ?? []), { id: server.id, startedAt: server.startedAt, endsAt: server.endsAt, cost: price }],
             redemptions: [
-              { id: `srv-${server.ledgerId}`, rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: server.price, date: server.startedAt },
+              { id: `srv-${server.ledgerId}`, rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: price, date: server.startedAt },
               ...s.redemptions.filter((r) => r.id !== `srv-${server.ledgerId}`),
             ],
           });
           return true;
         }
         const offer = boostOffer(s);
-        if (offer.blocked || economySummary(s).balance < offer.price) return false;
+        const price = int(offer.price);
+        if (offer.blocked || economySummary(s).balance < price) return false;
         const start = new Date();
         const end = new Date(start.getTime() + ECONOMY.boostHours * 3_600_000);
         set({
-          xpBoosts: [...(s.xpBoosts ?? []), { id: uid(), startedAt: start.toISOString(), endsAt: end.toISOString(), cost: offer.price }],
+          xpBoosts: [...(s.xpBoosts ?? []), { id: uid(), startedAt: start.toISOString(), endsAt: end.toISOString(), cost: price }],
           redemptions: [
-            { id: uid(), rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: offer.price, date: start.toISOString() },
+            { id: uid(), rewardId: BOOST_REWARD_ID, name: 'Multiplicador 1.5× XP (12 h)', icon: '⚡', cost: price, date: start.toISOString() },
             ...s.redemptions,
           ],
         });
@@ -619,7 +626,7 @@ export const useStore = create<Store>()(
         const newP: PointEvent[] = [];
         for (const e of entries) {
           const id = `srv-${e.id}`;
-          const amount = Number(e.amount);
+          const amount = int(Number(e.amount));
           if (e.kind === 'purchase') {
             if (!haveR.has(id) && amount < 0) {
               const boost = e.ref.startsWith('boost:');
@@ -662,7 +669,7 @@ export const useStore = create<Store>()(
         });
         return broken;
       },
-      addPointEvent: (e) => set((s) => ({ pointEvents: [...s.pointEvents, { ...e, id: uid(), at: nowISO() }] })),
+      addPointEvent: (e) => set((s) => ({ pointEvents: [...s.pointEvents, { ...e, amount: int(e.amount), id: uid(), at: nowISO() }] })),
       unlockAchievement: (id) => set((s) => (s.achievements[id] ? {} : { achievements: { ...s.achievements, [id]: nowISO() } })),
 
       /* Insights */
@@ -731,6 +738,11 @@ export const useStore = create<Store>()(
 
       /* Ajustes / datos */
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      // Empezar de cero (también «quitar los datos de demostración») o importar una copia cambian los datos por completo:
+      // `dataResetAt` avisa a la capa pública (en todos los dispositivos) de que lo publicado ya no corresponde y hay que
+      // reiniciarlo en el servidor. Cargar la demostración no reinicia nada: con datos de demostración simplemente no se
+      // publica (las cifras públicas se quedan como estaban), y se conserva el último `dataResetAt` para los dispositivos
+      // que aún no lo atendieron.
       resetDemo: () =>
         set((s) => {
           const demo = createDemoData();
@@ -738,7 +750,7 @@ export const useStore = create<Store>()(
             ...demo,
             conversations: s.conversations,
             activeConversationId: s.activeConversationId,
-            settings: { ...demo.settings, ...preservedSettings(s.settings) },
+            settings: { ...demo.settings, ...preservedSettings(s.settings), demoMode: true, dataResetAt: s.settings.dataResetAt },
           };
         }),
       resetEmpty: () =>
@@ -748,7 +760,7 @@ export const useStore = create<Store>()(
             ...empty,
             conversations: s.conversations,
             activeConversationId: s.activeConversationId,
-            settings: { ...empty.settings, ...preservedSettings(s.settings) },
+            settings: { ...empty.settings, ...preservedSettings(s.settings), demoMode: false, dataResetAt: nowISO() },
           };
         }),
       importData: (d) =>
@@ -763,7 +775,13 @@ export const useStore = create<Store>()(
             activeTimer: null,
             conversations: hasConvs ? migrated.conversations : s.conversations,
             activeConversationId: hasConvs ? migrated.activeConversationId : s.activeConversationId,
-            settings: mergeSettings({ ...imported, ...pickMissing(preservedSettings(s.settings), imported) }),
+            settings: mergeSettings({
+              ...imported,
+              ...pickMissing(preservedSettings(s.settings), imported),
+              // Una copia importada son datos reales (aunque se exportara con la demostración cargada)
+              demoMode: false,
+              dataResetAt: nowISO(),
+            }),
           };
         }),
     }),
@@ -775,3 +793,9 @@ export const useStore = create<Store>()(
  * y devuelve la misma referencia mientras ningún dato cambie, así los useMemo([data]) funcionan.
  */
 export const useData = (): AppData => useStore(useShallow(selectData));
+
+/**
+ * ¿Hay datos de demostración? El ajuste `demoMode` o los propios datos (ids fijos de la demo): con ellos no se publica
+ * nada en la comunidad y las compras del servidor no están disponibles.
+ */
+export const useDemoMode = (): boolean => useStore((s) => isDemoActive(s));

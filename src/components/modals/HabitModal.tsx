@@ -400,7 +400,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
                 borderRadius: 14,
                 background: kind === 'time' ? 'rgba(139, 92, 246, 0.16)' : 'var(--surface-2)',
                 border: `1.5px solid ${kind === 'time' ? 'var(--accent)' : 'var(--border-2)'}`,
-                color: kind === 'time' ? '#fff' : 'var(--text-2)',
+                color: kind === 'time' ? 'var(--text-strong)' : 'var(--text-2)',
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
@@ -426,7 +426,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
                 borderRadius: 14,
                 background: kind === 'action' ? 'rgba(139, 92, 246, 0.16)' : 'var(--surface-2)',
                 border: `1.5px solid ${kind === 'action' ? 'var(--accent)' : 'var(--border-2)'}`,
-                color: kind === 'action' ? '#fff' : 'var(--text-2)',
+                color: kind === 'action' ? 'var(--text-strong)' : 'var(--text-2)',
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
@@ -452,7 +452,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
                 borderRadius: 14,
                 background: kind === 'quantity' ? 'rgba(139, 92, 246, 0.16)' : 'var(--surface-2)',
                 border: `1.5px solid ${kind === 'quantity' ? 'var(--accent)' : 'var(--border-2)'}`,
-                color: kind === 'quantity' ? '#fff' : 'var(--text-2)',
+                color: kind === 'quantity' ? 'var(--text-strong)' : 'var(--text-2)',
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
@@ -627,14 +627,14 @@ export const HabitModal: React.FC<HabitModalProps> = ({ isOpen, onClose, habitTo
                       gap: 12,
                     }}
                   >
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1 }}>
-                      <input
-                        type="checkbox"
-                        checked={!!link}
-                        onChange={() => toggleGoal(g.id)}
-                      />
-                      <span>{g.icon}</span>
-                      <span style={{ fontWeight: 600 }}>{g.name}</span>
+                    {/* Interruptor propio (el control nativo queda oculto) */}
+                    <label className="custom-switch" style={{ flex: 1, minWidth: 0, gap: 10 }}>
+                      <input type="checkbox" checked={!!link} onChange={() => toggleGoal(g.id)} />
+                      <span className="custom-switch-track">
+                        <span className="custom-switch-thumb" />
+                      </span>
+                      <span aria-hidden="true">{g.icon}</span>
+                      <span style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{g.name}</span>
                     </label>
 
                     {link && (

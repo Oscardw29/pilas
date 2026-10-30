@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Pause, Square, X, Clock, Flame, Star, Zap, Plus, Maximize2, ChevronDown, Sparkles, TrendingUp, Sprout } from 'lucide-react';
-import { EnergyIcon, MoodIcon, StatusIcon } from '@/components/ui/icons';
+import { Play, Pause, Square, Star, Zap, Maximize2, Sparkles, Sprout } from 'lucide-react';
+import { MoodIcon, StatusIcon } from '@/components/ui/icons';
 import {
   BarChart,
   Bar,
@@ -21,7 +21,6 @@ import { CustomSelect } from '@/components/ui/CustomSelect';
 import { fireRewardCelebration } from '@/lib/confetti';
 import { useElapsed } from '@/lib/timer';
 import { playSound } from '@/lib/sound';
-import type { Level5 } from '@/types';
 
 export const TimerView: React.FC = () => {
   const navigate = useNavigate();
@@ -49,7 +48,6 @@ export const TimerView: React.FC = () => {
   const [selectedHabitId, setSelectedHabitId] = useState<string>(
     activeTimeHabits.find((h) => h.targetMinutes)?.id ?? (activeTimeHabits[0]?.id ?? ''),
   );
-  const [preEnergy, setPreEnergy] = useState<Level5>(4);
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
@@ -84,14 +82,14 @@ export const TimerView: React.FC = () => {
   const strokeDashoffset = circumference * (1 - fractionRemaining);
 
   const activeStrokeColor = isCustom
-    ? '#eab308'
+    ? 'var(--yellow)'
     : hasReachedMinimum
-    ? '#f97316'
+    ? 'var(--orange)'
     : (activeHabit?.color || 'var(--accent)');
   const strokeGlow = isCustom
-    ? 'rgba(234, 179, 8, 0.6)'
+    ? 'color-mix(in srgb, var(--yellow) 60%, transparent)'
     : hasReachedMinimum
-    ? 'rgba(249, 115, 22, 0.7)'
+    ? 'color-mix(in srgb, var(--orange) 70%, transparent)'
     : `${activeStrokeColor}66`;
 
   // Muesca en la posición de la versión mínima dentro de la meta
@@ -171,7 +169,7 @@ export const TimerView: React.FC = () => {
                   cy={size / 2}
                   r={radius}
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.06)"
+                  stroke="color-mix(in srgb, var(--text) 6%, transparent)"
                   strokeWidth={strokeWidth}
                 />
                 <circle
@@ -195,10 +193,10 @@ export const TimerView: React.FC = () => {
                     y1={tickY1}
                     x2={tickX2}
                     y2={tickY2}
-                    stroke="#f97316"
+                    stroke="var(--orange)"
                     strokeWidth={4}
                     strokeLinecap="round"
-                    style={{ filter: 'drop-shadow(0 0 4px #f97316)' }}
+                    style={{ filter: 'drop-shadow(0 0 4px var(--orange))' }}
                   />
                 )}
               </svg>
@@ -228,7 +226,7 @@ export const TimerView: React.FC = () => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    color: '#fff',
+                    color: 'var(--text)',
                   }}
                   title={timerTitle}
                 >
@@ -242,7 +240,7 @@ export const TimerView: React.FC = () => {
                     ? `Hecho: ${alreadyLoggedMin}m · Faltan ${remainingTargetMin}m`
                     : `Objetivo: ${habitTargetMin} min`}
                   {!isCustom && minMin > 0 && (
-                    <span style={{ color: hasReachedMinimum ? '#f97316' : 'var(--minimum)' }}>
+                    <span style={{ color: hasReachedMinimum ? 'var(--orange)' : 'var(--minimum)' }}>
                       {' '}· mín: {minMin}m
                     </span>
                   )}
@@ -260,9 +258,8 @@ export const TimerView: React.FC = () => {
                       : isCompleted
                       ? 'var(--success)'
                       : hasReachedMinimum
-                      ? '#f97316'
-                      : '#fff',
-                    textShadow: '0 2px 14px rgba(0, 0, 0, 0.8)',
+                      ? 'var(--orange)'
+                      : 'var(--text)',
                   }}
                 >
                   {formatClock(remainingSec)}
@@ -280,7 +277,7 @@ export const TimerView: React.FC = () => {
                       : isCompleted
                       ? 'var(--success)'
                       : hasReachedMinimum
-                      ? '#f97316'
+                      ? 'var(--orange)'
                       : 'var(--accent-2)',
                   }}
                 >
@@ -354,9 +351,9 @@ export const TimerView: React.FC = () => {
                 onClick={() => setShowCustomModal(true)}
                 disabled={Boolean(activeTimer)}
                 style={{
-                  background: 'rgba(234, 179, 8, 0.12)',
-                  borderColor: 'rgba(234, 179, 8, 0.4)',
-                  color: '#eab308',
+                  background: 'color-mix(in srgb, var(--yellow) 12%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--yellow) 40%, transparent)',
+                  color: 'var(--yellow)',
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
@@ -389,38 +386,13 @@ export const TimerView: React.FC = () => {
               </div>
             )}
 
-            {/* Selector de energía antes de empezar */}
-            {activeTimeHabits.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                <span className="label" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
-                  ¿Cuál es tu nivel de energía en este momento?
-                </span>
-                <div className="level-picker" style={{ justifyContent: 'center' }}>
-                  {([1, 2, 3, 4, 5] as Level5[]).map((lvl) => ({ lvl })).map((e) => (
-                    <button
-                      key={e.lvl}
-                      type="button"
-                      className={preEnergy === e.lvl ? 'active' : ''}
-                      onClick={() => {
-                        setPreEnergy(e.lvl as Level5);
-                        playSound.energy(e.lvl as 1 | 2 | 3 | 4 | 5);
-                      }}
-                      style={{ minWidth: 46 }}
-                    >
-                      <span className="level-picker-icon" title={`Energía ${e.lvl}/5`}><EnergyIcon level={e.lvl} size={24} /></span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {activeTimeHabits.length > 0 && (
               <button
                 className="btn btn-primary lg"
                 style={{ marginTop: 6 }}
                 disabled={Boolean(activeTimer) || !selectedHabitId}
                 onClick={() => {
-                  startTimer(selectedHabitId, preEnergy);
+                  startTimer(selectedHabitId);
                   playSound.startTimerCountdown();
                 }}
               >
@@ -438,7 +410,7 @@ export const TimerView: React.FC = () => {
             <h3 className="card-title">Minutos de enfoque (Últimos 7 días)</h3>
             <p className="card-sub">Tiempo acumulado en sesiones y cronómetros diarios</p>
           </div>
-          <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+          <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--freeze)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
             {formatMinutes(totalWeeklyFocusMin)} esta semana
           </span>
         </div>
@@ -450,17 +422,17 @@ export const TimerView: React.FC = () => {
               <YAxis stroke="var(--muted)" fontSize={11} tickLine={false} unit="m" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'rgba(20, 21, 33, 0.96)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid color-mix(in srgb, var(--text) 12%, transparent)',
                   borderRadius: 10,
                   fontSize: 12,
-                  color: '#fff',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+                  color: 'var(--text)',
+                  boxShadow: '0 8px 24px color-mix(in srgb, var(--shadow-color) 70%, transparent)',
                 }}
                 formatter={(val: any) => [`${val} min`, 'Enfoque total']}
                 labelFormatter={(lbl) => `${lbl}`}
               />
-              <Bar dataKey="minutes" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="minutes" fill="var(--freeze)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -471,7 +443,7 @@ export const TimerView: React.FC = () => {
         <div className="card-head">
           <div>
             <h3 className="card-title">Historial de sesiones</h3>
-            <p className="card-sub">Sesiones completadas, energía y dificultad registrada</p>
+            <p className="card-sub">Sesiones completadas, ánimo y dificultad registrados</p>
           </div>
           <span className="badge">{data.sessions.length} sesiones en total</span>
         </div>

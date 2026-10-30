@@ -424,3 +424,32 @@ no necesitan el servidor.
 2. **Notificaciones para todos:** ¿dejo un interruptor mínimo de «Notificaciones sí/no» en Ajustes? Recomendado.
 3. **Premios de las ligas:** ¿te sirven los valores de la tabla de la F5b como punto de partida?
 4. Cuando lo apruebes, empiezo por F1, F2 y F3 (sin servidor). La F4 necesitará que pegues un SQL nuevo en Supabase.
+
+---
+
+## Ajustes del 30 de octubre de 2026 (después de F4–F9)
+
+Cambios pedidos tras probar la capa pública. En el servidor van en `supabase/migrations/0003_perfiles_ligas.sql`
+(se aplica después de 0002; ver docs/supabase.md).
+
+- **Todo perfil es público siempre.** Se crea solo al entrar, con el nombre, el alias (opcional) y la foto de la
+  bienvenida. Ya no hay tarjeta «Perfil público» ni opción de eliminarlo (sí la de eliminar la cuenta). La bienvenida
+  explica qué es público y qué sigue cifrado; quien ya usaba la app recibe un aviso la primera vez.
+- **Alias opcional y sin «@».** Sin alias se muestra el nombre (`display_name`). Nombre, género y alias se editan en
+  Ajustes › Datos personales. `/u/:alias` acepta también el id.
+- **Fotos por defecto:** 5 ilustraciones (`src/lib/defaultAvatars.ts`, `default:N` en el perfil), una al azar en la
+  bienvenida. Recorte en círculo (foto) o rectángulo (banners y tarjetas del creador) cuando la imagen no mide lo pedido.
+- **Perfil:** «Editar perfil» con vista previa en vivo; fuera de edición se ve como lo ven los demás. Biografía (160),
+  color del banner por defecto (8), «me gusta» en la esquina del banner, «Racha más alta» y semanas recorribles
+  (`profile_week`; los hábitos visibles, últimas 8 semanas).
+- **Ligas:** suben los 5 primeros, los 5 siguientes se quedan y el resto baja (líneas verde y roja). Solo en el grupo:
+  sin ascenso ni descenso y 25 monedas de participación. La racha es una tarjeta fija a la derecha en escritorio.
+- **Publicaciones:** se pueden editar (etiqueta «(editado)»); el feed de amigos ya no incluye las propias.
+- **Datos de demostración:** no se publican nunca. Quitarlos, empezar de cero o importar una copia reinicia el progreso
+  público (`reset_my_progress`, idempotente y con topes para que no sirva para inflar cifras).
+- **Logros:** animación propia que solo sale al pulsar su notificación; el creador puede marcarse y quitarse logros y
+  editar varios a la vez. Ninguna animación a pantalla completa se solapa y los avisos esperan detrás.
+- **Economía:** XP y monedas siempre enteras. Se quitó el sistema de energía y el icono de sincronizado.
+- **Coach:** sin voz configurada no suena nada (ya no hay voz del navegador). Frases locales ampliadas y catálogo de
+  frases grabables (`scripts/generate-coach-voice.mjs`, docs/coach-voz.md).
+- **Modo claro** por defecto (Ajustes › Apariencia).

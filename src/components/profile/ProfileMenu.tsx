@@ -1,20 +1,52 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Settings as SettingsIcon, ShieldCheck, UserRound } from 'lucide-react';
+import { Bell, CloudAlert, LogOut, Settings as SettingsIcon, ShieldCheck, UserRound } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useSession } from '@/store/useSession';
-import { signOut } from '@/account/runtime';
+import { pendingChanges, signOut } from '@/account/runtime';
+import { onLocalChange } from '@/db/persistence';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/ToastContext';
 import { playSound } from '@/lib/sound';
 import { MyAvatar } from './Avatar';
+import { personName } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
 import '@/components/social/social.css';
 import './profile.css';
+import './profileMenu.css';
 
 // ConfirmModal llama a onClose justo después de onConfirm: cada paso solo se cierra a sí mismo
 type Step = null | 'confirm1' | 'confirm2' | 'signingOut' | 'unsynced';
+
+/**
+ * Problema de sincronización que no debe pasar desapercibido (el estado completo está en Ajustes › Cuenta):
+ * un error al sincronizar o estar sin conexión con cambios aún sin subir. null si todo va bien.
+ */
+function useSyncAlert(): string | null {
+  const sync = useSession((s) => s.sync);
+  const syncError = useSession((s) => s.syncError);
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    if (sync !== 'offline') {
+      setPending(0);
+      return;
+    }
+    let active = true;
+    const check = () => void pendingChanges().then((n) => active && setPending(n));
+    check();
+    const off = onLocalChange(check);
+    return () => {
+      active = false;
+      off();
+    };
+  }, [sync]);
+
+  if (sync === 'error' || (sync === 'idle' && syncError)) return `Error al sincronizar${syncError ? `: ${syncError}` : ''}`;
+  if (sync === 'offline' && pending > 0) return `Sin conexión: ${pending} ${pending === 1 ? 'cambio sin subir' : 'cambios sin subir'}`;
+  return null;
+}
 
 /**
  * Menú de perfil: bloque abajo del panel izquierdo (escritorio/tablet) o avatar en la cabecera (móvil).
@@ -29,8 +61,9 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
   const unread = useSocial((s) => s.unread);
   const isAdmin = useSocial((s) => s.isAdmin);
   const socialAvailable = useSocial((s) => s.available);
-  // Con perfil público se muestra el alias; el correo sigue siendo solo para ti
-  const subline = alias ? `@${alias}` : email;
+  // Con alias en el perfil público se muestra el alias (sin «@»); si no, el correo, que sigue siendo solo para ti
+  const subline = alias ? personName({ alias }) : email;
+  const syncAlert = useSyncAlert();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
   const [step, setStep] = useState<Step>(null);
@@ -115,20 +148,34 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
     }
   };
 
+  // Punto rojo discreto sobre el avatar si la sincronización tiene un problema: lleva a Ajustes (estado de la cuenta)
+  const syncDot = syncAlert && (
+    <button
+      type="button"
+      className="sync-alert-dot"
+      onClick={() => go('/ajustes')}
+      title={`${syncAlert}. Abre Ajustes para ver el estado de tu cuenta.`}
+      aria-label={`${syncAlert}. Ir a Ajustes`}
+    />
+  );
+
   const trigger =
     variant === 'sidebar' ? (
       <div className="profile-block">
-        <button
-          type="button"
-          className="profile-avatar-btn"
-          onClick={() => go('/perfil')}
-          title="Mi perfil"
-          aria-label={unread > 0 ? `Mi perfil (${unread} notificaciones sin leer)` : 'Mi perfil'}
-          data-no-sound="true"
-        >
-          <MyAvatar size={34} />
-          {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
-        </button>
+        <span className="profile-avatar-wrap">
+          <button
+            type="button"
+            className="profile-avatar-btn"
+            onClick={() => go('/perfil')}
+            title="Mi perfil"
+            aria-label={unread > 0 ? `Mi perfil (${unread} notificaciones sin leer)` : 'Mi perfil'}
+            data-no-sound="true"
+          >
+            <MyAvatar size={34} />
+            {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
+          </button>
+          {syncDot}
+        </span>
         <div className="profile-block-name">
           <strong>{displayName}</strong>
           <span>{subline}</span>
@@ -147,18 +194,21 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
         </button>
       </div>
     ) : (
-      <button
-        ref={anchorRef}
-        type="button"
-        className="profile-avatar-btn"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={unread > 0 ? `Menú de perfil, ${unread} notificaciones sin leer` : 'Menú de perfil'}
-      >
-        <MyAvatar size={32} />
-        {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
-      </button>
+      <span className="profile-avatar-wrap">
+        <button
+          ref={anchorRef}
+          type="button"
+          className="profile-avatar-btn"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={unread > 0 ? `Menú de perfil, ${unread} notificaciones sin leer` : 'Menú de perfil'}
+        >
+          <MyAvatar size={32} />
+          {unread > 0 && <span className="notif-dot" aria-hidden="true" />}
+        </button>
+        {syncDot}
+      </span>
     );
 
   return (
@@ -177,6 +227,11 @@ export const ProfileMenu: React.FC<{ variant: 'sidebar' | 'header' }> = ({ varia
                 <span>{subline}</span>
               </div>
             </div>
+            {syncAlert && (
+              <button type="button" role="menuitem" className="profile-menu-item danger" onClick={() => go('/ajustes')} title={syncAlert}>
+                <CloudAlert aria-hidden /> {syncAlert.split(':')[0]} · Ver en Ajustes
+              </button>
+            )}
             <button type="button" role="menuitem" className="profile-menu-item" onClick={() => go('/perfil')}>
               <UserRound aria-hidden /> Mi perfil
             </button>

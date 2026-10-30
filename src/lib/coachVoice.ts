@@ -1,9 +1,11 @@
-import { useSyncExternalStore } from 'react';
-import { getSecrets } from '@/store/useSecrets';
+import { useEffect, useSyncExternalStore } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { getSecrets, useSecrets } from '@/store/useSecrets';
 import { fishTts } from '@/platform/fish';
 import { useStore } from '@/store/useStore';
 import type { CoachGender } from '@/components/coach/coachPersona';
 import type { Secrets, Settings } from '@/types';
+import voiceConfig from '@/data/coachVoiceConfig.json';
 import { PRESET_TTS_MODELS } from './ttsPresets';
 import { stripVoiceTags } from './voiceTags';
 
@@ -17,10 +19,13 @@ const FISH_MODEL_IDS = PRESET_TTS_MODELS.fish_audio.map((m) => m.id);
  * 1. Voz de IA, por orden: la plataforma elegida en «Voz (TTS)» de Ajustes (Fish Audio, ElevenLabs u
  *    OpenAI con su clave) y, si falta su clave, la de la plataforma de IA del chat (Gemini u OpenAI).
  *    Se reproduce con Web Audio: así el silencio puede hacerse con un fundido de 0,5 s y la boca
- *    sigue la señal real. Si falla se reintenta y, si sigue fallando, se calla: nunca cambia a
- *    la voz del sistema.
- * 2. «Síntesis nativa» elegida o sin ninguna clave: la voz del navegador (speechSynthesis). Esa voz
- *    no admite bajar el volumen a mitad de frase: al silenciarla se corta y la boca se cierra suavemente.
+ *    sigue la señal real. Si falla se reintenta y, si sigue fallando, se calla.
+ * 2. Frases grabadas: las frases fijas del catálogo (src/data/coachPhrases.json) que ya tienen audio en
+ *    public/coach-voice (scripts/generate-coach-voice.mjs, con la misma voz de Gemini del coach) suenan
+ *    aunque no haya clave: para esas frases la voz está establecida. Con Gemini como voz también se usan
+ *    (ahorran cuota); con otra plataforma no, para no mezclar dos voces distintas en un mensaje.
+ * 3. Sin voz configurada ni frase grabada: el coach no suena. Ya no hay voz del navegador de respaldo:
+ *    el coach queda silenciado y, si se intenta activar el sonido, se avisa de dónde configurar la voz.
  *
  * Fish Audio no permite llamadas desde el navegador (su API no tiene CORS): se le habla a través
  * del relay del mismo dominio /api/fish-tts (api/fish-tts.ts en Vercel, middleware en Vite).
@@ -43,20 +48,20 @@ const CHUNK_CHARS = 460;
 const TTS_TIMEOUT_MS = 25_000;
 /** Peticiones de voz simultáneas: suficientes para ir por delante de lo que suena sin saturar la cuota */
 const MAX_PARALLEL_TTS = 2;
-/** Intentos por fragmento antes de rendirse (la voz nunca cambia a la del sistema a mitad) */
+/** Intentos por fragmento antes de rendirse (la voz nunca cambia a otra a mitad) */
 const TTS_ATTEMPTS = 4;
 const TTS_RETRY_DELAY_MS = 1200;
 const TTS_MAX_RETRY_DELAY_MS = 15_000;
 
-const GEMINI_TTS_MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts'];
-const GEMINI_VOICES: Record<CoachGender, string> = { male: 'Puck', female: 'Zephyr' };
+/** Modelos, voces y estilo de Gemini TTS: los mismos con los que se graban las frases fijas (src/data/coachVoiceConfig.json) */
+const GEMINI_TTS_MODELS: string[] = voiceConfig.geminiTtsModels;
+const GEMINI_VOICES: Record<CoachGender, string> = voiceConfig.geminiVoices;
 const OPENAI_VOICES: Record<CoachGender, string> = { male: 'ash', female: 'coral' };
 /** Antoni y Bella: voces multilingües de ElevenLabs que suenan bien en español */
 const ELEVENLABS_VOICES: Record<CoachGender, string> = { male: 'ErXwobaYiN019PkySvjV', female: 'EXAVITQu4vr4xnSDxMaL' };
 /** Voces públicas en español del catálogo de Fish Audio, elegidas por el usuario: «Rodrigo» (Pilo) y «Chica» (Pila) */
 const FISH_VOICES: Record<CoachGender, string> = { male: 'ec0718028a2445fb9be8e8bfb56a0150', female: '35929683c49c4ec0bf779dc07d22620b' };
-const STYLE_PROMPT =
-  'Lee en español latino, con voz cálida y enérgica de entrenador personal que anima sin exagerar';
+const STYLE_PROMPT: string = voiceConfig.stylePrompt;
 
 /* ---------------- Estado público: ¿está hablando? y nivel de la voz ---------------- */
 
@@ -109,8 +114,6 @@ function ensureCtx(): AudioContext | null {
   return ctx;
 }
 
-let speechUnlocked = false;
-
 /**
  * Llamar dentro de un gesto del usuario (enviar un mensaje): los navegadores solo dejan
  * reproducir audio después de una interacción.
@@ -118,17 +121,8 @@ let speechUnlocked = false;
 export function unlockCoachVoice() {
   const c = ensureCtx();
   if (c && c.state === 'suspended') void c.resume().catch(() => {});
-  if (!speechUnlocked && 'speechSynthesis' in window) {
-    speechUnlocked = true;
-    try {
-      // iOS: la primera locución debe salir de un gesto; una vacía basta para desbloquear
-      const u = new SpeechSynthesisUtterance('');
-      u.volume = 0;
-      window.speechSynthesis.speak(u);
-    } catch {
-      /* sin voz del navegador */
-    }
-  }
+  // Se aprovecha el gesto para tener listo el índice de frases grabadas
+  void ensureClipManifest();
 }
 
 /* ---------------- Sesiones: cada lectura tiene su número; cambiarlo la cancela ---------------- */
@@ -136,14 +130,9 @@ export function unlockCoachVoice() {
 let session = 0;
 let sessionGain: GainNode | null = null;
 let sources: AudioBufferSourceNode[] = [];
-let browserTalking = false;
-let boundaryPulse = 0;
 let fadeTimer: ReturnType<typeof setTimeout> | null = null;
 
-/**
- * Detiene la voz. Con `fade` el volumen baja a cero en 0,5 s antes de cortar
- * (la voz del navegador no lo permite y se corta al momento).
- */
+/** Detiene la voz. Con `fade` el volumen baja a cero en 0,5 s antes de cortar */
 export function stopCoachVoice({ fade = true }: { fade?: boolean } = {}) {
   session++;
   if (fadeTimer) {
@@ -174,15 +163,6 @@ export function stopCoachVoice({ fade = true }: { fade?: boolean } = {}) {
     setTimeout(() => gain.disconnect(), (fade ? FADE_S : 0) * 1000 + 80);
   }
 
-  if (browserTalking || window.speechSynthesis?.speaking) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch {
-      /* nada que cortar */
-    }
-  }
-  browserTalking = false;
-
   if (!speaking) return;
   if (fade && playing.length) {
     // La boca sigue la señal mientras se apaga y luego se cierra
@@ -197,36 +177,42 @@ export function stopCoachVoice({ fade = true }: { fade?: boolean } = {}) {
 }
 
 /**
+ * Resultado de una lectura:
+ * - 'ok': leída (o cortada por otra lectura).
+ * - 'failed': la voz de IA no respondió tras reintentarlo; se calla y la vista avisa (el texto sigue en el chat).
+ * - 'unavailable': no hay voz para este texto (sin voz de IA y sin frases grabadas que coincidan): no suena nada.
+ */
+export type SpeakResult = 'ok' | 'failed' | 'unavailable';
+
+/**
  * Lee el texto con la voz del coach. Corta cualquier lectura anterior.
- * Con clave de IA nunca cambia a la voz del sistema: si la de IA falla tras reintentarlo,
- * se calla y devuelve 'failed' para que la vista avise (el texto sigue en el chat).
+ * Nunca cambia de voz a mitad: si la de IA falla tras reintentarlo, se calla.
  */
 export async function speakCoach(
   text: string,
   gender: CoachGender,
   /** Voz a usar en lugar de la guardada (el botón «Probar voz» de Ajustes, antes de guardar) */
   choice: CoachVoiceChoice = resolveCoachVoice(),
-): Promise<'ok' | 'failed'> {
+): Promise<SpeakResult> {
   stopCoachVoice({ fade: false });
   const mySession = session;
-  // Las etiquetas de expresión ([excited], [pause]…) solo llegan a la voz que las interpreta
-  const clean = cleanForSpeech(voiceTagsEnabled(choice) ? text : stripVoiceTags(text));
-  if (!clean) return 'ok';
-
   const { provider } = choice;
-  if (provider && ensureCtx()) {
-    try {
-      await speakWithApi(clean, gender, provider, mySession);
-      return 'ok';
-    } catch (err) {
-      if (session !== mySession) return 'ok';
-      console.warn('[coachVoice] Voz de IA no disponible:', err);
-      return 'failed';
-    }
+  if (!ensureCtx()) return 'unavailable';
+  // Las frases grabadas solo se buscan si pueden sonar (sin voz de IA o con la de Gemini)
+  if (!provider || provider.kind === 'gemini') await ensureClipManifest();
+  if (session !== mySession) return 'ok';
+
+  // Las etiquetas de expresión ([excited], [pause]…) solo llegan a la voz que las interpreta
+  const jobs = planSpeech(voiceTagsEnabled(choice) ? text : stripVoiceTags(text), gender, provider);
+  if (!jobs.length) return provider ? 'ok' : 'unavailable';
+  try {
+    await speakJobs(jobs, gender, provider, mySession);
+    return 'ok';
+  } catch (err) {
+    if (session !== mySession) return 'ok';
+    console.warn('[coachVoice] Voz de IA no disponible:', err);
+    return 'failed';
   }
-  // Sin clave de IA la voz del coach es la del navegador
-  if (session === mySession) speakWithBrowser(clean, gender, mySession);
-  return 'ok';
 }
 
 /**
@@ -240,7 +226,7 @@ export function voiceTagsEnabled(choice: CoachVoiceChoice = resolveCoachVoice())
 const usableKey = (k: string | undefined) => (k && k.trim().length >= 9 ? k.trim() : '');
 
 export interface CoachVoiceChoice {
-  /** null = voz del navegador */
+  /** null = sin voz de IA (solo suenan las frases grabadas, si las hay) */
   provider: Provider | null;
   /** Qué voz usará el coach, para mostrarlo en Ajustes */
   label: string;
@@ -250,6 +236,8 @@ export interface CoachVoiceChoice {
 
 type VoiceSettings = Pick<Settings, 'ttsPlatform' | 'ttsModel' | 'ttsVoiceId' | 'aiPlatform'>;
 type VoiceSecrets = Pick<Secrets, 'geminiApiKey' | 'elevenLabsApiKey' | 'openaiTtsApiKey' | 'fishAudioApiKey' | 'ttsApiKey'>;
+
+const NO_VOICE_LABEL = 'Sin voz configurada (el coach no suena)';
 
 /**
  * Decide con qué voz habla el coach según Ajustes y las claves guardadas.
@@ -263,7 +251,8 @@ export function resolveCoachVoice(
   const ttsModel = settings.ttsModel?.trim() || '';
   const ttsVoice = settings.ttsVoiceId?.trim() || '';
 
-  if (tts === 'native') return { provider: null, label: 'Voz del navegador (síntesis nativa)' };
+  // La síntesis del navegador ya no existe: «native» quedó como «sin voz»
+  if (tts === 'native') return { provider: null, label: NO_VOICE_LABEL };
 
   let note: string | undefined;
   if (tts === 'elevenlabs') {
@@ -290,21 +279,190 @@ export function resolveCoachVoice(
   if (aiKey && platform === 'openai') {
     return { provider: { kind: 'openai', key: aiKey, model: 'gpt-4o-mini-tts', voice: '' }, label: 'OpenAI TTS (clave de IA)', note };
   }
-  return { provider: null, label: 'Voz del navegador', note };
+  return { provider: null, label: NO_VOICE_LABEL, note };
 }
 
-/* ---------------- Voz de IA (Gemini / OpenAI) ---------------- */
+/* ---------------- ¿Tiene voz el coach? ---------------- */
 
 /**
- * Reproduce los fragmentos uno tras otro. Todos se piden desde el principio (hasta
- * MAX_PARALLEL_TTS a la vez): si se pidieran de uno en uno, generar un fragmento largo tarda
- * más de lo que dura el anterior y la voz se quedaría callada unos segundos a mitad de frase.
- * Si un fragmento falla tras sus reintentos, termina lo ya programado y lanza el error.
+ * - 'tts': hay una voz de IA configurada y lee cualquier respuesta.
+ * - 'clips': sin voz de IA, pero hay frases grabadas: suenan solo esas.
+ * - 'none': no suena nada; el coach queda silenciado y activar el sonido muestra un aviso.
  */
-async function speakWithApi(text: string, gender: CoachGender, provider: Provider, mySession: number): Promise<void> {
+export type CoachVoiceMode = 'tts' | 'clips' | 'none';
+
+export function coachVoiceMode(gender: CoachGender, choice: CoachVoiceChoice = resolveCoachVoice()): CoachVoiceMode {
+  if (choice.provider) return 'tts';
+  return clipIndex[gender].size > 0 ? 'clips' : 'none';
+}
+
+/** Igual que `coachVoiceMode`, pero se actualiza al cambiar Ajustes o las claves y al cargar las frases grabadas */
+export function useCoachVoiceMode(gender: CoachGender): CoachVoiceMode {
+  const settings = useStore(
+    useShallow((s) => ({
+      ttsPlatform: s.settings.ttsPlatform,
+      ttsModel: s.settings.ttsModel,
+      ttsVoiceId: s.settings.ttsVoiceId,
+      aiPlatform: s.settings.aiPlatform,
+    })),
+  );
+  const keys = useSecrets((s) => s.keys);
+  useSyncExternalStore(subscribeManifest, () => manifestRev, () => 0);
+  useEffect(() => {
+    void ensureClipManifest();
+  }, []);
+  return coachVoiceMode(gender, resolveCoachVoice(settings, keys));
+}
+
+/** Dónde se configura la voz (para el aviso al intentar activar el sonido sin voz) */
+export const VOICE_SETTINGS_PLACE = 'Ajustes › «Voz Neuronal y Dictado (TTS & STT)»';
+
+/* ---------------- Frases grabadas (public/coach-voice) ---------------- */
+
+/** Carpeta pública de los audios, respetando la base de la compilación (web, Android o escritorio) */
+const CLIPS_BASE = `${import.meta.env.BASE_URL}${voiceConfig.clipsDir}/`;
+const CLIP_VOICES: Record<CoachGender, string> = voiceConfig.clipVoices;
+/** Rutas válidas dentro de la carpeta, p. ej. «pilo/saludo.apertura.1.mp3» */
+const SAFE_CLIP_PATH = /^[a-z0-9_-]+\/[a-z0-9._-]+\.(wav|mp3|ogg|m4a)$/i;
+
+/** Texto normalizado de cada frase grabada → URL de su audio, por personaje */
+let clipIndex: Record<CoachGender, Map<string, string>> = { male: new Map(), female: new Map() };
+let manifestPromise: Promise<void> | null = null;
+let manifestRev = 0;
+const manifestListeners = new Set<() => void>();
+
+const subscribeManifest = (l: () => void) => {
+  manifestListeners.add(l);
+  return () => manifestListeners.delete(l);
+};
+
+/**
+ * Clave de búsqueda: solo letras y números en minúsculas. Así una línea del chat coincide con la frase
+ * grabada aunque lleve negritas, viñetas, comillas o un punto final distinto.
+ */
+const clipKey = (s: string) =>
+  s
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+/**
+ * Lee public/coach-voice/manifest.json (lo escribe el script de generación) una vez por sesión. Sin manifiesto,
+ * vacío o mal formado no pasa nada: simplemente no hay frases grabadas. Si falla la red, se reintenta en la
+ * siguiente llamada.
+ */
+export function ensureClipManifest(): Promise<void> {
+  if (manifestPromise) return manifestPromise;
+  let retry = false;
+  manifestPromise = (async () => {
+    try {
+      const res = await fetch(`${CLIPS_BASE}manifest.json`, { cache: 'no-cache' });
+      if (!res.ok) return;
+      const json = (await res.json()) as { voices?: Record<string, { clips?: Record<string, { file?: unknown; text?: unknown }> }> };
+      const next: typeof clipIndex = { male: new Map(), female: new Map() };
+      for (const gender of ['male', 'female'] as const) {
+        const clips = json.voices?.[CLIP_VOICES[gender]]?.clips ?? {};
+        for (const entry of Object.values(clips)) {
+          if (typeof entry?.file !== 'string' || typeof entry.text !== 'string' || !SAFE_CLIP_PATH.test(entry.file)) continue;
+          next[gender].set(clipKey(cleanForSpeech(entry.text)), `${CLIPS_BASE}${entry.file}`);
+        }
+      }
+      clipIndex = next;
+    } catch {
+      // Sin conexión u otro fallo pasajero: sin frases grabadas por ahora, se vuelve a intentar más tarde
+      retry = true;
+    } finally {
+      if (retry) manifestPromise = null;
+      manifestRev++;
+      manifestListeners.forEach((l) => l());
+    }
+  })();
+  return manifestPromise;
+}
+
+/** Audios ya decodificados (los últimos usados): las frases se repiten y así suenan al instante */
+const CLIP_CACHE_MAX = 24;
+const clipCache = new Map<string, Promise<AudioBuffer | null>>();
+
+function loadClip(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+  const cached = clipCache.get(url);
+  if (cached) {
+    // Se vuelve a insertar para marcarla como la más reciente
+    clipCache.delete(url);
+    clipCache.set(url, cached);
+    return cached;
+  }
+  const p = fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.arrayBuffer();
+    })
+    .then((buf) => c.decodeAudioData(buf))
+    .catch((err) => {
+      // Falta el archivo o no se puede decodificar: esa frase se salta sin romper la lectura
+      console.warn('[coachVoice] No se pudo cargar la frase grabada', url, err);
+      clipCache.delete(url);
+      return null;
+    });
+  clipCache.set(url, p);
+  while (clipCache.size > CLIP_CACHE_MAX) clipCache.delete(clipCache.keys().next().value!);
+  return p;
+}
+
+/* ---------------- Plan de lectura: frases grabadas y texto para la voz de IA ---------------- */
+
+type SpeechJob = { kind: 'clip'; url: string } | { kind: 'tts'; text: string };
+
+/**
+ * Decide qué suena y con qué:
+ * - Fish Audio, ElevenLabs u OpenAI: todo con esa voz (las frases grabadas son de Gemini y sonarían distintas).
+ * - Gemini: cada línea que es una frase grabada suena con su audio; el resto se sintetiza con la misma voz.
+ * - Sin voz de IA: solo las líneas que son frases grabadas; el resto se calla.
+ */
+function planSpeech(source: string, gender: CoachGender, provider: Provider | null): SpeechJob[] {
+  if (provider && provider.kind !== 'gemini') {
+    const clean = cleanForSpeech(source);
+    return clean ? splitChunks(clean).map((text) => ({ kind: 'tts' as const, text })) : [];
+  }
+
+  const jobs: SpeechJob[] = [];
+  let pending = '';
+  let total = 0;
+  const flush = () => {
+    if (pending && provider) jobs.push(...splitChunks(pending).map((text) => ({ kind: 'tts' as const, text })));
+    pending = '';
+  };
+  // Línea a línea: cada frase del catálogo va sola en su línea (los bloques de código y de acción, fuera)
+  for (const line of source.replace(/```[\s\S]*?```/g, '\n').split('\n')) {
+    if (total >= MAX_SPEECH_CHARS) break;
+    const spoken = cleanForSpeech(line);
+    if (!spoken) continue;
+    total += spoken.length;
+    const url = clipIndex[gender].get(clipKey(spoken));
+    if (url) {
+      flush();
+      jobs.push({ kind: 'clip', url });
+    } else {
+      pending = pending ? `${pending} ${spoken}` : spoken;
+    }
+  }
+  flush();
+  return jobs;
+}
+
+/* ---------------- Reproducción (voz de IA y frases grabadas) ---------------- */
+
+/**
+ * Reproduce los fragmentos uno tras otro. Todos se piden desde el principio (hasta MAX_PARALLEL_TTS
+ * síntesis a la vez): si se pidieran de uno en uno, generar un fragmento largo tarda más de lo que dura
+ * el anterior y la voz se quedaría callada unos segundos a mitad de frase. Las frases grabadas se cargan
+ * aparte (son archivos de la app) y, si falta alguna, se salta.
+ * Si un fragmento de IA falla tras sus reintentos, termina lo ya programado y lanza el error.
+ */
+async function speakJobs(chunks: SpeechJob[], gender: CoachGender, provider: Provider | null, mySession: number): Promise<void> {
   const c = ensureCtx()!;
   if (c.state === 'suspended') await c.resume().catch(() => {});
-  const chunks = splitChunks(text);
 
   const gain = c.createGain();
   gain.connect(analyser!);
@@ -322,14 +480,17 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
     waiting.shift()?.();
   };
 
-  const fetchChunk = (i: number) => {
+  const fetchChunk = (i: number): Promise<AudioBuffer | null> => {
+    const job = chunks[i];
+    if (job.kind === 'clip') return loadClip(c, job.url);
+    if (!provider) return Promise.resolve(null);
     const p = acquire()
       .then(async () => {
         try {
           for (let attempt = 1; ; attempt++) {
             if (cancelled()) throw new Error('Lectura cancelada');
             try {
-              return await synthesize(chunks[i], gender, provider);
+              return await synthesize(job.text, gender, provider);
             } catch (err) {
               if (attempt >= TTS_ATTEMPTS || !isRetryable(err)) {
                 gaveUp = true;
@@ -357,17 +518,18 @@ async function speakWithApi(text: string, gender: CoachGender, provider: Provide
   };
 
   for (let i = 0; i < chunks.length; i++) {
-    let buffer: AudioBuffer;
+    let buffer: AudioBuffer | null;
     try {
       buffer = await requests[i];
     } catch (err) {
-      // Se termina la frase en curso con la misma voz y se para (sin cambiar a la del sistema)
+      // Se termina la frase en curso con la misma voz y se para (sin cambiar de voz)
       allQueued = true;
       maybeFinish();
       await waitUntilDrained(mySession);
       throw err;
     }
     if (session !== mySession) return;
+    if (!buffer) continue;
 
     const src = c.createBufferSource();
     src.buffer = buffer;
@@ -500,71 +662,6 @@ async function bytesToBuffer(c: AudioContext, { data, mime }: { data: Uint8Array
   return buffer;
 }
 
-/* ---------------- Voz del navegador ---------------- */
-
-const MALE_HINTS = /jorge|pablo|diego|ra[uú]l|juan|carlos|enrique|[aá]lvaro|alonso|gonzalo|jos[eé]|miguel|andr[eé]s|tom[aá]s|male|hombre/i;
-const FEMALE_HINTS = /helena|laura|sabina|paulina|m[oó]nica|elvira|dalia|luc[ií]a|elena|paloma|marisol|ximena|camila|female|mujer|google espa/i;
-
-function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
-  const synth = window.speechSynthesis;
-  const now = synth.getVoices();
-  if (now.length) return Promise.resolve(now);
-  return new Promise((resolve) => {
-    const done = () => {
-      synth.removeEventListener('voiceschanged', done);
-      resolve(synth.getVoices());
-    };
-    synth.addEventListener('voiceschanged', done);
-    setTimeout(done, 1200);
-  });
-}
-
-function pickVoice(voices: SpeechSynthesisVoice[], gender: CoachGender): SpeechSynthesisVoice | undefined {
-  const spanish = voices.filter((v) => v.lang?.toLowerCase().startsWith('es'));
-  if (!spanish.length) return undefined;
-  const latam = (v: SpeechSynthesisVoice) => /es-(419|mx|us|co|ar|cl|pe|ve)/i.test(v.lang);
-  const hint = gender === 'female' ? FEMALE_HINTS : MALE_HINTS;
-  const other = gender === 'female' ? MALE_HINTS : FEMALE_HINTS;
-  // Las voces locales tienen prioridad: las remotas descargan cada frase al llegar a ella y dejan
-  // silencios de segundos entre frases
-  const score = (v: SpeechSynthesisVoice) =>
-    (hint.test(v.name) ? 4 : 0) - (other.test(v.name) ? 3 : 0) + (latam(v) ? 2 : 0) + (v.localService ? 3 : 0);
-  return [...spanish].sort((a, b) => score(b) - score(a))[0];
-}
-
-function speakWithBrowser(text: string, gender: CoachGender, mySession: number) {
-  if (!('speechSynthesis' in window)) return;
-  const synth = window.speechSynthesis;
-  void waitForVoices().then((voices) => {
-    if (session !== mySession) return;
-    const voice = pickVoice(voices, gender);
-    // Frases cortas: Chrome corta las locuciones largas a los ~15 s
-    const parts = splitChunks(text, 200, 200);
-    browserTalking = true;
-    parts.forEach((part, i) => {
-      const u = new SpeechSynthesisUtterance(part);
-      if (voice) u.voice = voice;
-      u.lang = voice?.lang || 'es-419';
-      u.rate = 1.04;
-      u.pitch = gender === 'female' ? 1.12 : 0.96;
-      u.onstart = () => {
-        if (session === mySession) setSpeaking(true);
-      };
-      u.onboundary = () => {
-        boundaryPulse = 1;
-      };
-      const end = () => {
-        if (session !== mySession || i !== parts.length - 1) return;
-        browserTalking = false;
-        setSpeaking(false);
-      };
-      u.onend = end;
-      u.onerror = end;
-      synth.speak(u);
-    });
-  });
-}
-
 /* ---------------- Medidor: nivel de la voz → boca ---------------- */
 
 let meterRaf = 0;
@@ -572,22 +669,14 @@ let level = 0;
 
 function startMeter() {
   if (meterRaf) return;
-  const tick = (t: number) => {
+  const tick = () => {
     let target = 0;
-    if (speaking) {
-      if (analyser && meterData && (sources.length || sessionGain)) {
-        analyser.getFloatTimeDomainData(meterData);
-        let sum = 0;
-        for (let i = 0; i < meterData.length; i++) sum += meterData[i] * meterData[i];
-        const rms = Math.sqrt(sum / meterData.length);
-        target = Math.min(1, Math.max(0, (rms - 0.012) * 7));
-      }
-      if (browserTalking) {
-        // Sin acceso a la señal: sílabas simuladas que se refuerzan en cada palabra
-        const syllable = 0.5 + 0.5 * Math.sin(t / 58) * Math.sin(t / 23 + 1.3);
-        target = Math.max(target, 0.18 + 0.5 * syllable + 0.35 * boundaryPulse);
-        boundaryPulse *= 0.86;
-      }
+    if (speaking && analyser && meterData && (sources.length || sessionGain)) {
+      analyser.getFloatTimeDomainData(meterData);
+      let sum = 0;
+      for (let i = 0; i < meterData.length; i++) sum += meterData[i] * meterData[i];
+      const rms = Math.sqrt(sum / meterData.length);
+      target = Math.min(1, Math.max(0, (rms - 0.012) * 7));
     }
     // Abre rápido y cierra algo más despacio, como una mandíbula
     level += (target - level) * (target > level ? 0.55 : 0.28);

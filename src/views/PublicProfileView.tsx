@@ -4,47 +4,41 @@ import {
   ArrowLeft, Ban, Check, Clock, Flag, Gavel, HandHeart, ImageOff, PartyPopper, PenSquare, Send, ShieldAlert, ShieldCheck,
   Trash2, UserCheck, UserPlus, UserRoundX, X,
 } from 'lucide-react';
-import { Avatar } from '@/components/profile/Avatar';
-import { ProfileBanner } from '@/components/social/Identity';
+import {
+  FeaturedAchievements, ProfileHero, ProfilePosts, ProfileStats, ProfileWeekSection, longDay, useServerWeek, useWeekNav,
+} from '@/components/profile/ProfileSections';
 import { BanScreen } from '@/components/social/BanScreen';
-import { CommunityUnavailable, MoreMenu, PostCard, useSocialFail, type MoreMenuItem } from '@/components/social/PostCard';
+import { CommunityUnavailable, MoreMenu, useSocialFail, type MoreMenuItem } from '@/components/social/PostCard';
 import { PostModal } from '@/components/social/PostModal';
 import { ReasonModal, ReportModal } from '@/components/social/ReportModal';
-import { PublicHabitsTable } from '@/components/social/PublicHabitsTable';
-import { WeekXpBars } from '@/components/social/WeekXpBars';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastContext';
-import { fromKey } from '@/lib/dates';
+import { startOfWeekKey, todayKey } from '@/lib/dates';
 import { levelFromXp } from '@/lib/metrics';
 import { playSound } from '@/lib/sound';
 import {
-  adminBan, adminClearAvatar, adminClearBanner, adminUnban, adminWarn, assetUrl, blockUser, getFeed, getPublicProfile,
-  removeAvatarFiles, removeFriend, respondFriendRequest, sendCheer, sendFriendRequest, unblockUser,
+  adminBan, adminClearAvatar, adminClearBanner, adminUnban, adminWarn, assetUrl, blockUser, getPublicProfile, removeAvatarFiles,
+  removeFriend, respondFriendRequest, sendCheer, sendFriendRequest, toggleProfileLike, unblockUser,
 } from '@/social/api';
+import { parseDefaultAvatarPath } from '@/lib/defaultAvatars';
 import { myUserId } from '@/social/runtime';
-import { cheerText, LEAGUES, RARITY } from '@/social/texts';
+import { cheerText, LEAGUES, personName } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
-import type { FeaturedAchievement, Post, PublicProfile } from '@/social/types';
+import type { PublicProfile } from '@/social/types';
 import '@/components/profile/profile.css';
 import '@/components/social/social.css';
 import '@/components/social/community.css';
-
-const PAGE = 20;
-
-/** «2026-10-01» o un ISO → fecha local (sin el desfase de un día que da `new Date('2026-10-01')`) */
-const toDate = (s: string) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? fromKey(s) : new Date(s));
-const longDay = (s: string) => toDate(s).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 
 type ModAction = 'avatar' | 'banner' | 'warn' | 'ban' | 'unban';
 type Confirm = 'remove' | 'cancel' | 'block' | 'unblock' | null;
 
 /**
- * PERFIL PÚBLICO (/u/:alias) — docs/plan-social.md, F5 y F6
+ * PERFIL PÚBLICO (/u/:alias, también /u/:id para quien no tiene alias) — docs/plan-social.md, F5 y F6
  * Lo que se ve aquí lo decide el servidor (public_profile): tarjetas elegidas, hábitos visibles y la relación contigo.
+ * La presentación es la misma que «Mi perfil» (components/profile/ProfileSections.tsx).
  */
 export const PublicProfileView: React.FC = () => {
-  const { alias = '' } = useParams();
+  const { alias: handle = '' } = useParams();
   const navigate = useNavigate();
   // «default» = se abrió el perfil directamente (sin página anterior de la app a la que volver)
   const firstEntry = useLocation().key === 'default';
@@ -58,27 +52,24 @@ export const PublicProfileView: React.FC = () => {
 
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
   const [p, setP] = useState<PublicProfile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [postsState, setPostsState] = useState<'idle' | 'loading' | 'more' | 'error'>('idle');
-  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [reporting, setReporting] = useState(false);
   const [posting, setPosting] = useState(false);
-  const [achievement, setAchievement] = useState<FeaturedAchievement | null>(null);
+  const [postsKey, setPostsKey] = useState(0);
   const [mod, setMod] = useState<ModAction | null>(null);
 
   // Al pasar de un perfil a otro (/u/a → /u/b) la respuesta del anterior no pisa la del nuevo
-  const aliasRef = useRef(alias);
-  aliasRef.current = alias;
-  const postsFor = useRef<string | null>(null);
+  const handleRef = useRef(handle);
+  handleRef.current = handle;
 
   const load = useCallback(
     async (silent = false) => {
       if (!silent) setState('loading');
       try {
-        const res = await getPublicProfile(alias);
-        if (aliasRef.current !== alias) return;
+        const res = await getPublicProfile(handle);
+        if (handleRef.current !== handle) return;
         if (!res) {
           setP(null);
           setState('missing');
@@ -87,46 +78,26 @@ export const PublicProfileView: React.FC = () => {
         setP(res);
         setState('ready');
       } catch (err) {
-        if (aliasRef.current !== alias) return;
+        if (handleRef.current !== handle) return;
         if (!silent) setState('error');
         fail(err, 'No se pudo cargar el perfil.');
       }
     },
-    [alias, fail],
-  );
-
-  const loadPosts = useCallback(
-    async (userId: string, before?: string) => {
-      postsFor.current = userId;
-      setPostsState(before ? 'more' : 'loading');
-      try {
-        const rows = (await getFeed(userId, before)) ?? [];
-        if (postsFor.current !== userId) return;
-        setPosts((prev) => (before ? [...prev, ...rows.filter((r) => !prev.some((x) => x.id === r.id))] : rows));
-        setHasMore(rows.length >= PAGE);
-        setPostsState('idle');
-      } catch (err) {
-        if (postsFor.current !== userId) return;
-        setPostsState('error');
-        fail(err, 'No se pudieron cargar las publicaciones.');
-      }
-    },
-    [fail],
+    [handle, fail],
   );
 
   useEffect(() => {
-    if (!available) return;
-    postsFor.current = null;
-    setPosts([]);
-    setHasMore(false);
-    void load();
+    if (available) void load();
   }, [available, load]);
 
-  const userId = p?.user_id;
-  const canSeeFull = Boolean(p && userId && !(p.suspended && !isAdmin && !p.is_me));
-  useEffect(() => {
-    if (userId && canSeeFull) void loadPosts(userId);
-  }, [userId, canSeeFull, loadPosts]);
+  // Semanas: las mismas flechas mueven la XP y los hábitos visibles
+  // Un perfil suspendido llega sin `stats` (el servidor solo manda el nombre): no hay semanas que recorrer
+  const nav = useWeekNav(
+    p?.user_id ? `srv:${p.user_id}` : 'none',
+    p?.stats?.week_start ?? startOfWeekKey(todayKey()),
+    p?.stats ? p.first_week || (p.member_since ? startOfWeekKey(p.member_since.slice(0, 10)) : null) : null,
+  );
+  const srvWeek = useServerWeek(p?.user_id, nav.weekStart, Boolean(p?.stats) && !nav.isCurrent);
 
   /* ---------- Acciones ---------- */
 
@@ -181,7 +152,7 @@ export const PublicProfileView: React.FC = () => {
             <UserRoundX aria-hidden="true" />
           </div>
           <h3>{state === 'error' ? 'No se pudo cargar el perfil' : 'Este perfil no existe o no está disponible'}</h3>
-          <p>{state === 'error' ? 'Revisa tu conexión e inténtalo de nuevo.' : `No encontramos a @${alias}.`}</p>
+          <p>{state === 'error' ? 'Revisa tu conexión e inténtalo de nuevo.' : 'Puede que haya cambiado su alias o que ya no esté en la comunidad.'}</p>
           {state === 'error' && (
             <button type="button" className="btn btn-secondary" onClick={() => void load()}>
               Reintentar
@@ -192,6 +163,9 @@ export const PublicProfileView: React.FC = () => {
     );
   }
 
+  const who = personName(p);
+  const canSeeFull = !(p.suspended && !isAdmin && !p.is_me);
+
   if (!canSeeFull) {
     return (
       <div className="stack fade-up" style={{ maxWidth: 860 }}>
@@ -201,7 +175,7 @@ export const PublicProfileView: React.FC = () => {
             <Ban aria-hidden="true" />
           </div>
           <h3>Cuenta suspendida</h3>
-          <p>El perfil de @{p.alias} no está disponible mientras dure la suspensión.</p>
+          <p>El perfil de {who} no está disponible mientras dure la suspensión.</p>
         </div>
       </div>
     );
@@ -210,11 +184,34 @@ export const PublicProfileView: React.FC = () => {
   const uid = p.user_id;
   const me = myUserId();
   const league = p.stats.league ? LEAGUES.find((l) => l.name === p.stats.league) : undefined;
-  const lvl = levelFromXp(Number(p.stats.xp_total) || 0);
+  const lvl = levelFromXp(Math.round(Number(p.stats.xp_total) || 0));
   const has = (c: PublicProfile['cards'][number]) => p.cards?.includes(c);
   const fr = p.friendship;
   const cheer = p.cheer;
   const cheerLabel = cheer?.sent_today ? 'Ya le enviaste ánimos hoy' : cheer?.kind === 'congrats' ? 'Felicitar' : 'Enviar ánimos';
+  const likes = Math.max(0, Number(p.likes) || 0);
+
+  /** «Me gusta» al momento; si el servidor falla, vuelve a como estaba */
+  const onLike = async () => {
+    if (likeBusy) return;
+    const before = { liked: Boolean(p.liked_by_me), likes };
+    const liked = !before.liked;
+    const patch = (v: { liked: boolean; likes: number }) =>
+      setP((cur) => (cur && cur.user_id === uid ? { ...cur, liked_by_me: v.liked, likes: Math.max(0, v.likes) } : cur));
+    patch({ liked, likes: before.likes + (liked ? 1 : -1) });
+    if (liked) playSound.pop();
+    else playSound.click();
+    setLikeBusy(true);
+    try {
+      const res = await toggleProfileLike(uid);
+      patch({ liked: Boolean(res.liked), likes: Number(res.likes) || 0 });
+    } catch (err) {
+      patch(before);
+      fail(err, 'No se pudo guardar tu me gusta.');
+    } finally {
+      setLikeBusy(false);
+    }
+  };
 
   const onCheer = () =>
     run(
@@ -222,7 +219,7 @@ export const PublicProfileView: React.FC = () => {
         const res = await sendCheer(uid);
         const text = cheerText({ kind: res.kind, variant: res.variant, reason: cheer?.reason, n: cheer?.n });
         playSound.pop();
-        showToast(`${res.kind === 'congrats' ? '¡Felicitación enviada!' : '¡Ánimos enviados!'} @${p.alias} recibirá: «@${myProfile?.alias ?? 'tú'} ${text}»`, 'success');
+        showToast(`${res.kind === 'congrats' ? '¡Felicitación enviada!' : '¡Ánimos enviados!'} ${who} recibirá: «${myProfile ? personName(myProfile) : 'Tú'} ${text}»`, 'success');
         setP((cur) => (cur && cur.cheer ? { ...cur, cheer: { ...cur.cheer, sent_today: true } } : cur));
       },
       null,
@@ -235,24 +232,20 @@ export const PublicProfileView: React.FC = () => {
       async () => {
         const status = await sendFriendRequest(uid);
         playSound.pop();
-        showToast(status === 'accepted' ? `¡Ahora eres amigo de @${p.alias}!` : `Solicitud enviada a @${p.alias}`, 'success');
+        showToast(status === 'accepted' ? `¡Ahora eres amigo de ${who}!` : `Solicitud enviada a ${who}`, 'success');
       },
       null,
       'No se pudo enviar la solicitud.',
     );
 
   const onRespond = (accept: boolean) =>
-    run(
-      () => respondFriendRequest(uid, accept),
-      accept ? `¡Ahora eres amigo de @${p.alias}!` : 'Solicitud rechazada',
-      'No se pudo responder la solicitud.',
-    );
+    run(() => respondFriendRequest(uid, accept), accept ? `¡Ahora eres amigo de ${who}!` : 'Solicitud rechazada', 'No se pudo responder la solicitud.');
 
   const onConfirm = () => {
-    if (confirm === 'remove') void run(() => removeFriend(uid), `@${p.alias} ya no está en tus amigos`, 'No se pudo eliminar la amistad.');
+    if (confirm === 'remove') void run(() => removeFriend(uid), `${who} ya no está en tus amigos`, 'No se pudo eliminar la amistad.');
     if (confirm === 'cancel') void run(() => removeFriend(uid), 'Solicitud cancelada', 'No se pudo cancelar la solicitud.');
-    if (confirm === 'block') void run(() => blockUser(uid), `Bloqueaste a @${p.alias}`, 'No se pudo bloquear.');
-    if (confirm === 'unblock' && me) void run(() => unblockUser(me, uid), `Desbloqueaste a @${p.alias}`, 'No se pudo desbloquear.');
+    if (confirm === 'block') void run(() => blockUser(uid), `Bloqueaste a ${who}`, 'No se pudo bloquear.');
+    if (confirm === 'unblock' && me) void run(() => unblockUser(me, uid), `Desbloqueaste a ${who}`, 'No se pudo desbloquear.');
   };
 
   const onModerate = async (reason: string, days: number | null) => {
@@ -260,8 +253,8 @@ export const PublicProfileView: React.FC = () => {
       if (mod === 'avatar') {
         await adminClearAvatar(uid, reason);
         const path = p.avatar_path;
-        // El archivo se borra si se puede; si no, al menos ya no se muestra
-        if (path && !/^(data:|blob:|https?:)/.test(path)) await removeAvatarFiles([path]).catch(() => undefined);
+        // El archivo se borra si se puede; si no, al menos ya no se muestra (las fotos por defecto no son archivos)
+        if (path && !/^(data:|blob:|https?:)/.test(path) && !parseDefaultAvatarPath(path)) await removeAvatarFiles([path]).catch(() => undefined);
       } else if (mod === 'banner') await adminClearBanner(uid, reason);
       else if (mod === 'warn') await adminWarn(uid, reason);
       else if (mod === 'ban') await adminBan(uid, reason, days);
@@ -274,7 +267,7 @@ export const PublicProfileView: React.FC = () => {
         unban: 'Veto levantado',
       };
       playSound.pop();
-      showToast(`${done[mod!]} · @${p.alias}`, 'success');
+      showToast(`${done[mod!]} · ${who}`, 'success');
       await load(true);
     } catch (err) {
       fail(err, 'No se pudo aplicar la acción de moderación.');
@@ -283,17 +276,17 @@ export const PublicProfileView: React.FC = () => {
   };
 
   const MOD: Record<ModAction, { title: string; description: string; confirmLabel: string; danger?: boolean; withDays?: boolean }> = {
-    avatar: { title: 'Borrar foto', description: `Se borra la foto de perfil de @${p.alias}.`, confirmLabel: 'Borrar foto', danger: true },
-    banner: { title: 'Quitar banner', description: `@${p.alias} vuelve al banner por defecto (conserva el artículo).`, confirmLabel: 'Quitar banner' },
-    warn: { title: 'Advertir', description: `@${p.alias} recibirá una notificación con el motivo.`, confirmLabel: 'Enviar advertencia' },
+    avatar: { title: 'Borrar foto', description: `Se borra la foto de perfil de ${who}.`, confirmLabel: 'Borrar foto', danger: true },
+    banner: { title: 'Quitar banner', description: `${who} vuelve al banner por defecto (conserva el artículo).`, confirmLabel: 'Quitar banner', danger: true },
+    warn: { title: 'Advertir', description: `${who} recibirá una notificación con el motivo.`, confirmLabel: 'Enviar advertencia' },
     ban: {
       title: 'Vetar',
-      description: `Mientras dure, @${p.alias} no podrá publicar, reaccionar, enviar ánimos ni cambiar su perfil público.`,
+      description: `Mientras dure, ${who} no podrá publicar, reaccionar, enviar ánimos ni cambiar su perfil público.`,
       confirmLabel: 'Aplicar veto',
       danger: true,
       withDays: true,
     },
-    unban: { title: 'Levantar veto', description: `@${p.alias} podrá volver a usar la comunidad.`, confirmLabel: 'Levantar veto' },
+    unban: { title: 'Levantar veto', description: `${who} podrá volver a usar la comunidad.`, confirmLabel: 'Levantar veto' },
   };
 
   const menu: MoreMenuItem[] = p.is_me
@@ -317,13 +310,7 @@ export const PublicProfileView: React.FC = () => {
       );
     if (fr.status === 'accepted')
       return (
-        <button
-          type="button"
-          className="btn btn-secondary sm"
-          onClick={() => setConfirm('remove')}
-          disabled={busy}
-          title="Toca para eliminar la amistad"
-        >
+        <button type="button" className="btn btn-secondary sm" onClick={() => setConfirm('remove')} disabled={busy} title="Toca para eliminar la amistad">
           <UserCheck aria-hidden="true" /> Amigos
         </button>
       );
@@ -346,199 +333,120 @@ export const PublicProfileView: React.FC = () => {
   };
 
   const CONFIRM: Record<Exclude<Confirm, null>, { title: string; message: string; label: string; danger?: boolean }> = {
-    remove: { title: `¿Eliminar a @${p.alias} de tus amigos?`, message: 'Dejarás de ver sus publicaciones en tu inicio. Podrás enviarle otra solicitud cuando quieras.', label: 'Eliminar', danger: true },
-    cancel: { title: '¿Cancelar la solicitud?', message: `@${p.alias} ya no verá tu solicitud de amistad.`, label: 'Cancelar solicitud' },
+    remove: {
+      title: `¿Eliminar a ${who} de tus amigos?`,
+      message: 'Dejarás de ver sus publicaciones en tu inicio. Podrás enviarle otra solicitud cuando quieras.',
+      label: 'Eliminar',
+      danger: true,
+    },
+    cancel: { title: '¿Cancelar la solicitud?', message: `${who} ya no verá tu solicitud de amistad.`, label: 'Cancelar solicitud' },
     block: {
-      title: `¿Bloquear a @${p.alias}?`,
+      title: `¿Bloquear a ${who}?`,
       message: 'No podrá ver tu perfil, enviarte solicitudes ni ánimos, y se elimina la amistad si la había. No se le avisa.',
       label: 'Bloquear',
       danger: true,
     },
-    unblock: { title: `¿Desbloquear a @${p.alias}?`, message: 'Podrá volver a ver tu perfil y enviarte solicitudes.', label: 'Desbloquear' },
+    unblock: { title: `¿Desbloquear a ${who}?`, message: 'Podrá volver a ver tu perfil y enviarte solicitudes.', label: 'Desbloquear' },
   };
 
+  const cheerHint =
+    !p.is_me && cheer?.kind === 'congrats' && !cheer.sent_today
+      ? cheer.reason === 'streak'
+        ? `¡Lleva ${cheer.n ?? ''} días de racha!`
+        : cheer.reason === 'achievement'
+          ? `Acaba de conseguir el logro «${cheer.name ?? ''}».`
+          : cheer.reason === 'podium'
+            ? 'Quedó en el podio la semana pasada.'
+            : cheer.reason === 'league_up'
+              ? 'Acaba de subir de liga.'
+              : null
+      : null;
+
   return (
-    <div className="stack fade-up" style={{ maxWidth: 860 }}>
+    <div className="stack fade-up profile-page" style={{ maxWidth: 860 }}>
       {!p.is_me && backBtn}
       {banned && <BanScreen compact />}
 
-      <section className="profile-hero" aria-label={`Perfil de @${p.alias}`}>
-        <ProfileBanner banner={p.banner} />
-        <div className="profile-hero-body">
-          <Avatar src={assetUrl('avatars', p.avatar_path)} name={p.alias} size={96} frame={p.frame} />
-          <div className="profile-hero-name">
-            <h1>@{p.alias}</h1>
-            <div className="pp-meta">
-              {league && (
-                <span className="badge" style={{ color: league.color }}>
-                  <span aria-hidden="true">{league.icon}</span> Liga {league.name}
-                </span>
-              )}
-              <span className="badge accent">Nivel {lvl.level}</span>
-              {p.suspended && <span className="badge danger">Cuenta suspendida</span>}
-              {has('member_since') && p.member_since && <span className="pp-stat-sub">Miembro desde el {longDay(p.member_since)}</span>}
-            </div>
-          </div>
-        </div>
-        <div className="pp-actions-wrap">
-          <div className="pp-hero-actions">
-            {p.is_me ? (
-              <>
-                <Link to="/perfil" className="btn btn-secondary sm">
-                  <PenSquare aria-hidden="true" /> Editar perfil
-                </Link>
-                <button type="button" className="btn btn-primary sm" onClick={() => setPosting(true)} disabled={banned}>
-                  <Send aria-hidden="true" /> Publicar
+      <ProfileHero
+        label={`Perfil de ${who}`}
+        name={who}
+        bio={p.bio}
+        avatarSrc={assetUrl('avatars', p.avatar_path)}
+        frame={p.frame}
+        banner={p.banner}
+        bannerColor={p.banner_color}
+        likes={{
+          count: likes,
+          liked: Boolean(p.liked_by_me),
+          onToggle: p.is_me ? undefined : () => void onLike(),
+          disabled: likeBusy || banned || p.i_blocked,
+        }}
+        meta={
+          <>
+            {league && (
+              <span className="badge" style={{ color: `color-mix(in srgb, ${league.text} 72%, var(--text))` }}>
+                <span aria-hidden="true">{league.icon}</span> Liga {league.name}
+              </span>
+            )}
+            <span className="badge accent">Nivel {lvl.level}</span>
+            {p.suspended && <span className="badge danger">Cuenta suspendida</span>}
+            {has('member_since') && p.member_since && <span className="ph-meta-text">Miembro desde el {longDay(p.member_since)}</span>}
+          </>
+        }
+        actions={
+          p.is_me ? (
+            <>
+              <Link to="/perfil?editar=1" className="btn btn-secondary sm">
+                <PenSquare aria-hidden="true" /> Editar perfil
+              </Link>
+              <button type="button" className="btn btn-primary sm" onClick={() => setPosting(true)} disabled={banned}>
+                <Send aria-hidden="true" /> Publicar
+              </button>
+            </>
+          ) : (
+            <>
+              {friendButtons()}
+              {!p.i_blocked && cheer && (
+                <button
+                  type="button"
+                  className={`btn sm ${cheer.kind === 'congrats' && !cheer.sent_today ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => void onCheer()}
+                  disabled={writeOff || cheer.sent_today}
+                >
+                  {cheer.kind === 'congrats' ? <PartyPopper aria-hidden="true" /> : <HandHeart aria-hidden="true" />} {cheerLabel}
                 </button>
-              </>
-            ) : (
-              <>
-                {friendButtons()}
-                {!p.i_blocked && cheer && (
-                  <button
-                    type="button"
-                    className={`btn sm ${cheer.kind === 'congrats' && !cheer.sent_today ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => void onCheer()}
-                    disabled={writeOff || cheer.sent_today}
-                  >
-                    {cheer.kind === 'congrats' ? <PartyPopper aria-hidden="true" /> : <HandHeart aria-hidden="true" />} {cheerLabel}
-                  </button>
-                )}
-                <MoreMenu items={menu} label={`Más opciones para @${p.alias}`} className="btn btn-ghost sm" />
-              </>
-            )}
-          </div>
-          {p.is_me && <p className="pp-hint">Así ven tu perfil los demás. Elige las tarjetas y los hábitos visibles en Mi perfil.</p>}
-          {!p.is_me && p.i_blocked && <p className="pp-hint">Bloqueaste a esta persona. Puedes desbloquearla desde el menú ⋯.</p>}
-          {!p.is_me && !myProfile && (
-            <p className="pp-hint">
-              Para añadir amigos o enviar ánimos, primero crea tu perfil público en <Link to="/perfil">Mi perfil</Link>.
-            </p>
-          )}
-          {!p.is_me && cheer?.kind === 'congrats' && !cheer.sent_today && (
-            <p className="pp-hint">
-              {cheer.reason === 'streak'
-                ? `¡Lleva ${cheer.n ?? ''} días de racha!`
-                : cheer.reason === 'achievement'
-                  ? `Acaba de conseguir el logro «${cheer.name ?? ''}».`
-                  : cheer.reason === 'podium'
-                    ? 'Quedó en el podio la semana pasada.'
-                    : cheer.reason === 'league_up'
-                      ? 'Acaba de subir de liga.'
-                      : null}
-            </p>
-          )}
-        </div>
-      </section>
+              )}
+              <MoreMenu items={menu} label={`Más opciones para ${who}`} className="btn btn-ghost sm" />
+            </>
+          )
+        }
+      >
+        {p.is_me && <p className="ph-hint">Así ven tu perfil los demás.</p>}
+        {!p.is_me && p.i_blocked && <p className="ph-hint">Bloqueaste a esta persona. Puedes desbloquearla desde el menú ⋯.</p>}
+        {cheerHint && <p className="ph-hint">{cheerHint}</p>}
+      </ProfileHero>
 
-      <div className="pp-cards">
-        <div className="card pp-stat">
-          <span className="card-sub">Nivel</span>
-          <span className="pp-stat-value">{lvl.level}</span>
-          <span className="pp-stat-sub">{(Number(p.stats.xp_total) || 0).toLocaleString('es')} XP en total</span>
-          <div
-            className="level-track"
-            role="progressbar"
-            aria-label="Progreso al siguiente nivel"
-            aria-valuemin={0}
-            aria-valuemax={lvl.xpForNext}
-            aria-valuenow={Math.round(lvl.xpInLevel)}
-          >
-            <div className="level-fill" style={{ transform: `scaleX(${Math.min(1, Math.max(0, lvl.progress))})` }} />
-          </div>
-        </div>
-        {has('streak') && (
-          <div className="card pp-stat">
-            <span className="card-sub">Racha</span>
-            <span className="pp-stat-value">
-              <span aria-hidden="true">🔥</span> {p.stats.current_streak} {p.stats.current_streak === 1 ? 'día' : 'días'}
-            </span>
-            <span className="pp-stat-sub">Récord: {p.stats.best_streak} {p.stats.best_streak === 1 ? 'día' : 'días'}</span>
-          </div>
-        )}
-        {has('achievements') && (
-          <div className="card">
-            <div className="card-sub" style={{ marginBottom: 8 }}>
-              Logros destacados
-            </div>
-            {p.achievements.length ? (
-              <div className="ach-featured">
-                {p.achievements.slice(0, 3).map((a) => (
-                  <button key={a.id} type="button" className="ach-chip" onClick={() => setAchievement(a)}>
-                    <span className="ach-icon" aria-hidden="true">
-                      {a.icon}
-                    </span>
-                    <span className="ach-name">{a.name}</span>
-                    <span className="rarity" style={{ '--r': RARITY[a.rarity]?.color } as React.CSSProperties}>
-                      {RARITY[a.rarity]?.label ?? a.rarity}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="muted" style={{ fontSize: 13 }}>
-                Aún no hay logros destacados.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      <ProfileStats
+        stats={{ xpTotal: Number(p.stats.xp_total) || 0, currentStreak: p.stats.current_streak, bestStreak: p.stats.best_streak }}
+        showStreak={Boolean(has('streak'))}
+        isMe={p.is_me}
+      />
 
-      {has('xp_week') && (
-        <section className="card" aria-label="XP de la semana">
-          <div className="card-head">
-            <div>
-              <div className="card-title">XP de la semana</div>
-              <div className="card-sub">De lunes a domingo</div>
-            </div>
-          </div>
-          <WeekXpBars weekStart={p.stats.week_start} week={p.stats.week ?? []} />
-        </section>
-      )}
+      {has('achievements') && <FeaturedAchievements achievements={p.achievements ?? []} isMe={p.is_me} />}
 
-      {has('habits') && (
-        <PublicHabitsTable
-          habits={p.habits ?? []}
-          title="Hábitos visibles"
-          emptyText={p.is_me ? 'Aún no tienes hábitos visibles. Activa «Visible en mi perfil» en los hábitos que quieras mostrar.' : 'No hay hábitos visibles.'}
-        />
-      )}
+      <ProfileWeekSection
+        nav={nav}
+        showXp={Boolean(has('xp_week'))}
+        showHabits={Boolean(has('habits'))}
+        week={nav.isCurrent ? (p.stats.week ?? []) : (srvWeek.data?.week ?? null)}
+        habits={nav.isCurrent ? (p.habits ?? []) : (srvWeek.data?.habits ?? null)}
+        loading={srvWeek.loading}
+        failed={srvWeek.failed}
+        onRetry={srvWeek.retry}
+        isMe={p.is_me}
+      />
 
-      <section className="card" aria-label="Publicaciones">
-        <div className="card-head">
-          <div>
-            <div className="card-title">Publicaciones</div>
-            <div className="card-sub">{p.is_me ? 'Lo que has compartido' : `Lo que ha compartido @${p.alias}`}</div>
-          </div>
-        </div>
-        {postsState === 'loading' ? (
-          <div className="row" style={{ justifyContent: 'center', padding: 16 }}>
-            <span className="spinner" aria-hidden="true" /> <span className="muted">Cargando…</span>
-          </div>
-        ) : posts.length === 0 ? (
-          <p className="muted" style={{ fontSize: 13.5 }}>
-            {postsState === 'error' ? 'No se pudieron cargar las publicaciones.' : 'Todavía no hay publicaciones.'}
-          </p>
-        ) : (
-          <div className="post-list">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} onDeleted={(id) => setPosts((list) => list.filter((x) => x.id !== id))} />
-            ))}
-          </div>
-        )}
-        {hasMore && posts.length > 0 && (
-          <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
-            <button
-              type="button"
-              className="btn btn-secondary sm"
-              disabled={postsState === 'more'}
-              onClick={() => void loadPosts(uid, posts[posts.length - 1].created_at)}
-            >
-              {postsState === 'more' ? 'Cargando…' : 'Cargar más'}
-            </button>
-          </div>
-        )}
-      </section>
+      <ProfilePosts userId={uid} subtitle={p.is_me ? 'Lo que has compartido' : `Lo que ha compartido ${who}`} reloadKey={postsKey} />
 
       {isAdmin && !p.is_me && (
         <section className="card" aria-label="Moderación">
@@ -549,7 +457,12 @@ export const PublicProfileView: React.FC = () => {
             </div>
           </div>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <button type="button" className="btn btn-secondary sm" onClick={() => setMod('avatar')} disabled={!p.avatar_path}>
+            <button
+              type="button"
+              className="btn btn-secondary sm"
+              onClick={() => setMod('avatar')}
+              disabled={!p.avatar_path || Boolean(parseDefaultAvatarPath(p.avatar_path))}
+            >
               <Trash2 aria-hidden="true" /> Borrar foto
             </button>
             <button type="button" className="btn btn-secondary sm" onClick={() => setMod('banner')} disabled={!p.banner}>
@@ -582,23 +495,8 @@ export const PublicProfileView: React.FC = () => {
           danger={CONFIRM[confirm].danger}
         />
       )}
-      <ReportModal isOpen={reporting} onClose={() => setReporting(false)} targetUser={uid} alias={p.alias} />
-      <PostModal isOpen={posting} onClose={() => setPosting(false)} onPosted={() => void loadPosts(uid)} />
-      <Modal isOpen={Boolean(achievement)} onClose={() => setAchievement(null)} title="Logro">
-        {achievement && (
-          <div className="ach-detail">
-            <span className="ach-icon" aria-hidden="true">
-              {achievement.icon}
-            </span>
-            <h3>{achievement.name}</h3>
-            <span className="rarity" style={{ '--r': RARITY[achievement.rarity]?.color } as React.CSSProperties}>
-              {RARITY[achievement.rarity]?.label ?? achievement.rarity}
-            </span>
-            {achievement.description && <p className="muted">{achievement.description}</p>}
-            <p className="pp-stat-sub">Conseguido el {longDay(achievement.achieved_at)}</p>
-          </div>
-        )}
-      </Modal>
+      <ReportModal isOpen={reporting} onClose={() => setReporting(false)} targetUser={uid} alias={who} />
+      <PostModal isOpen={posting} onClose={() => setPosting(false)} onPosted={() => setPostsKey((k) => k + 1)} />
       {mod && (
         <ReasonModal
           isOpen

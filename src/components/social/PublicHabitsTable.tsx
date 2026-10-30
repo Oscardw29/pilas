@@ -13,16 +13,25 @@ const STATUS_LABEL = { full: 'Objetivo completo', minimum: 'Versión mínima', m
 /**
  * Hábitos visibles de una persona, semana a semana, al estilo de «Mi semana» (solo lectura).
  * Solo recibe lo que manda el servidor: los hábitos ocultos nunca llegan, así que nunca se pueden mostrar.
+ * Con `weekStart` la semana la decide quien lo usa (el perfil la mueve junto con la XP de la semana) y no se
+ * dibujan flechas propias; sin él, se recorren la semana actual y las 4 anteriores.
  */
-export const PublicHabitsTable: React.FC<{ habits: PublicHabit[]; title?: string; emptyText?: string }> = ({
-  habits,
-  title = 'Hábitos',
-  emptyText = 'No hay hábitos visibles.',
-}) => {
+export const PublicHabitsTable: React.FC<{
+  habits: PublicHabit[];
+  title?: string;
+  emptyText?: string;
+  /** Lunes de la semana que se muestra (modo controlado) */
+  weekStart?: string;
+  /** En lugar de la tabla, este aviso (p. ej. «Sin datos de hábitos para esa semana») */
+  noDataText?: string | null;
+  loading?: boolean;
+}> = ({ habits, title = 'Hábitos', emptyText = 'No hay hábitos visibles.', weekStart, noDataText, loading }) => {
   const [back, setBack] = useState(0);
   const today = todayKey();
-  const start = addDaysKey(startOfWeekKey(today), -7 * back);
+  const controlled = Boolean(weekStart);
+  const start = weekStart ?? addDaysKey(startOfWeekKey(today), -7 * back);
   const days = Array.from({ length: 7 }, (_, i) => addDaysKey(start, i));
+  const isThisWeek = start === startOfWeekKey(today);
 
   const amount = (h: PublicHabit, d: { m?: number; q?: number }) => {
     if (d.m != null && d.m > 0) return formatMinutes(d.m);
@@ -31,44 +40,46 @@ export const PublicHabitsTable: React.FC<{ habits: PublicHabit[]; title?: string
   };
 
   return (
-    <section className="card flush" aria-label={title}>
+    <section className={`card flush ${loading ? 'is-loading' : ''}`} aria-label={title} aria-busy={loading || undefined}>
       <div className="pub-habits-head">
         <div className="card-title">{title}</div>
-        <div className="week-nav" style={{ flex: '0 1 auto' }}>
-          <button
-            type="button"
-            className="icon-btn sm"
-            onClick={() => setBack((b) => Math.min(WEEKS - 1, b + 1))}
-            disabled={back >= WEEKS - 1}
-            aria-label="Semana anterior"
-          >
-            <ChevronLeft aria-hidden="true" />
-          </button>
-          <span className="week-nav-label" style={{ fontSize: 13.5, minWidth: '9.5em' }} aria-live="polite">
-            {back === 0 ? 'Esta semana' : formatRange(fromKey(start))}
-          </span>
-          <button
-            type="button"
-            className="icon-btn sm"
-            onClick={() => setBack((b) => Math.max(0, b - 1))}
-            disabled={back === 0}
-            aria-label="Semana siguiente"
-          >
-            <ChevronRight aria-hidden="true" />
-          </button>
-        </div>
+        {!controlled && (
+          <div className="week-nav" style={{ flex: '0 1 auto' }}>
+            <button
+              type="button"
+              className="icon-btn sm"
+              onClick={() => setBack((b) => Math.min(WEEKS - 1, b + 1))}
+              disabled={back >= WEEKS - 1}
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft aria-hidden="true" />
+            </button>
+            <span className="week-nav-label" style={{ fontSize: 13.5, minWidth: '9.5em' }} aria-live="polite">
+              {back === 0 ? 'Esta semana' : formatRange(fromKey(start))}
+            </span>
+            <button
+              type="button"
+              className="icon-btn sm"
+              onClick={() => setBack((b) => Math.max(0, b - 1))}
+              disabled={back === 0}
+              aria-label="Semana siguiente"
+            >
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {habits.length === 0 ? (
+      {noDataText || habits.length === 0 ? (
         <p className="muted" style={{ padding: '18px 16px', fontSize: 13.5 }}>
-          {emptyText}
+          {noDataText || emptyText}
         </p>
       ) : (
         <>
           <div className="table-wrap">
             <table className="table week-matrix pub-habits">
               <caption className="c-sr">
-                {title}: {back === 0 ? 'esta semana' : formatRange(fromKey(start))}
+                {title}: {isThisWeek ? 'esta semana' : formatRange(fromKey(start))}
               </caption>
               <thead>
                 <tr>

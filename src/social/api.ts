@@ -1,8 +1,9 @@
 import { isSupabaseConfigured, supabase } from '@/sync/supabase';
+import { defaultAvatarSrc, parseDefaultAvatarPath } from '@/lib/defaultAvatars';
 import type {
   AchievementDef, AdminUserOverview, CatalogItem, DayRow, EconomyVersion, LeaderRow, LeaderboardKind, LeagueStandings,
   LedgerEntry, ModerationAction, MyFriends, MyStatus, NotificationRow, Person, PodiumEntry, Post, ProfileRow,
-  PublicProfile, ReactionEmoji, ReportRow, TemplateOption,
+  ProfileWeek, PublicProfile, ReactionEmoji, ReportRow, TemplateOption,
 } from './types';
 
 /**
@@ -14,18 +15,21 @@ import type {
 export class SocialError extends Error {
   /** La cuenta tiene un veto activo */
   readonly banned: boolean;
-  constructor(message: string) {
+  /** Código de Postgres (p. ej. `54000` = se alcanzó un límite diario), si lo hay */
+  readonly code?: string;
+  constructor(message: string, code?: string) {
     const banned = message.startsWith('VETO:');
     super(banned ? message.slice(5).trim().replace(/^./, (c) => c.toUpperCase()) : message);
     this.banned = banned;
+    this.code = code;
   }
 }
 
-const fail = (error: { message: string } | null) => {
+const fail = (error: { message: string; code?: string } | null) => {
   if (!error) return;
   const msg = error.message || 'Error del servidor';
   if (/Failed to fetch|NetworkError|network/i.test(msg)) throw new SocialError('Sin conexión con el servidor');
-  throw new SocialError(msg);
+  throw new SocialError(msg, typeof error.code === 'string' ? error.code : undefined);
 };
 
 const sb = () => supabase();
@@ -42,9 +46,16 @@ export const socialAvailable = () => isSupabaseConfigured;
 
 const STORAGE_BASE = `${(import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''}/storage/v1/object/public`;
 
-/** URL pública de un archivo de Storage (los buckets `avatars` y `catalog` son de lectura pública) */
-export const assetUrl = (bucket: 'avatars' | 'catalog', path: string | null | undefined) =>
-  path ? (/^(data:|blob:|https?:)/.test(path) ? path : `${STORAGE_BASE}/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`) : undefined;
+/**
+ * URL pública de un archivo de Storage (los buckets `avatars` y `catalog` son de lectura pública).
+ * `default:N` es una de las fotos por defecto: se dibuja en el dispositivo, no se descarga.
+ */
+export const assetUrl = (bucket: 'avatars' | 'catalog', path: string | null | undefined) => {
+  if (!path) return undefined;
+  const preset = parseDefaultAvatarPath(path);
+  if (preset) return defaultAvatarSrc(preset);
+  return /^(data:|blob:|https?:)/.test(path) ? path : `${STORAGE_BASE}/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`;
+};
 
 const rand = () => Math.random().toString(36).slice(2, 10);
 
@@ -81,13 +92,26 @@ export async function removeCatalogFiles(paths: string[]) {
 
 export const getStatus = () => rpc<MyStatus | null>('my_status');
 
-export async function createProfile(userId: string, alias: string): Promise<ProfileRow> {
-  const { data, error } = await sb().from('profiles').insert({ user_id: userId, alias }).select().single();
+/** Todo perfil es público: se crea solo al entrar con el nombre, el alias (opcional) y la foto de la bienvenida */
+export async function createProfile(
+  userId: string,
+  init: { display_name: string; alias?: string | null; avatar_path?: string | null },
+): Promise<ProfileRow> {
+  const { data, error } = await sb()
+    .from('profiles')
+    .insert({ user_id: userId, display_name: init.display_name.trim().slice(0, 40), alias: init.alias || null, avatar_path: init.avatar_path ?? null })
+    .select()
+    .single();
   fail(error);
   return data as ProfileRow;
 }
 
-export type ProfilePatch = Partial<Pick<ProfileRow, 'alias' | 'avatar_path' | 'banner_item' | 'frame_item' | 'card_item' | 'cards' | 'featured_achievements'>>;
+export type ProfilePatch = Partial<
+  Pick<
+    ProfileRow,
+    'alias' | 'display_name' | 'bio' | 'banner_color' | 'avatar_path' | 'banner_item' | 'frame_item' | 'card_item' | 'cards' | 'featured_achievements'
+  >
+>;
 
 export async function updateProfile(userId: string, patch: ProfilePatch): Promise<ProfileRow> {
   const { data, error } = await sb().from('profiles').update(patch).eq('user_id', userId).select().single();
@@ -106,6 +130,16 @@ export async function aliasTaken(alias: string): Promise<boolean> {
   fail(error);
   return Boolean(data);
 }
+
+/**
+ * Borra lo publicado a partir de los datos del dispositivo (días, hábitos visibles, logros, saldo de partida y
+ * movimientos del dispositivo) para volver a calcularlo. Se usa cuando los datos cambian por completo (empezar de cero,
+ * quitar la demostración, importar una copia). Las compras, premios de liga y ajustes del creador se conservan.
+ * `resetAt` es el `settings.dataResetAt` de ese cambio: el servidor lo atiende una sola vez aunque llegue desde varios
+ * dispositivos (`reset: false` si ya se atendió ese cambio o uno posterior). Más de 10 al día → error `54000`.
+ */
+export const resetMyProgress = (resetAt?: string) =>
+  rpc<{ reset: boolean; balance?: number }>('reset_my_progress', { p_reset_at: resetAt ?? null });
 
 /* ---------------- Publicar el día y el saldo ---------------- */
 
@@ -177,7 +211,13 @@ const LEADERBOARD_VIEW: Record<LeaderboardKind, string> = {
 };
 
 export async function getLeaderboard(kind: LeaderboardKind, offset = 0, limit = 50): Promise<LeaderRow[]> {
-  const { data, error } = await sb().from(LEADERBOARD_VIEW[kind]).select('*').order('rank').order('alias').range(offset, offset + limit - 1);
+  const { data, error } = await sb()
+    .from(LEADERBOARD_VIEW[kind])
+    .select('*')
+    .order('rank')
+    // El puesto tiene empates y el alias puede faltar: el id da un orden total para que las páginas no se pisen
+    .order('user_id')
+    .range(offset, offset + limit - 1);
   fail(error);
   return (data ?? []) as LeaderRow[];
 }
@@ -194,17 +234,28 @@ export const getLeagueStandings = () => rpc<LeagueStandings>('league_standings')
 
 /* ---------------- Perfiles públicos ---------------- */
 
-export const getPublicProfile = (alias: string) => rpc<PublicProfile | null>('public_profile', { p_alias: alias });
+/** `handle` = el alias o, si la persona no tiene alias, su id */
+export const getPublicProfile = (handle: string) => rpc<PublicProfile | null>('public_profile', { p_alias: handle });
 
+/** Una semana concreta del perfil de alguien (XP por día y, si los muestra, sus hábitos visibles) */
+export const getProfileWeek = (userId: string, weekStart: string) =>
+  rpc<ProfileWeek | null>('profile_week', { p_user: userId, p_week: weekStart });
+
+/** Da o quita tu «me gusta» a un perfil */
+export const toggleProfileLike = (userId: string) => rpc<{ liked: boolean; likes: number }>('toggle_profile_like', { p_user: userId });
+
+/** Busca por alias (empieza por) o por nombre (contiene) */
 export async function searchProfiles(q: string, limit = 20): Promise<Person[]> {
-  const term = q.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  // Solo letras, números, espacios y guion bajo: las comas y paréntesis romperían el filtro `or`
+  const term = q.trim().toLowerCase().replace(/[^\p{L}\p{N}_ ]/gu, '').replace(/\s+/g, ' ');
   if (term.length < 2) return [];
+  // `_` es comodín en LIKE: se escapa para buscar el guion bajo literal
+  const like = term.replace(/_/g, '\\_');
   const { data, error } = await sb()
     .from('public_profiles')
-    .select('user_id, alias, avatar_path, frame_path, frame_thumb, frame_animated')
-    // `_` es comodín en LIKE: se escapa para buscar el guion bajo literal
-    .ilike('alias', `${term.replace(/_/g, '\\_')}%`)
-    .order('alias')
+    .select('user_id, alias, display_name, avatar_path, frame_path, frame_thumb, frame_animated')
+    .or(`alias.ilike.${like}%,display_name.ilike.%${like}%`)
+    .order('alias', { nullsFirst: false })
     .limit(limit);
   fail(error);
   return (data ?? []) as Person[];
@@ -216,7 +267,7 @@ export async function getPeople(ids: string[]): Promise<Person[]> {
   if (!unique.length) return [];
   const { data, error } = await sb()
     .from('public_profiles')
-    .select('user_id, alias, avatar_path, frame_path, frame_thumb, frame_animated')
+    .select('user_id, alias, display_name, avatar_path, frame_path, frame_thumb, frame_animated')
     .in('user_id', unique);
   fail(error);
   return (data ?? []) as Person[];
@@ -228,13 +279,20 @@ async function getPeopleForAdmin(ids: string[]): Promise<Person[]> {
   if (!unique.length) return [];
   const { data, error } = await sb()
     .from('profiles')
-    .select('user_id, alias, avatar_path, frame:catalog_items!profiles_frame_item_fkey(asset_path, thumb_path, animated)')
+    .select('user_id, alias, display_name, avatar_path, frame:catalog_items!profiles_frame_item_fkey(asset_path, thumb_path, animated)')
     .in('user_id', unique);
   fail(error);
-  type Row = { user_id: string; alias: string; avatar_path: string | null; frame: { asset_path: string | null; thumb_path: string | null; animated: boolean } | null };
+  type Row = {
+    user_id: string;
+    alias: string | null;
+    display_name: string | null;
+    avatar_path: string | null;
+    frame: { asset_path: string | null; thumb_path: string | null; animated: boolean } | null;
+  };
   return ((data ?? []) as unknown as Row[]).map((r) => ({
     user_id: r.user_id,
     alias: r.alias,
+    display_name: r.display_name,
     avatar_path: r.avatar_path,
     frame_path: r.frame?.asset_path ?? null,
     frame_thumb: r.frame?.thumb_path ?? null,
@@ -266,6 +324,9 @@ export const createPost = (template: string, ref: string | null, comment: string
   rpc<string>('create_post', { p_template: template, p_ref: ref, p_comment: comment });
 export const getFeed = (userId: string | null, before?: string) =>
   rpc<Post[]>('post_feed', { p_user: userId, p_before: before ?? null, p_limit: 20 });
+
+/** Cambia el comentario de una publicación propia (queda marcada como editada) */
+export const editPost = (postId: string, comment: string | null) => rpc<void>('edit_post', { p_post: postId, p_comment: comment });
 
 export async function deletePost(postId: string, asAdmin = false, reason = '') {
   if (asAdmin) return rpc<void>('admin_delete_post', { p_post: postId, p_reason: reason || 'Contenido no permitido' });
@@ -393,6 +454,9 @@ export async function adminDeleteEconomyDraft(version: number) {
 export const adminPublishEconomy = (version: number, effectiveFrom: string | null) =>
   rpc<void>('admin_publish_economy', { p_version: version, p_effective_from: effectiveFrom });
 export const adminRevertEconomy = (version: number) => rpc<number>('admin_revert_economy', { p_version: version });
+/** Creador: marcarse o desmarcarse un logro (solo en su propia cuenta, sin premio ni notificación) */
+export const adminSetMyAchievement = (achievementId: string, on: boolean) =>
+  rpc<void>('admin_set_achievement', { p_achievement: achievementId, p_on: on });
 export const adminCloseWeek = (weekStart: string) => rpc<Record<string, unknown>>('admin_close_week', { p_week: weekStart });
 export const adminUser = (alias: string) => rpc<AdminUserOverview | null>('admin_user', { p_alias: alias });
 export const adminClearAvatar = (userId: string, reason: string) => rpc<void>('admin_clear_avatar', { p_user: userId, p_reason: reason });

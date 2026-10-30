@@ -1,0 +1,17 @@
+/* =====================================================================
+   MENÚ DE PERFIL: aviso de sincronización sobre el avatar
+   Un punto rojo pequeño abajo a la derecha (el de notificaciones va arriba). Es un botón que lleva a Ajustes:
+   el área táctil es mayor que el punto que se ve.
+   ===================================================================== */
+.profile-avatar-wrap { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
+
+.sync-alert-dot {
+  position: absolute; right: -6px; bottom: -6px;
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; cursor: pointer; display: grid; place-items: center;
+}
+.sync-alert-dot::after {
+  content: ''; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--danger); box-shadow: 0 0 0 2px var(--bg-2);
+}
+.sync-alert-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
@@ -18,6 +18,7 @@ export const FailReasonModal: React.FC<FailReasonModalProps> = ({ isOpen, onClos
 
   const [reason, setReason] = useState<FailReason>('no_time');
   const [note, setNote] = useState('');
+  const reasonLabelId = useId();
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,36 +38,52 @@ export const FailReasonModal: React.FC<FailReasonModalProps> = ({ isOpen, onClos
         </p>
 
         <div className="field">
-          <span className="label">Motivo principal</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {(Object.keys(FAIL_REASON_LABELS) as FailReason[]).map((r) => (
-              <label
-                key={r}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '9px 12px',
-                  borderRadius: 10,
-                  background: reason === r ? 'var(--accent-soft)' : 'var(--surface-2)',
-                  border: `1px solid ${reason === r ? 'var(--accent)' : 'var(--border-2)'}`,
-                  cursor: 'pointer',
-                  transition: '.15s',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="failReason"
-                  value={r}
-                  checked={reason === r}
-                  onChange={() => setReason(r)}
-                  style={{ accentColor: 'var(--accent)' }}
-                />
-                <span style={{ fontSize: 13.5, fontWeight: reason === r ? 600 : 400 }}>
-                  {FAIL_REASON_LABELS[r]}
-                </span>
-              </label>
-            ))}
+          <span className="label" id={reasonLabelId}>
+            Motivo principal
+          </span>
+          {/* Opciones tipo radio propias (botones con role="radio"), sin el control nativo */}
+          <div role="radiogroup" aria-labelledby={reasonLabelId} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(Object.keys(FAIL_REASON_LABELS) as FailReason[]).map((r) => {
+              const on = reason === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setReason(r)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '9px 12px',
+                    borderRadius: 10,
+                    background: on ? 'var(--accent-soft)' : 'var(--surface-2)',
+                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                    cursor: 'pointer',
+                    transition: 'background-color .15s, border-color .15s',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 18,
+                      height: 18,
+                      flexShrink: 0,
+                      borderRadius: '50%',
+                      border: `2px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`,
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />}
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: on ? 600 : 400, color: 'var(--text)' }}>{FAIL_REASON_LABELS[r]}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

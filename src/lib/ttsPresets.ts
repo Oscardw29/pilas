@@ -27,7 +27,7 @@ export const PRESET_TTS_MODELS: Record<string, TtsModelOption[]> = {
     { id: 'tts-1-hd', name: 'OpenAI TTS-1 HD (Alta fidelidad 24kHz)', defaultVoice: 'nova' },
     { id: 'gpt-4o-audio-preview', name: 'OpenAI GPT-4o Audio Preview (Neuronal avanzado)', defaultVoice: 'nova' },
   ],
-  native: [
-    { id: 'browser-native', name: 'Síntesis Nativa del Navegador (Web Speech)', defaultVoice: 'es-ES' },
-  ],
+  // 'native' ya no es la voz del navegador: significa «sin voz» (el coach no habla). Se conserva el valor para no
+  // romper los ajustes guardados que lo tienen
+  native: [{ id: 'none', name: 'Sin voz (el coach no habla)' }],
 };

@@ -214,7 +214,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 width: 18,
                 height: 18,
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.08)',
+                background: 'color-mix(in srgb, var(--tint) 8%, transparent)',
                 color: 'var(--muted)',
                 cursor: 'pointer',
               }}
@@ -243,12 +243,12 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
             zIndex: 150,
             minWidth: 'min(295px, calc(100vw - 32px))',
             maxWidth: 'calc(100vw - 32px)',
-            background: 'linear-gradient(180deg, #181822 0%, #121219 100%)',
+            background: 'linear-gradient(180deg, var(--popover) 0%, var(--popover-end) 100%)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid var(--border-2)',
             borderRadius: 14,
-            boxShadow: '0 18px 48px rgba(0, 0, 0, 0.8), 0 0 24px rgba(139, 92, 246, 0.15)',
+            boxShadow: '0 18px 48px color-mix(in srgb, var(--shadow-color) 80%, transparent), 0 0 24px rgba(139, 92, 246, 0.15)',
             padding: 14,
             display: 'flex',
             flexDirection: 'column',
@@ -268,7 +268,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
               <ChevronLeft size={16} />
             </button>
 
-            <span style={{ fontWeight: 700, fontSize: 13.5, color: '#fff' }}>
+            <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-strong)' }}>
               {MONTH_NAMES[viewMonth]} {viewYear}
             </span>
 
@@ -305,7 +305,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                     display: 'grid',
                     placeItems: 'center',
                     fontSize: 11.5,
-                    color: 'rgba(255, 255, 255, 0.15)',
+                    color: 'color-mix(in srgb, var(--tint) 15%, transparent)',
                     cursor: 'default',
                   }}
                 >
@@ -348,13 +348,13 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                       : isToday
                       ? '1px solid rgba(139, 92, 246, 0.4)'
                       : '1px solid transparent',
-                    color: isSelected ? '#fff' : isDisabled ? 'rgba(255, 255, 255, 0.18)' : '#fff',
+                    color: isSelected ? '#fff' : isDisabled ? 'color-mix(in srgb, var(--tint) 18%, transparent)' : 'var(--text-strong)',
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
                     transition: 'all 0.12s ease',
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected && !isDisabled) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                      e.currentTarget.style.background = 'color-mix(in srgb, var(--tint) 8%, transparent)';
                     }
                   }}
                   onMouseLeave={(e) => {

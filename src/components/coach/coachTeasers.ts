@@ -121,7 +121,7 @@ export function pickTeaser(): CoachTeaserMsg {
     if (pending.length > 0 && hour >= 17) {
       options.push({
         text: '¡Oye! Todavía puedes salvar el día. ¿Te cuento cómo?',
-        prompt: `Me quedan ${pending.length} hábitos pendientes hoy. ¿Cómo los completo con la energía que me queda?`,
+        prompt: `Me quedan ${pending.length} hábitos pendientes hoy. ¿Cómo los completo antes de que termine el día?`,
       });
     }
     const streak = calculateGlobalStreak(state, today).streak;

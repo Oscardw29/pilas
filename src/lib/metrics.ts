@@ -418,14 +418,13 @@ export interface DaySummary {
   pending: Habit[];
   sessions: Session[];
   minutes: number;
-  energy: number | null;
   /** 0-1 consistencia ponderada del día (null si no había nada programado) */
   value: number | null;
 }
 
 export function daySummary(data: AppData, date: DateKey, ref = todayKey()): DaySummary {
   const ratio = data.settings.minimumRatio;
-  const s: DaySummary = { date, scheduled: [], full: [], minimum: [], missed: [], pending: [], sessions: [], minutes: 0, energy: null, value: null };
+  const s: DaySummary = { date, scheduled: [], full: [], minimum: [], missed: [], pending: [], sessions: [], minutes: 0, value: null };
   let sum = 0;
   for (const h of data.habits) {
     const l = getLog(data, h.id, date);
@@ -439,8 +438,6 @@ export function daySummary(data: AppData, date: DateKey, ref = todayKey()): DayS
   }
   s.sessions = data.sessions.filter((x) => x.date === date);
   s.minutes = s.sessions.reduce((a, x) => a + x.durationSec / 60, 0);
-  const en = data.energy.filter((e) => e.date === date);
-  s.energy = en.length ? en.reduce((a, e) => a + e.level, 0) / en.length : null;
   s.value = s.scheduled.length ? Math.min(1, sum / s.scheduled.length) : null;
   return s;
 }
@@ -483,7 +480,8 @@ export function weekSummary(data: AppData, weekStart: DateKey, ref = todayKey())
       if (isDoneLog(l)) done++;
       if (l?.status === 'full') res.full++;
       if (l?.status === 'minimum') res.minimum++;
-      if (l) res.points += l.points;
+      // Monedas siempre enteras (registros antiguos podían guardar decimales)
+      if (l) res.points += Math.round(l.points || 0);
     }
     res.scheduled += sched;
     res.done += Math.min(done, sched);

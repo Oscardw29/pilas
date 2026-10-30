@@ -30,6 +30,8 @@ let savedOrder = new Map<string, number | undefined>();
 /** Marca de tiempo guardada por registro: un cambio nuevo siempre la supera (aunque el reloj vaya atrasado) */
 let savedTs = new Map<string, number>();
 let savedTimerJson = 'null';
+/** Base cuyo contenido está en savedRef/savedJson/savedTs (lo dejó ahí hydrateFromDb) */
+let rememberedDb: UserDb | null = null;
 const changeListeners = new Set<Listener>();
 
 /** Avisa cuando hay cambios locales guardados (el motor de sincronización programa una subida) */
@@ -66,33 +68,48 @@ export async function hydrateFromDb(target: UserDb): Promise<{ empty: boolean }>
   const data = loadData(live);
   data.activeTimer = (await metaGet<AppData['activeTimer']>(target, DEVICE_TIMER_KEY)) ?? null;
   remember(all);
+  rememberedDb = target;
   savedTimerJson = JSON.stringify(data.activeTimer);
   useStore.setState(data);
   return { empty: live.length === 0 };
 }
 
-/** Empieza a guardar los cambios del store en `target` */
+/**
+ * Empieza a guardar los cambios del store en `target`. Se conserva lo que hydrateFromDb recordó de esa base: si se
+ * olvidara, la primera pasada daría por nuevos todos los registros y los volvería a marcar para subir con la hora de
+ * ahora, y un dispositivo desfasado pisaría al arrancar los cambios más nuevos de los demás (incluidos los ajustes).
+ */
 export function attachPersistence(target: UserDb) {
-  detachPersistence();
+  stopSaving();
+  if (rememberedDb !== target) forgetSaved();
   db = target;
   unsubscribe = useStore.subscribe((s, prev) => {
     if (s === prev) return;
     schedule();
   });
-  // Las migraciones de `hydrateFromDb` pueden haber cambiado algo: se guarda en la primera pasada
+  // Las migraciones de `hydrateFromDb` pueden haber cambiado algo: se guarda en la primera pasada (solo lo que cambió)
   schedule();
 }
 
-export function detachPersistence() {
+function stopSaving() {
   unsubscribe?.();
   unsubscribe = null;
   if (timer) clearTimeout(timer);
   timer = null;
   db = null;
+}
+
+function forgetSaved() {
   savedRef = new Map();
   savedJson = new Map();
   savedOrder = new Map();
   savedTs = new Map();
+  rememberedDb = null;
+}
+
+export function detachPersistence() {
+  stopSaving();
+  forgetSaved();
 }
 
 function schedule() {

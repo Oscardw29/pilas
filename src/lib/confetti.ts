@@ -1,10 +1,16 @@
 import confetti from 'canvas-confetti';
 import { isLowPowerDevice } from './perf';
+import { isCelebrating } from './celebrationQueue';
 
 /**
  * Todas las ráfagas pasan por aquí: hay un tope de partículas vivas a la vez para que varias
  * explosiones seguidas (o una celebración larga) no saturen el dibujo.
  * El confeti se dibuja en un worker (OffscreenCanvas) cuando el CSP lo permite (`worker-src blob:`).
+ *
+ * Nada se solapa con una celebración a pantalla completa (lib/celebrationQueue):
+ * - El confeti «suelto» (hábito, meta, temporizador) no se dispara mientras hay una en pantalla.
+ * - Cada overlay empieza con `clearConfetti()`: borra lo que quedara en el aire (p. ej. el confeti del hábito
+ *   que acaba de encender la racha) y el lienzo se vuelve a crear con la capa (z-index) de esa celebración.
  */
 const maxLive = () => (isLowPowerDevice() ? 220 : 520);
 /** ms aproximados por «tick» de canvas-confetti (≈ un fotograma a 60 Hz) */
@@ -24,6 +30,22 @@ function shoot(opts: confetti.Options) {
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+/** Capa del confeti de las celebraciones: por encima de su overlay (z-index 2000) */
+const CELEBRATION_Z = 2100;
+
+/** Borra todo el confeti en el aire (lo llama cada overlay al empezar) */
+export function clearConfetti() {
+  live = [];
+  try {
+    confetti.reset();
+  } catch {
+    /* sin lienzo todavía: nada que borrar */
+  }
+}
+
+/** Confeti suelto (fuera de un overlay): no se dibuja encima de una celebración a pantalla completa */
+const blocked = () => reducedMotion() || isCelebrating();
+
 /**
  * Prepara el confeti en un momento libre: la primera ráfaga crea el worker y su lienzo, y eso
  * costaba un tirón de más de 100 ms justo al empezar la primera celebración. Se dispara una sola
@@ -31,7 +53,7 @@ const reducedMotion = () =>
  */
 export function prewarmConfetti() {
   if (reducedMotion() || typeof window === 'undefined') return;
-  const run = () => void confetti({ particleCount: 1, ticks: 2, startVelocity: 0, origin: { x: -0.2, y: -0.2 }, zIndex: 2100 });
+  const run = () => void confetti({ particleCount: 1, ticks: 2, startVelocity: 0, origin: { x: -0.2, y: -0.2 }, zIndex: CELEBRATION_Z });
   const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
   if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 5000 });
   else setTimeout(run, 2500);
@@ -41,7 +63,7 @@ export function prewarmConfetti() {
  * Dispara confeti festivo para celebrar el cumplimiento de objetivos o hitos importantes.
  */
 export function fireGoalCelebration() {
-  if (reducedMotion()) return;
+  if (blocked()) return;
   const count = 200;
   const defaults = {
     origin: { y: 0.7 },
@@ -91,7 +113,7 @@ export function fireGoalCelebration() {
  * Antes se pasaban píxeles directamente y el confeti salía fuera de la pantalla.
  */
 export function fireHabitPop(x = 0.5, y = 0.5) {
-  if (reducedMotion()) return;
+  if (blocked()) return;
   const nx = x > 1 ? x / window.innerWidth : x;
   const ny = y > 1 ? y / window.innerHeight : y;
   shoot({
@@ -137,7 +159,7 @@ export function fireStreakEmbers(power = 0) {
           shapes: ['circle'],
           origin: { x, y: 1.05 },
           colors,
-          zIndex: 2100,
+          zIndex: CELEBRATION_Z,
         }),
       delay,
     );
@@ -162,7 +184,7 @@ export function fireStreakEmbers(power = 0) {
         shapes: ['star'],
         origin: { x: 0.5, y: 0.42 },
         colors: ['#fde68a', '#fbbf24', '#f97316', '#ffffff'],
-        zIndex: 2100,
+        zIndex: CELEBRATION_Z,
       });
     }, 320);
   }
@@ -170,8 +192,8 @@ export function fireStreakEmbers(power = 0) {
   if (p >= 0.6) {
     setTimeout(() => {
       const count = Math.round(40 + p * 40);
-      shoot({ particleCount: scaled(count), angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: 2100 });
-      shoot({ particleCount: scaled(count), angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: 2100 });
+      shoot({ particleCount: scaled(count), angle: 60, spread: 55, startVelocity: 55, origin: { x: 0, y: 0.85 }, colors, zIndex: CELEBRATION_Z });
+      shoot({ particleCount: scaled(count), angle: 120, spread: 55, startVelocity: 55, origin: { x: 1, y: 0.85 }, colors, zIndex: CELEBRATION_Z });
     }, 650);
   }
   // Desde 250 días: lluvia de chispas doradas desde arriba
@@ -193,7 +215,7 @@ function rainFromTop(colors: string[], particleCount: number, delay: number) {
         shapes: ['star', 'circle'],
         origin: { x, y: -0.05 },
         colors,
-        zIndex: 2100,
+        zIndex: CELEBRATION_Z,
       }),
     );
   }, delay);
@@ -221,13 +243,13 @@ export function fireSuperStreakBurst(power = 0) {
       shapes: ['star'],
       origin: { x: 0.5, y: 0.42 },
       colors,
-      zIndex: 2100,
+      zIndex: CELEBRATION_Z,
     });
   }, 500);
   setTimeout(() => {
     const count = Math.round(60 + p * 60);
-    shoot({ particleCount: scaled(count), angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: 2100 });
-    shoot({ particleCount: scaled(count), angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: 2100 });
+    shoot({ particleCount: scaled(count), angle: 60, spread: 60, startVelocity: 60, origin: { x: 0, y: 0.8 }, colors, zIndex: CELEBRATION_Z });
+    shoot({ particleCount: scaled(count), angle: 120, spread: 60, startVelocity: 60, origin: { x: 1, y: 0.8 }, colors, zIndex: CELEBRATION_Z });
   }, 700);
 
   // Desde 50 días: segunda oleada (coincide con el segundo impacto del sonido)
@@ -244,7 +266,7 @@ export function fireSuperStreakBurst(power = 0) {
         shapes: ['star', 'circle'],
         origin: { x: 0.5, y: 0.42 },
         colors: ['#a5f3fc', '#60a5fa', '#c4b5fd', '#ffffff'],
-        zIndex: 2100,
+        zIndex: CELEBRATION_Z,
       });
     }, 1100);
   }
@@ -266,7 +288,7 @@ export function fireSuperStreakBurst(power = 0) {
           shapes: ['star'],
           origin: { x: 0.15 + Math.random() * 0.7, y: 0.15 + Math.random() * 0.35 },
           colors,
-          zIndex: 2100,
+          zIndex: CELEBRATION_Z,
         });
       }, 1450 + i * 260);
     }
@@ -275,11 +297,13 @@ export function fireSuperStreakBurst(power = 0) {
 
 /**
  * Explosión festiva al canjear una recompensa: sale del cofre cuando se abre la tapa.
- * El overlay del cofre la lanza en el momento de la apertura con delayMs = 0.
+ * El overlay del cofre la lanza en el momento de la apertura con delayMs = 0 e `inOverlay`.
+ * Fuera del overlay (p. ej. al terminar el temporizador) no sale si hay una celebración en pantalla.
  */
-export function fireRewardCelebration(delayMs = 900) {
-  if (reducedMotion()) return;
+export function fireRewardCelebration(delayMs = 900, inOverlay = false) {
+  if (inOverlay ? reducedMotion() : blocked()) return;
   setTimeout(() => {
+    if (!inOverlay && isCelebrating()) return;
     shoot({
       particleCount: 120,
       spread: 80,
@@ -294,9 +318,10 @@ export function fireRewardCelebration(delayMs = 900) {
 /**
  * Explosión de cristales de hielo al adquirir el Protector de Racha.
  */
-export function fireIceFreezeCelebration(delayMs = 900) {
-  if (reducedMotion()) return;
+export function fireIceFreezeCelebration(delayMs = 900, inOverlay = false) {
+  if (inOverlay ? reducedMotion() : blocked()) return;
   setTimeout(() => {
+    if (!inOverlay && isCelebrating()) return;
     shoot({
       particleCount: 140,
       spread: 90,
@@ -307,4 +332,29 @@ export function fireIceFreezeCelebration(delayMs = 900) {
       zIndex: 100000,
     });
   }, delayMs);
+}
+
+/**
+ * Logro desbloqueado: destello de estrellas desde la medalla con el color de su rareza.
+ * `level` 0–3 (común → legendaria) suma partículas y, en épica y legendaria, una lluvia de destellos.
+ * Lo lanza el overlay del logro en el momento del destello.
+ */
+export function fireAchievementBurst(color: string, level = 0) {
+  if (reducedMotion()) return;
+  const l = Math.min(3, Math.max(0, level));
+  const colors = [color, color, '#ffffff', '#fde68a'];
+  shoot({
+    particleCount: scaled(50 + l * 30),
+    spread: 360,
+    startVelocity: 26 + l * 6,
+    gravity: 0.55,
+    decay: 0.91,
+    ticks: 190,
+    scalar: 0.9 + l * 0.12,
+    shapes: ['star'],
+    origin: { x: 0.5, y: 0.36 },
+    colors,
+    zIndex: CELEBRATION_Z,
+  });
+  if (l >= 2) rainFromTop([color, '#ffffff', '#fde68a'], 40 + l * 20, 380);
 }

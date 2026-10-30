@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { BadgeCheck, Check, Coins, Lock, Palette, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
-import { useStore } from '@/store/useStore';
+import { BadgeCheck, Check, Coins, FlaskConical, Lock, Palette, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { useDemoMode, useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
@@ -52,10 +52,13 @@ export const CosmeticsShop: React.FC = () => {
       available: s.available, profile: s.profile, ban: s.ban, catalog: s.catalog, inventory: s.inventory, serverBalance: s.serverBalance,
     })),
   );
+  // Con datos de demostración no se compra nada (el saldo del servidor no corresponde a esos datos)
+  const demoMode = useDemoMode();
   const { showToast } = useToast();
   const [tab, setTab] = useState<CatalogKind>('banner');
   const [toBuy, setToBuy] = useState<CatalogItem | null>(null);
   const [toEquip, setToEquip] = useState<CatalogItem | null>(null);
+  const [toUnequip, setToUnequip] = useState<CatalogItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const owned = useMemo(() => new Set(inventory), [inventory]);
@@ -91,7 +94,8 @@ export const CosmeticsShop: React.FC = () => {
     );
   }
 
-  const balance = serverBalance ?? 0;
+  // Las monedas son siempre enteras
+  const balance = Math.round(serverBalance ?? 0);
   const locked = Boolean(ban);
 
   const equip = async (item: CatalogItem, on: boolean) => {
@@ -113,6 +117,10 @@ export const CosmeticsShop: React.FC = () => {
   };
 
   const buy = async (item: CatalogItem) => {
+    if (demoMode) {
+      showToast('No disponible con datos de demostración', 'warning');
+      return;
+    }
     setBusyId(item.id);
     try {
       const res = await purchaseItem(item.id);
@@ -148,6 +156,12 @@ export const CosmeticsShop: React.FC = () => {
         <ShieldCheck size={14} aria-hidden="true" /> Las compras de cosméticos las cobra el servidor con tu saldo verificado, así se ven
         igual en tu perfil público, en las clasificaciones y en todos tus dispositivos.
       </p>
+      {demoMode && (
+        <p className="cos-demo" role="note">
+          <FlaskConical size={14} aria-hidden="true" /> No disponible con datos de demostración: las compras se activan al quitar la
+          demostración.
+        </p>
+      )}
 
       {locked && <BanScreen compact />}
 
@@ -191,7 +205,7 @@ export const CosmeticsShop: React.FC = () => {
                       {item.name}
                     </div>
                     <div className="cos-item-tags">
-                      <span className="rarity" style={{ ['--r' as string]: rarity.color }}>
+                      <span className="rarity" style={{ ['--r' as string]: rarity.color, ['--r-text' as string]: rarity.text }}>
                         {rarity.label}
                       </span>
                       {item.animated && (
@@ -210,11 +224,15 @@ export const CosmeticsShop: React.FC = () => {
                       </span>
                     ) : (
                       <span className="cos-price">
-                        <Coins size={16} aria-hidden="true" /> {item.price.toLocaleString('es')}
+                        <Coins size={16} aria-hidden="true" /> {Math.round(item.price).toLocaleString('es')}
                         <small>monedas</small>
                       </span>
                     )}
-                    {!mine ? (
+                    {!mine && demoMode ? (
+                      <button type="button" className="btn sm btn-secondary" disabled title="No disponible con datos de demostración">
+                        <Lock size={13} aria-hidden="true" /> No disponible
+                      </button>
+                    ) : !mine ? (
                       <button
                         type="button"
                         className={`btn sm ${balance >= item.price ? 'shop-buy' : 'btn-secondary'}`}
@@ -226,14 +244,14 @@ export const CosmeticsShop: React.FC = () => {
                           'Comprar'
                         ) : (
                           <>
-                            <Lock size={13} aria-hidden="true" /> Faltan {(item.price - balance).toLocaleString('es')}
+                            <Lock size={13} aria-hidden="true" /> Faltan {Math.ceil(item.price - balance).toLocaleString('es')}
                           </>
                         )}
                       </button>
                     ) : item.kind === 'reward' ? null : equipped ? (
                       <div className="cos-equipped-actions">
                         <span className="badge success">Equipado</span>
-                        <button type="button" className="btn btn-ghost sm" disabled={locked || busy} onClick={() => void equip(item, false)}>
+                        <button type="button" className="btn btn-ghost sm" disabled={locked || busy} onClick={() => setToUnequip(item)}>
                           Quitar
                         </button>
                       </div>
@@ -257,7 +275,7 @@ export const CosmeticsShop: React.FC = () => {
           if (toBuy) void buy(toBuy);
         }}
         title={`Comprar «${toBuy?.name ?? ''}»`}
-        message={`¿Comprar ${toBuy ? KIND_LABEL[toBuy.kind].one.toLowerCase() : ''} «${toBuy?.name ?? ''}» por ${toBuy?.price ?? 0} monedas? Las cobra el servidor de tu saldo verificado (${balance} monedas).`}
+        message={`¿Comprar ${toBuy ? KIND_LABEL[toBuy.kind].one.toLowerCase() : ''} «${toBuy?.name ?? ''}» por ${Math.round(toBuy?.price ?? 0)} monedas? Las cobra el servidor de tu saldo verificado (${balance} monedas).`}
         confirmLabel="Comprar"
         confirmVariant="primary"
         danger={false}
@@ -275,6 +293,18 @@ export const CosmeticsShop: React.FC = () => {
         cancelText="Más tarde"
         confirmVariant="primary"
         danger={false}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(toUnequip)}
+        onClose={() => setToUnequip(null)}
+        onConfirm={() => {
+          if (toUnequip) void equip(toUnequip, false);
+        }}
+        title={`¿Quitar «${toUnequip?.name ?? ''}»?`}
+        message="Dejará de verse en tu perfil público y en las clasificaciones. Lo sigues teniendo y puedes volver a equiparlo cuando quieras."
+        confirmLabel="Quitar"
+        danger
       />
     </section>
   );

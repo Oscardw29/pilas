@@ -245,11 +245,11 @@ export const DashboardView: React.FC = () => {
         nextStreakMilestone: nextMilestone,
         streakMilestonePercent: percent,
         streakCardTheme: {
-          bg: 'linear-gradient(145deg, rgba(56, 189, 248, 0.12) 0%, rgba(20, 21, 33, 0.85) 100%)',
+          bg: 'linear-gradient(145deg, rgba(56, 189, 248, 0.12) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
           border: '1px solid rgba(56, 189, 248, 0.3)',
           shadow: '0 8px 24px -6px rgba(56, 189, 248, 0.18)',
           glow: 'radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, transparent 70%)',
-          accent: '#38bdf8',
+          accent: 'var(--freeze)',
           iconBg: 'rgba(56, 189, 248, 0.18)',
           iconBorder: '1px solid rgba(56, 189, 248, 0.35)',
           barGradient: 'linear-gradient(90deg, #0284c7, #38bdf8)',
@@ -265,11 +265,11 @@ export const DashboardView: React.FC = () => {
         nextStreakMilestone: nextMilestone,
         streakMilestonePercent: percent,
         streakCardTheme: {
-          bg: 'linear-gradient(145deg, rgba(168, 85, 247, 0.13) 0%, rgba(20, 21, 33, 0.85) 100%)',
+          bg: 'linear-gradient(145deg, rgba(168, 85, 247, 0.13) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
           border: '1px solid rgba(168, 85, 247, 0.32)',
           shadow: '0 8px 24px -6px rgba(168, 85, 247, 0.2)',
           glow: 'radial-gradient(circle, rgba(168, 85, 247, 0.28) 0%, transparent 70%)',
-          accent: '#c084fc',
+          accent: 'var(--super)',
           iconBg: 'rgba(168, 85, 247, 0.18)',
           iconBorder: '1px solid rgba(168, 85, 247, 0.35)',
           barGradient: 'linear-gradient(90deg, #9333ea, #c084fc)',
@@ -285,11 +285,11 @@ export const DashboardView: React.FC = () => {
         nextStreakMilestone: nextMilestone,
         streakMilestonePercent: percent,
         streakCardTheme: {
-          bg: 'linear-gradient(145deg, rgba(249, 115, 22, 0.12) 0%, rgba(20, 21, 33, 0.85) 100%)',
+          bg: 'linear-gradient(145deg, rgba(249, 115, 22, 0.12) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
           border: '1px solid rgba(249, 115, 22, 0.3)',
           shadow: '0 8px 24px -6px rgba(249, 115, 22, 0.18)',
           glow: 'radial-gradient(circle, rgba(249, 115, 22, 0.25) 0%, transparent 70%)',
-          accent: '#fb923c',
+          accent: 'var(--streak)',
           iconBg: 'rgba(249, 115, 22, 0.18)',
           iconBorder: '1px solid rgba(249, 115, 22, 0.35)',
           barGradient: 'linear-gradient(90deg, #ea580c, #fb923c)',
@@ -304,17 +304,17 @@ export const DashboardView: React.FC = () => {
       nextStreakMilestone: nextMilestone,
       streakMilestonePercent: percent,
       streakCardTheme: {
-        bg: 'linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, rgba(20, 21, 33, 0.85) 100%)',
+        bg: 'linear-gradient(145deg, color-mix(in srgb, var(--text) 4%, transparent) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
         border: '1px solid var(--border)',
         shadow: 'none',
         glow: 'none',
         accent: 'var(--muted)',
-        iconBg: 'rgba(255, 255, 255, 0.06)',
+        iconBg: 'color-mix(in srgb, var(--text) 6%, transparent)',
         iconBorder: '1px solid var(--border)',
         barGradient: 'linear-gradient(90deg, #64748b, #94a3b8)',
         badgeIcon: CircleDashed,
         badgeText: 'Sin iniciar',
-        badgeBg: 'rgba(255, 255, 255, 0.06)',
+        badgeBg: 'color-mix(in srgb, var(--text) 6%, transparent)',
       },
     };
   }, [globalStreak]);
@@ -324,7 +324,7 @@ export const DashboardView: React.FC = () => {
 
   // Recomendación "¿Qué debería hacer ahora?"
   const whatToDo = useMemo(() => {
-    return recommendWhatToDo(data, { availableMinutes: availableMin, currentEnergy: 3 });
+    return recommendWhatToDo(data, { availableMinutes: availableMin });
   }, [data, availableMin]);
 
   // Datos para gráfico de actividad de la semana actual (lunes a domingo con puntos reales)
@@ -340,7 +340,7 @@ export const DashboardView: React.FC = () => {
         .reduce((sum, e) => sum + e.amount, 0);
       return {
         day: dayLabel,
-        points: dayLogsPts + dayBonusPts,
+        points: Math.round(dayLogsPts + dayBonusPts),
       };
     });
   }, [data.logs, data.pointEvents, currentWeekStart]);
@@ -600,7 +600,7 @@ export const DashboardView: React.FC = () => {
         <div
           className="card stat"
           style={{
-            background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.1) 0%, rgba(20, 21, 33, 0.85) 100%)',
+            background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.1) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
             border: '1px solid rgba(139, 92, 246, 0.28)',
             boxShadow: '0 8px 24px -6px rgba(139, 92, 246, 0.15)',
             position: 'relative',
@@ -630,13 +630,13 @@ export const DashboardView: React.FC = () => {
                 border: '1px solid rgba(139, 92, 246, 0.35)',
                 display: 'grid',
                 placeItems: 'center',
-                color: '#c4b5fd',
+                color: 'var(--lilac)',
               }}
             >
               <Sparkles size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
             {pts.balance}
           </div>
           <div style={{ marginTop: 8 }}>
@@ -651,7 +651,7 @@ export const DashboardView: React.FC = () => {
                 borderRadius: 99,
                 fontSize: 11.5,
                 fontWeight: 600,
-                color: '#d8b4fe',
+                color: 'var(--orchid)',
               }}
             >
               <TrendingUp size={12} /> +{thisWeek.points} pts esta semana
@@ -663,7 +663,7 @@ export const DashboardView: React.FC = () => {
         <div
           className="card stat"
           style={{
-            background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.1) 0%, rgba(20, 21, 33, 0.85) 100%)',
+            background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.1) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
             border: '1px solid rgba(16, 185, 129, 0.28)',
             boxShadow: '0 8px 24px -6px rgba(16, 185, 129, 0.15)',
             position: 'relative',
@@ -693,17 +693,17 @@ export const DashboardView: React.FC = () => {
                 border: '1px solid rgba(16, 185, 129, 0.35)',
                 display: 'grid',
                 placeItems: 'center',
-                color: '#6ee7b7',
+                color: 'var(--mint)',
               }}
             >
               <CheckCircle2 size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
             {thisWeek.consistency != null ? `${Math.round(thisWeek.consistency * 100)}%` : '—'}
           </div>
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 4, background: 'color-mix(in srgb, var(--text) 8%, transparent)', borderRadius: 99, overflow: 'hidden' }}>
               <div
                 style={{
                   height: '100%',
@@ -805,9 +805,9 @@ export const DashboardView: React.FC = () => {
                 fontWeight: 800,
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
-                color: '#fff',
+                color: 'var(--text)',
                 marginTop: 2,
-                textShadow: streakCardTheme.accent.startsWith('#') ? `0 0 18px ${streakCardTheme.accent}66` : 'none',
+                textShadow: streakCardTheme.glow !== 'none' ? `0 0 18px color-mix(in srgb, ${streakCardTheme.accent} 40%, transparent)` : 'none',
               }}
             >
               {globalStreak.streak}
@@ -819,7 +819,7 @@ export const DashboardView: React.FC = () => {
 
           {/* Barra de progreso de hito + estado contextual */}
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 4, background: 'color-mix(in srgb, var(--text) 8%, transparent)', borderRadius: 99, overflow: 'hidden' }}>
               <div
                 style={{
                   height: '100%',
@@ -836,7 +836,7 @@ export const DashboardView: React.FC = () => {
                   ? 'Completa 1 hábito hoy'
                   : `${globalStreak.streak}/${nextStreakMilestone} días para hito`}
               </span>
-              <span style={{ color: globalStreak.todayHasStreak ? '#34d399' : streakCardTheme.accent, fontWeight: 600 }}>
+              <span style={{ color: globalStreak.todayHasStreak ? 'var(--success)' : streakCardTheme.accent, fontWeight: 600 }}>
                 {globalStreak.todayHasStreak ? (
                   <span className="icon-label"><Check size={12} strokeWidth={3} aria-hidden="true" /> Racha de hoy activa</span>
                 ) : globalStreak.isFrozen ? (
@@ -853,7 +853,7 @@ export const DashboardView: React.FC = () => {
         <div
           className="card stat"
           style={{
-            background: 'linear-gradient(145deg, rgba(6, 182, 212, 0.1) 0%, rgba(20, 21, 33, 0.85) 100%)',
+            background: 'linear-gradient(145deg, rgba(6, 182, 212, 0.1) 0%, color-mix(in srgb, var(--surface) 85%, transparent) 100%)',
             border: '1px solid rgba(6, 182, 212, 0.28)',
             boxShadow: '0 8px 24px -6px rgba(6, 182, 212, 0.15)',
             position: 'relative',
@@ -886,17 +886,17 @@ export const DashboardView: React.FC = () => {
                 border: '1px solid rgba(6, 182, 212, 0.35)',
                 display: 'grid',
                 placeItems: 'center',
-                color: '#67e8f9',
+                color: 'var(--aqua)',
               }}
             >
               <Zap size={18} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+            <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
               {data.goals.filter((g) => g.status === 'active').length}
             </div>
-            <span style={{ color: '#22d3ee', display: 'flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600 }}>
+            <span style={{ color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600 }}>
               Ver todos <ArrowUpRight size={14} />
             </span>
           </div>
@@ -912,7 +912,7 @@ export const DashboardView: React.FC = () => {
                 borderRadius: 99,
                 fontSize: 11.5,
                 fontWeight: 600,
-                color: '#a5f3fc',
+                color: 'var(--aqua-2)',
               }}
             >
               {data.goals.length === 0
@@ -924,7 +924,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* "¿QUÉ PUEDO HACER AHORA?" */}
-      <div className="card dash-reco" style={{ background: 'linear-gradient(145deg, #181822, #14141a)', border: '1px solid var(--accent)' }}>
+      <div className="card dash-reco" style={{ background: 'linear-gradient(145deg, var(--surface-2), var(--surface))', border: '1px solid var(--accent)' }}>
         <div className="card-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent-2)', display: 'grid', placeItems: 'center' }}>
@@ -938,7 +938,7 @@ export const DashboardView: React.FC = () => {
           <span className="badge accent">Motor de decisiones</span>
         </div>
 
-        {/* Filtro de tiempo con separación adecuada y sin energía */}
+        {/* Filtro de tiempo libre disponible */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 18, marginTop: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>Tiempo libre:</span>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -1000,7 +1000,7 @@ export const DashboardView: React.FC = () => {
                     <div style={{ fontWeight: 600 }}>
                       {it.habit.name}{' '}
                       {it.mode === 'minimum' && (
-                        <span className="badge" style={{ color: 'var(--minimum)', background: 'rgba(45, 212, 191, 0.12)' }}>
+                        <span className="badge" style={{ color: 'var(--minimum)', background: 'var(--minimum-soft)' }}>
                           <Sprout size={11} aria-hidden="true" /> versión mínima
                         </span>
                       )}
@@ -1014,7 +1014,7 @@ export const DashboardView: React.FC = () => {
                   <button
                     className="btn btn-primary sm"
                     onClick={() => {
-                      startTimer(it.habit.id, 3);
+                      startTimer(it.habit.id);
                       navigate('/temporizador');
                     }}
                   >
@@ -1194,7 +1194,7 @@ export const DashboardView: React.FC = () => {
               </p>
             </div>
             {totalDonutMinutes > 0 && (
-              <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: 'var(--lilac)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
                 {formatMinutes(totalDonutMinutes)} total
               </span>
             )}
@@ -1225,7 +1225,7 @@ export const DashboardView: React.FC = () => {
                       outerRadius={86}
                       paddingAngle={3}
                       dataKey="value"
-                      stroke="#141521"
+                      stroke="var(--surface)"
                       strokeWidth={2}
                       isAnimationActive={true}
                     >
@@ -1256,7 +1256,7 @@ export const DashboardView: React.FC = () => {
                     pointerEvents: 'none',
                   }}
                 >
-                  <span style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
                     {formatMinutes(totalDonutMinutes)}
                   </span>
                   <span style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
@@ -1289,13 +1289,13 @@ export const DashboardView: React.FC = () => {
                         fontSize: 12,
                         padding: '6px 8px',
                         borderRadius: 8,
-                        background: 'rgba(255, 255, 255, 0.03)',
+                        background: 'color-mix(in srgb, var(--text) 3%, transparent)',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
                         {d.icon && <span style={{ fontSize: 14 }}>{d.icon}</span>}
-                        <span className="truncate" style={{ fontWeight: 500, color: '#e2e8f0' }}>{d.name}</span>
+                        <span className="truncate" style={{ fontWeight: 500, color: 'var(--text)' }}>{d.name}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <span style={{ color: 'var(--muted)', fontSize: 11 }}>{pct}%</span>
@@ -1327,15 +1327,15 @@ export const DashboardView: React.FC = () => {
               <YAxis stroke="var(--muted)" fontSize={12} tickLine={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#181822',
+                  backgroundColor: 'var(--surface)',
                   border: '1px solid var(--border-2)',
                   borderRadius: 12,
-                  color: '#ffffff',
+                  color: 'var(--text)',
                   fontSize: 13,
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.85)',
+                  boxShadow: '0 12px 32px color-mix(in srgb, var(--shadow-color) 85%, transparent)',
                   padding: '8px 12px',
                 }}
-                itemStyle={{ color: '#a78bfa', fontWeight: 600 }}
+                itemStyle={{ color: 'var(--accent-2)', fontWeight: 600 }}
                 labelStyle={{ color: 'var(--muted)', marginBottom: 4 }}
                 formatter={(value) => [`${value} pts`, 'Puntos']}
               />

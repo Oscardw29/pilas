@@ -86,10 +86,10 @@ export const HabitAuditModal: React.FC<HabitAuditModalProps> = ({ isOpen, onClos
                       justifyContent: 'space-between',
                       padding: '12px 16px',
                       borderRadius: 14,
-                      background: isPaused ? 'rgba(23, 23, 31, 0.65)' : 'var(--surface-2)',
+                      background: isPaused ? 'color-mix(in srgb, var(--surface) 65%, transparent)' : 'var(--surface-2)',
                       border: isPaused
-                        ? '1px dashed rgba(234, 179, 8, 0.35)'
-                        : `1px solid ${isLow ? 'rgba(248, 113, 113, 0.3)' : 'var(--border-2)'}`,
+                        ? '1px dashed color-mix(in srgb, var(--yellow) 35%, transparent)'
+                        : `1px solid ${isLow ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'var(--border-2)'}`,
                       gap: 12,
                       flexWrap: 'wrap',
                       opacity: isPaused ? 0.85 : 1,

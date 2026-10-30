@@ -303,14 +303,14 @@ export function getMiddayVariants(userName: string): { title: string; body: stri
   return [
     {
       title: `💧 Pausa de bienestar, ${user}`,
-      body: `Recuerda hidratarte, estirar el cuerpo y revisar cómo va tu nivel de energía esta tarde.`,
+      body: `Recuerda hidratarte, estirar el cuerpo y revisar qué hábitos te quedan para esta tarde.`,
     },
     {
       title: `🔋 Recarga de mitad de jornada`,
       body: `${user}, una pausa de 5 minutos y un vaso de agua renovarán tu enfoque para la tarde.`,
     },
     {
-      title: `🧘 Check-in de energía para ${user}`,
+      title: `🧘 Respiro de mediodía para ${user}`,
       body: `Respira hondo, corrige tu postura en la silla y celebra los primeros avances de tu mañana.`,
     },
     {

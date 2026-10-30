@@ -8,7 +8,7 @@ import {
   adminActions, adminAdjustCoins, adminAdjustXp, adminBan, adminClearAvatar, adminClearBanner, adminReports, adminResolveReport, adminUnban, adminUser,
   adminWarn, assetUrl, removeAvatarFiles,
 } from '@/social/api';
-import { REPORT_REASONS, timeAgo } from '@/social/texts';
+import { personName, profilePath, REPORT_REASONS, timeAgo } from '@/social/texts';
 import type { AdminUserOverview, ModerationAction, Person, ReportRow } from '@/social/types';
 
 type ActionKind = 'avatar' | 'banner' | 'warn' | 'ban' | 'unban' | 'coins' | 'xp';
@@ -59,16 +59,21 @@ const fmtDate = (iso: string | null | undefined) =>
 const fmtStat = (k: string, v: unknown) => {
   if (v == null) return '—';
   if (/_at$/.test(k)) return fmtDate(String(v));
-  if (typeof v === 'number' || (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v))) return Number(v).toLocaleString('es', { maximumFractionDigits: 1 });
+  // XP, monedas, rachas y hábitos son siempre enteros
+  if (typeof v === 'number' || (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v))) return Math.round(Number(v)).toLocaleString('es');
   return String(v);
 };
 
 const reasonLabel = (r: ReportRow['reason']) => REPORT_REASONS.find((x) => x.id === r)?.label ?? r;
 
+/** Para buscar a alguien en el panel: su alias o, si no tiene alias, su id */
+const handleOf = (p: { alias?: string | null; user_id: string }) => p.alias || p.user_id;
+
 const PersonLink: React.FC<{ person?: Person | null; fallback?: string }> = ({ person, fallback = 'Desconocido' }) =>
   person ? (
-    <Link to={`/u/${person.alias}`} className="creator-link row" style={{ gap: 6, display: 'inline-flex' }}>
-      <PersonAvatar person={person} size={24} />@{person.alias}
+    <Link to={profilePath(person)} className="creator-link row" style={{ gap: 6, display: 'inline-flex' }}>
+      <PersonAvatar person={person} size={24} />
+      {personName(person)}
     </Link>
   ) : (
     <span className="muted">{fallback}</span>
@@ -92,8 +97,9 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
       return;
     }
     const n = Number(amount);
-    if ((kind === 'coins' || kind === 'xp') && (!Number.isFinite(n) || n === 0)) {
-      showToast('Escribe una cantidad distinta de 0 (negativa para quitar).', 'warning');
+    // XP y monedas son siempre enteras
+    if ((kind === 'coins' || kind === 'xp') && (!Number.isInteger(n) || n === 0)) {
+      showToast('Escribe una cantidad entera distinta de 0 (negativa para quitar).', 'warning');
       return;
     }
     const d = Number(days);
@@ -124,12 +130,12 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
           break;
         case 'coins': {
           const balance = await adminAdjustCoins(uid, n, r);
-          showToast(`Saldo nuevo: ${Number(balance).toLocaleString('es')} monedas`, 'success');
+          showToast(`Saldo nuevo: ${Math.round(Number(balance)).toLocaleString('es')} monedas`, 'success');
           break;
         }
         case 'xp': {
           const xp = await adminAdjustXp(uid, n, r);
-          showToast(`XP total nueva: ${Number(xp).toLocaleString('es')}`, 'success');
+          showToast(`XP total nueva: ${Math.round(Number(xp)).toLocaleString('es')}`, 'success');
           break;
         }
       }
@@ -144,7 +150,7 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={`${info.title} · @${user.profile.alias}`}>
+    <Modal isOpen onClose={onClose} title={`${info.title} · ${personName(user.profile)}`}>
       <form
         id="mod-action-form"
         className="form"
@@ -157,18 +163,36 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
         {(kind === 'coins' || kind === 'xp') && (
           <label className="field">
             <span className="label">Cantidad (±)</span>
-            <input className="input" type="number" step="any" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ej.: 100 o -50" autoFocus />
+            <input
+              className="input"
+              inputMode="numeric"
+              value={amount}
+              // Solo enteros (con signo): XP y monedas nunca llevan decimales
+              onChange={(e) => setAmount(e.target.value.replace(/[^\d-]/g, '').replace(/(?!^)-/g, '').slice(0, 9))}
+              placeholder="Ej.: 100 o -50"
+              autoFocus
+            />
           </label>
         )}
         {kind === 'ban' && (
           <div className="form-row">
             <label className="field">
               <span className="label">Días</span>
-              <input className="input" type="number" min={1} max={3650} step={1} value={days} disabled={permanent} onChange={(e) => setDays(e.target.value)} />
+              <input
+                className="input"
+                inputMode="numeric"
+                value={days}
+                disabled={permanent}
+                onChange={(e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              />
             </label>
             <div className="field" style={{ justifyContent: 'flex-end' }}>
-              <label className="checkbox">
-                <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} /> Permanente
+              <label className="custom-switch">
+                <input type="checkbox" checked={permanent} onChange={(e) => setPermanent(e.target.checked)} />
+                <span className="custom-switch-track">
+                  <span className="custom-switch-thumb" />
+                </span>
+                <span style={{ fontSize: 13.5, fontWeight: 500 }}>Permanente</span>
               </label>
             </div>
           </div>
@@ -206,9 +230,10 @@ export const ModerationTab: React.FC = () => {
   const [log, setLog] = useState<(ModerationAction & { target?: Person | null })[] | null>(null);
   const [busyReport, setBusyReport] = useState<number | null>(null);
 
+  /** `handle` = alias (sin «@») o, para quien no tiene alias, su id */
   const lookup = useCallback(
-    async (alias: string) => {
-      const a = alias.trim().replace(/^@/, '').toLowerCase();
+    async (handle: string) => {
+      const a = handle.trim().replace(/^@+/, '').toLowerCase();
       if (!a) return;
       setSearching(true);
       try {
@@ -262,9 +287,9 @@ export const ModerationTab: React.FC = () => {
     }
   };
 
-  const open = (alias: string) => {
-    setQuery(alias);
-    void lookup(alias);
+  const open = (handle: string) => {
+    setQuery(handle);
+    void lookup(handle);
     document.getElementById('mod-user')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -278,7 +303,7 @@ export const ModerationTab: React.FC = () => {
         <div className="card-head">
           <div>
             <h2 className="card-title">Buscar a una persona</h2>
-            <p className="card-sub">Por su alias. Cada acción pide un motivo y queda en el registro.</p>
+            <p className="card-sub">Por su alias (o su id si no tiene alias). Cada acción pide un motivo y queda en el registro.</p>
           </div>
         </div>
         <form
@@ -289,7 +314,16 @@ export const ModerationTab: React.FC = () => {
             void lookup(query);
           }}
         >
-          <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="alias" aria-label="Alias" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <input
+            className="input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Alias o id"
+            aria-label="Alias o id de la persona"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
           <button type="submit" className="btn btn-primary" disabled={searching || !query.trim()}>
             <Search /> {searching ? 'Buscando…' : 'Buscar'}
           </button>
@@ -297,22 +331,25 @@ export const ModerationTab: React.FC = () => {
 
         {searched && !user && !searching && (
           <p className="muted" style={{ marginTop: 14 }}>
-            No hay ningún perfil con el alias «{searched}».
+            No hay ningún perfil con «{searched}».
           </p>
         )}
 
         {user && p && (
           <div className="stack" style={{ marginTop: 18, gap: 16 }}>
             <div className="mod-head">
-              <Avatar src={assetUrl('avatars', p.avatar_path)} name={p.alias} size={56} />
+              <Avatar src={assetUrl('avatars', p.avatar_path)} name={personName(p)} size={56} />
               <div>
                 <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                  <strong style={{ fontSize: 16 }}>@{p.alias}</strong>
+                  <strong style={{ fontSize: 16 }}>{personName(p)}</strong>
+                  {p.alias && p.display_name?.trim() && p.display_name.trim() !== p.alias && (
+                    <span className="card-sub">{p.display_name.trim()}</span>
+                  )}
                   {user.banned ? <span className="badge danger">Vetado</span> : <span className="badge success">Activo</span>}
                 </div>
                 <span className="card-sub">Miembro desde {fmtDate(p.member_since)}</span>
               </div>
-              <Link to={`/u/${p.alias}`} className="btn btn-secondary sm">
+              <Link to={profilePath(p)} className="btn btn-secondary sm">
                 <ExternalLink /> Ver perfil
               </Link>
             </div>
@@ -320,7 +357,7 @@ export const ModerationTab: React.FC = () => {
             <dl className="mod-stats">
               <div>
                 <dt>Saldo</dt>
-                <dd>{Number(user.balance).toLocaleString('es', { maximumFractionDigits: 1 })} monedas</dd>
+                <dd>{Math.round(Number(user.balance)).toLocaleString('es')} monedas</dd>
               </div>
               <div>
                 <dt>Racha actual</dt>
@@ -463,7 +500,7 @@ export const ModerationTab: React.FC = () => {
                     <td>
                       <div className="row" style={{ gap: 4 }}>
                         {r.target && (
-                          <button type="button" className="btn btn-ghost sm" onClick={() => open(r.target!.alias)}>
+                          <button type="button" className="btn btn-ghost sm" onClick={() => open(handleOf(r.target!))}>
                             <UserX /> Moderar
                           </button>
                         )}
@@ -543,7 +580,7 @@ export const ModerationTab: React.FC = () => {
           user={user}
           onClose={() => setAction(null)}
           onDone={() => {
-            void lookup(user.profile.alias);
+            void lookup(handleOf(user.profile));
             void loadLog();
           }}
         />

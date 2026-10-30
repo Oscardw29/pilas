@@ -4,8 +4,9 @@ import type { EconomyVersion } from '@/social/types';
 
 /**
  * PARÁMETROS DE LA ECONOMÍA EN EL PANEL DEL CREADOR (funciones puras)
- * - Los de la app viven en ECONOMY_DEFAULTS; los que solo usa el servidor (bono, ligas) no están ahí y
- *   `parseEconomyParams` los descarta, así que se validan y se vuelven a unir aquí.
+ * - Los de la app viven en ECONOMY_DEFAULTS (también el reparto de las ligas: cuántos suben, cuántos se quedan y el
+ *   premio de quien está solo, para que la app pueda explicarlo). Los que solo usa el servidor (tope de bonos, tamaño
+ *   del grupo y tabla de premios) no están ahí y `parseEconomyParams` los descarta, así que se validan y se unen aquí.
  * - El formulario trabaja con texto (una entrada por campo) y se convierte a parámetros al guardar.
  */
 
@@ -19,8 +20,6 @@ export type PrizeTable = Record<LeagueSlug, number[]>;
 /** Valores iniciales del servidor (los mismos que siembra 0002_social.sql) */
 export const SERVER_ECONOMY_DEFAULTS = {
   bonusDailyCap: 500,
-  leaguePromotePct: 20,
-  leagueDemotePct: 20,
   leagueGroupSize: 30,
   leaguePrizes: {
     bronze: [150, 100, 70, 25],
@@ -55,8 +54,6 @@ export function mergeEconomyParams(raw: Record<string, unknown> | null | undefin
   return {
     ...parseEconomyParams(r),
     bonusDailyCap: num(r.bonusDailyCap, 0, 1_000_000) ?? d.bonusDailyCap,
-    leaguePromotePct: num(r.leaguePromotePct, 0, 100) ?? d.leaguePromotePct,
-    leagueDemotePct: num(r.leagueDemotePct, 0, 100) ?? d.leagueDemotePct,
     leagueGroupSize: num(r.leagueGroupSize, 2, 1000) ?? d.leagueGroupSize,
     leaguePrizes: parsePrizes(r.leaguePrizes),
   };
@@ -77,7 +74,6 @@ export interface FieldDef {
   key: string;
   label: string;
   hint?: string;
-  step?: number;
   min?: number;
   max?: number;
   integer?: boolean;
@@ -94,35 +90,37 @@ export const FIELD_GROUPS: FieldGroup[] = [
   {
     id: 'coins',
     title: 'Monedas',
+    sub: 'Las monedas son siempre enteras: los resultados se redondean al entero más cercano',
     fields: [
-      { key: 'coinDailyCap', label: 'Tope diario de monedas', min: 0 },
-      { key: 'chipMax.action', label: 'Chip máximo · acción', min: 1, max: 1000 },
-      { key: 'chipMax.quantity', label: 'Chip máximo · cantidad', min: 1, max: 1000 },
-      { key: 'timeCoinsMin', label: 'Monedas mínimas · tiempo', min: 0 },
-      { key: 'timeCoinsMax', label: 'Monedas máximas · tiempo', min: 0 },
-      { key: 'bonusDailyCap', label: 'Tope diario de bonos', hint: 'Solo en el servidor (logros, ánimos…)', min: 0 },
+      { key: 'coinDailyCap', label: 'Tope diario de monedas', min: 0, integer: true },
+      { key: 'chipMax.action', label: 'Chip máximo · acción', min: 1, max: 1000, integer: true },
+      { key: 'chipMax.quantity', label: 'Chip máximo · cantidad', min: 1, max: 1000, integer: true },
+      { key: 'timeCoinsMin', label: 'Monedas mínimas · tiempo', min: 0, integer: true },
+      { key: 'timeCoinsMax', label: 'Monedas máximas · tiempo', min: 0, integer: true },
+      { key: 'bonusDailyCap', label: 'Tope diario de bonos', hint: 'Solo en el servidor (logros, ánimos…)', min: 0, integer: true },
     ],
   },
   {
     id: 'xp',
     title: 'XP',
+    sub: 'La XP también es entera: «XP por minuto» puede llevar decimales, pero cada registro se redondea',
     fields: [
-      { key: 'actionXp', label: 'XP por acción', min: 0 },
-      { key: 'timeXpPerMinute', label: 'XP por minuto', step: 0.1, min: 0 },
-      { key: 'timeXpMax', label: 'XP máxima · tiempo', min: 0 },
+      { key: 'actionXp', label: 'XP por acción', min: 0, integer: true },
+      { key: 'timeXpPerMinute', label: 'XP por minuto', hint: '1,5 × 45 min = 67,5 → 68 XP', min: 0 },
+      { key: 'timeXpMax', label: 'XP máxima · tiempo', min: 0, integer: true },
       { key: 'timeXpMinMinutes', label: 'Minutos mínimos para dar XP', min: 0 },
-      { key: 'quantityXpMax', label: 'XP máxima · cantidad', min: 0 },
+      { key: 'quantityXpMax', label: 'XP máxima · cantidad', min: 0, integer: true },
       { key: 'xpHabitsPerDay', label: 'Hábitos que suman XP al día', min: 1, integer: true },
-      { key: 'xpBaseDailyCap', label: 'Tope diario de XP base', min: 0 },
+      { key: 'xpBaseDailyCap', label: 'Tope diario de XP base', min: 0, integer: true },
     ],
   },
   {
     id: 'streak',
     title: 'Racha y bono',
     fields: [
-      { key: 'streakBonusPerDay', label: 'Bono por día de racha', hint: '0.01 = +1 % por día', step: 0.001, min: 0, max: 1 },
+      { key: 'streakBonusPerDay', label: 'Bono por día de racha', hint: '0.01 = +1 % por día', min: 0, max: 1 },
       { key: 'streakBonusMaxDays', label: 'Días máximos del bono', min: 0, integer: true },
-      { key: 'perfectDayBonus', label: 'XP del día perfecto', min: 0 },
+      { key: 'perfectDayBonus', label: 'XP del día perfecto', min: 0, integer: true },
       { key: 'perfectDayMinHabits', label: 'Hábitos mínimos del día perfecto', min: 1, integer: true },
     ],
   },
@@ -131,7 +129,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
     title: 'Protector de racha',
     sub: 'Precio = factor × ritmo diario, entre el mínimo y el máximo',
     fields: [
-      { key: 'freezePriceFactor', label: 'Factor de precio', step: 0.1, min: 0 },
+      { key: 'freezePriceFactor', label: 'Factor de precio', min: 0 },
       { key: 'freezePriceMin', label: 'Precio mínimo', min: 0, integer: true },
       { key: 'freezePriceMax', label: 'Precio máximo', min: 0, integer: true },
       { key: 'freezeMaxPerMonth', label: 'Compras al mes', min: 0, integer: true },
@@ -141,11 +139,11 @@ export const FIELD_GROUPS: FieldGroup[] = [
     id: 'boost',
     title: 'Multiplicador de XP',
     fields: [
-      { key: 'boostMultiplier', label: 'Multiplicador', step: 0.1, min: 1, max: 10 },
+      { key: 'boostMultiplier', label: 'Multiplicador', min: 1, max: 10 },
       { key: 'boostHours', label: 'Duración (h)', min: 1 },
       { key: 'boostCooldownHours', label: 'Espera entre compras (h)', min: 0 },
       { key: 'boostMaxPerMonth', label: 'Compras al mes', min: 0, integer: true },
-      { key: 'boostPriceFactor', label: 'Factor de precio', step: 0.1, min: 0 },
+      { key: 'boostPriceFactor', label: 'Factor de precio', min: 0 },
       { key: 'boostPriceMin', label: 'Precio mínimo', min: 0, integer: true },
       { key: 'boostPriceMax', label: 'Precio máximo', min: 0, integer: true },
     ],
@@ -162,10 +160,14 @@ export const FIELD_GROUPS: FieldGroup[] = [
   {
     id: 'leagues',
     title: 'Ligas',
-    sub: 'Los premios no cuentan para el tope diario de monedas',
+    sub:
+      'Al cerrar la semana, en cada grupo suben de liga los primeros, los siguientes se quedan y el resto baja. ' +
+      'Si alguien está solo en su grupo no sube ni baja: recibe el premio de participación. ' +
+      'Los premios no cuentan para el tope diario de monedas.',
     fields: [
-      { key: 'leaguePromotePct', label: '% que sube', min: 0, max: 100 },
-      { key: 'leagueDemotePct', label: '% que baja', min: 0, max: 100 },
+      { key: 'leaguePromoteCount', label: 'Suben de liga', hint: 'Los N primeros del grupo', min: 0, max: 1000, integer: true },
+      { key: 'leagueStayCount', label: 'Se quedan', hint: 'Los N siguientes; el resto baja', min: 0, max: 1000, integer: true },
+      { key: 'leagueSoloPrize', label: 'Premio si estás solo', hint: 'Monedas de participación (sin ascenso ni descenso)', min: 0, max: 100000, integer: true },
       { key: 'leagueGroupSize', label: 'Personas por grupo', min: 2, max: 1000, integer: true },
     ],
   },

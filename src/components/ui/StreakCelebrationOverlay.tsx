@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Sparkles } from 'lucide-react';
 import { StreakFlame, getFlamePower } from './StreakFlame';
-import { fireStreakEmbers, fireSuperStreakBurst } from '@/lib/confetti';
+import { clearConfetti, fireStreakEmbers, fireSuperStreakBurst } from '@/lib/confetti';
 import { playSound } from '@/lib/sound';
 import { isLowPowerDevice } from '@/lib/perf';
-import { celebrationEnded, enqueueCelebration } from '@/lib/celebrationQueue';
+import { celebrationEnded, currentCelebration, enqueueCelebration } from '@/lib/celebrationQueue';
 
 export interface StreakCelebrationPayload {
   days: number;
@@ -53,6 +53,8 @@ export const StreakCelebrationOverlay: React.FC = () => {
   const [data, setData] = useState<(StreakCelebrationPayload & { key: number }) | null>(null);
   const [closing, setClosing] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Turno de la cola de celebraciones que se está mostrando (ver lib/celebrationQueue) */
+  const turnRef = useRef(0);
 
   useEffect(() => {
     const handleEvent = (e: Event) => {
@@ -60,6 +62,9 @@ export const StreakCelebrationOverlay: React.FC = () => {
       if (!detail) return;
       setClosing(false);
       setData({ ...detail, key: Date.now() });
+      turnRef.current = currentCelebration();
+      // Fuera el confeti que quedara en el aire (p. ej. el del hábito que acaba de encender la racha)
+      clearConfetti();
       // Más días, más potencia: el sonido y el confeti suman capas con cada nivel de la llama
       const power = getFlamePower(detail.days);
       if (detail.isSuper) {
@@ -81,7 +86,7 @@ export const StreakCelebrationOverlay: React.FC = () => {
     exitTimer.current = setTimeout(() => {
       setData(null);
       setClosing(false);
-      celebrationEnded();
+      celebrationEnded(turnRef.current);
     }, EXIT_MS);
   };
 

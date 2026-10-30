@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { useStore } from '@/store/useStore';
-import { stopCoachVoice, useCoachSpeaking } from '@/lib/coachVoice';
-import { playSound } from '@/lib/sound';
+import { useCoachSpeaking } from '@/lib/coachVoice';
 import { CoachAvatar, type CoachExpression } from './CoachAvatar';
 import { useCoachPersona } from './coachPersona';
+import { useCoachMute } from './useCoachMute';
 
 interface CoachStageProps {
   /** Esperando la respuesta de la IA */
@@ -16,11 +15,11 @@ interface CoachStageProps {
 /**
  * El coach en su página, debajo de la lista de conversaciones: lee las respuestas moviendo la boca
  * y gesticulando. A su izquierda, el botón para silenciarle (corta la voz con un fundido de 0,5 s).
+ * Sin voz configurada queda silenciado y el botón avisa de dónde configurarla (useCoachMute).
  */
 export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) => {
   const persona = useCoachPersona();
-  const muted = useStore((s) => Boolean(s.settings.coachMuted));
-  const updateSettings = useStore((s) => s.updateSettings);
+  const { muted, hasVoice, toggleMute } = useCoachMute();
   const speaking = useCoachSpeaking();
   const [cheering, setCheering] = useState(false);
 
@@ -31,14 +30,10 @@ export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) =>
     return () => clearTimeout(t);
   }, [cheerKey]);
 
-  const toggleMute = () => {
-    if (!muted) stopCoachVoice({ fade: true });
-    updateSettings({ coachMuted: !muted });
-    playSound.toggle();
-  };
-
   const expression: CoachExpression = cheering ? 'excited' : thinking ? 'thinking' : speaking ? 'neutral' : 'happy';
-  const status = thinking ? 'Pensando…' : speaking ? 'Hablando…' : muted
+  const status = thinking ? 'Pensando…' : speaking ? 'Hablando…' : !hasVoice
+        ? 'Sin voz configurada'
+        : muted
         ? persona.gender === 'female' ? 'Silenciada' : 'Silenciado'
         : persona.gender === 'female' ? 'Lista para ayudarte' : 'Listo para ayudarte';
 
@@ -50,7 +45,7 @@ export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) =>
         onClick={toggleMute}
         aria-pressed={muted}
         aria-label={muted ? `Activar la voz de ${persona.name}` : `Silenciar a ${persona.name}`}
-        title={muted ? 'Activar voz' : 'Silenciar'}
+        title={!hasVoice ? 'Sin voz: configúrala en Ajustes' : muted ? 'Activar voz' : 'Silenciar'}
         data-no-sound="true"
       >
         {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}

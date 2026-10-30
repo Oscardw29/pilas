@@ -24,6 +24,7 @@ export const ApiKeySecurityCard: React.FC<{ onKeysForgotten: () => void }> = ({ 
   const [secPassword, setSecPassword] = useState('');
   const [secBusy, setSecBusy] = useState(false);
   const [showForgetConfirm, setShowForgetConfirm] = useState(false);
+  const [showDecryptConfirm, setShowDecryptConfirm] = useState(false);
 
   // Seguridad de claves: cifrado local con contraseña
   const handleEnableEncryption = async () => {
@@ -124,7 +125,7 @@ export const ApiKeySecurityCard: React.FC<{ onKeysForgotten: () => void }> = ({ 
                 <button type="button" className="btn btn-secondary" onClick={() => { lockSecrets(); showToast('Claves bloqueadas', 'info'); }}>
                   <Lock size={15} /> Bloquear ahora
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => { disableEncryption(); showToast('Cifrado desactivado', 'info'); }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowDecryptConfirm(true)}>
                   <Unlock size={15} /> Quitar cifrado
                 </button>
               </>
@@ -149,6 +150,21 @@ export const ApiKeySecurityCard: React.FC<{ onKeysForgotten: () => void }> = ({ 
           message="Se borrarán de este navegador las claves de IA, voz y transcripción (y su cifrado, si lo tenías). Tendrás que volver a introducirlas para usar el Coach con IA y las voces externas."
           confirmLabel="Olvidar claves"
           confirmVariant="danger"
+          zIndex={1300}
+        />
+
+        {/* Modal Confirmación Quitar cifrado */}
+        <ConfirmModal
+          isOpen={showDecryptConfirm}
+          onClose={() => setShowDecryptConfirm(false)}
+          onConfirm={() => {
+            disableEncryption();
+            showToast('Cifrado desactivado', 'info');
+          }}
+          title="¿Quitar el cifrado de las claves?"
+          message="Las claves de API volverán a guardarse sin cifrar en este navegador y ya no hará falta la contraseña para usarlas."
+          confirmLabel="Quitar cifrado"
+          confirmVariant="warning"
           zIndex={1300}
         />
     </>

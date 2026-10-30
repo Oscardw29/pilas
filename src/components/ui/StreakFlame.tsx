@@ -387,6 +387,8 @@ export const StreakFlame: React.FC<StreakFlameProps> = ({
           height: size,
           '--sf-dur': `${shape.dur}s`,
           '--sf-amp': shape.amp,
+          // Contorno de la llama en el tema claro (ver .streak-flame .sf-outer en global.css)
+          '--sf-edge': pal.o2,
         } as React.CSSProperties
       }
       role="img"

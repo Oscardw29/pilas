@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { useStore } from '../store/useStore';
+import { useDemoMode, useStore } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
 import { AiPlatform, TtsPlatform, UserGender } from '../types';
 import { personaFor } from '../components/coach/coachPersona';
@@ -33,8 +33,19 @@ import {
   EyeOff,
   Play,
   Square,
+  UserRound,
+  Palette,
+  AlertTriangle,
+  FlaskConical,
 } from 'lucide-react';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AliasInput, useAliasCheck } from '../components/settings/AliasInput';
+import { reportSocialError } from '../components/profile/publicProfile';
+import { updateProfile } from '../social/api';
+import { myUserId } from '../social/runtime';
+import { useSocial } from '../social/useSocial';
+import '../components/coach/coach.css';
+import '../components/settings/settings.css';
 import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
 import { BackupCard } from '../components/settings/BackupCard';
 import { AccountCard } from '../components/settings/AccountCard';
@@ -121,9 +132,9 @@ const VOICE_PRESETS: Record<string, VoicePresetGroup[]> = {
 
 /** Insignias del estado de las claves de voz: mismo estilo que la de modelos detectados de IA */
 const VOICE_BADGE_STYLE: Record<VoiceCheckResult['state'] | 'checking', React.CSSProperties> = {
-  ok: { fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc' },
-  invalid: { fontSize: 11, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' },
-  error: { fontSize: 11, background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' },
+  ok: { fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: 'var(--super)' },
+  invalid: { fontSize: 11, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)' },
+  error: { fontSize: 11, background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' },
   checking: { fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 },
 };
 
@@ -146,14 +157,27 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       importData: s.importData,
     }))
   );
+  // Datos de demostración: el ajuste o los propios datos (p. ej. una copia exportada con la demostración cargada)
+  const demoMode = useDemoMode();
   const { secrets, secretsLocked, setKeys } = useSecrets(
     useShallow((s) => ({ secrets: s.keys, secretsLocked: s.locked, setKeys: s.setKeys }))
   );
   const { showToast } = useToast();
 
-  // El nombre y el género del coach viven ahora en la página de perfil; aquí solo se leen
-  const userName = settings.userName || 'Usuario';
-  const userGender: UserGender = settings.userGender || 'other';
+  // Datos personales (se editan aquí, no en el perfil): nombre, género del coach y alias opcional.
+  // El alias vive en el perfil público; sin perfil todavía (sin servidor) queda en `pendingAlias` hasta crearlo.
+  const profile = useSocial((s) => s.profile);
+  const aliasConflict = useSocial((s) => s.aliasConflict);
+  const currentAlias = profile?.alias ?? settings.pendingAlias ?? '';
+  const [personalName, setPersonalName] = useState(settings.userName || '');
+  const [personalGender, setPersonalGender] = useState<UserGender | undefined>(settings.userGender);
+  const [alias, setAlias] = useState(currentAlias);
+  const aliasEdited = useRef(false);
+  const aliasCheck = useAliasCheck(alias, currentAlias || null);
+  const [showRemoveAliasConfirm, setShowRemoveAliasConfirm] = useState(false);
+  const removeAliasConfirmed = useRef(false);
+  const userName = personalName.trim() || 'Usuario';
+  const userGender: UserGender = personalGender || 'other';
   const isCreator = useIsCreator();
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
@@ -186,7 +210,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
   useEffect(() => {
     const key = ttsApiKey.trim();
-    if (ttsPlatform !== 'native' && key.length < 8) {
+    // «Sin voz» no tiene clave que comprobar
+    if (ttsPlatform === 'native' || key.length < 8) {
       setTtsCheck(null);
       return;
     }
@@ -364,6 +389,14 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     setTestingVoice(false);
     if (result === 'failed') {
       showToast(`No se pudo generar la voz con ${coachVoicePreview.label}. Revisa la clave, el saldo o el ID de voz.`, 'warning');
+    } else if (result === 'unavailable') {
+      showToast(
+        'No hay voz configurada: el coach no suena',
+        'warning',
+        ttsPlatform === 'native'
+          ? 'Elegiste «Sin voz». Para oírlo, elige Fish Audio, ElevenLabs u OpenAI y escribe su clave.'
+          : 'Escribe la clave de la plataforma de voz elegida (o una clave de Gemini en la tarjeta de IA) y vuelve a probar.',
+      );
     }
   };
   // Al salir de Ajustes la prueba se corta
@@ -401,6 +434,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   // Modales de confirmación
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState(false);
   const [showResetEmptyConfirm, setShowResetEmptyConfirm] = useState(false);
+  const [showRemoveDemoConfirm, setShowRemoveDemoConfirm] = useState(false);
 
   // Carga automática de modelos al cambiar clave o plataforma
   useEffect(() => {
@@ -473,7 +507,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   /* ---------- Cambios sin guardar ---------- */
   // Instantánea de todo lo editable del formulario: si difiere de la última guardada, hay cambios pendientes
   const formSnapshot = JSON.stringify([
-    askFailReason, aiPlatform, geminiApiKey, geminiModel, backupModel, ttsPlatform, ttsApiKey, ttsModel, ttsVoiceId,
+    personalName, personalGender, alias, askFailReason, aiPlatform, geminiApiKey, geminiModel, backupModel, ttsPlatform, ttsApiKey, ttsModel, ttsVoiceId,
     deepgramApiKey, soundEnabled, soundVolume, notifEnabled, habitReminders, streakReminder, streakReminderTime,
     coachReminder, coachReminderTime, morningReminder, morningReminderTime, middayReminder, middayReminderTime,
     nightReminder, nightReminderTime,
@@ -498,6 +532,22 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     setSavedTick((t) => t + 1);
   }, [formSnapshot]);
 
+  // El perfil público llega del servidor después de abrir Ajustes: si aún no se tocó el alias, se muestra el actual.
+  // Tampoco cuenta como cambio de la persona (si no, guardar lo borraría)
+  useEffect(() => {
+    if (aliasEdited.current || alias === currentAlias) return;
+    setAlias(currentAlias);
+    // Solo el alias pasa a la instantánea guardada: el resto de cambios pendientes siguen pendientes
+    const saved = JSON.parse(savedSnapshot.current) as unknown[];
+    saved[2] = currentAlias;
+    savedSnapshot.current = JSON.stringify(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAlias]);
+  const onAliasChange = (v: string) => {
+    aliasEdited.current = true;
+    setAlias(v);
+  };
+
   // Salir de Ajustes con cambios pendientes: modal pequeño. Cerrar la pestaña: aviso del navegador
   const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname);
   useEffect(() => {
@@ -521,10 +571,45 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     return () => obs.disconnect();
   }, []);
 
-  const handleSaveProfile = async (e?: React.FormEvent) => {
+  /** Guarda todo el formulario. false si algo no se pudo guardar (nombre vacío, alias no válido o rechazado) */
+  const handleSaveProfile = async (e?: React.FormEvent): Promise<boolean> => {
     e?.preventDefault();
+
+    // Datos personales: el nombre es obligatorio y el alias, si cambió, tiene que poder usarse
+    const trimmedName = personalName.trim();
+    if (!trimmedName) {
+      showToast('Escribe tu nombre en Datos personales', 'warning');
+      return false;
+    }
+    const aliasChanged = alias !== currentAlias;
+    if (aliasChanged && !aliasCheck.ok) {
+      showToast(aliasCheck.hint, 'warning', 'El alias no se guardó: corrígelo o déjalo vacío.');
+      return false;
+    }
+    // Quitar el alias del perfil público libera el nombre para otra persona: se confirma antes
+    if (aliasChanged && !alias && profile?.alias && !removeAliasConfirmed.current) {
+      setShowRemoveAliasConfirm(true);
+      return false;
+    }
+    removeAliasConfirmed.current = false;
+    const uid = myUserId();
+    if (aliasChanged && profile && uid) {
+      try {
+        const row = await updateProfile(uid, { alias: alias || null, display_name: trimmedName.slice(0, 40) });
+        useSocial.getState().set({ profile: row, aliasConflict: null });
+        aliasEdited.current = false;
+      } catch (err) {
+        reportSocialError(err, showToast, 'No se pudo guardar el alias');
+        return false;
+      }
+    }
+
     markSaved();
     updateSettings({
+      userName: trimmedName,
+      userGender: personalGender,
+      // Sin perfil público todavía: el alias se aplica al crearlo (social/runtime.ts)
+      ...(aliasChanged && !profile ? { pendingAlias: alias || undefined } : {}),
       askFailReason,
       aiPlatform,
       geminiModel: geminiModel.trim(),
@@ -554,7 +639,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     if (secretsLocked) {
       playSound.pop();
       showToast('Ajustes guardados. Las claves de API están bloqueadas: desbloquéalas para editarlas.', 'warning');
-      return;
+      return true;
     }
     try {
       await setKeys({
@@ -570,6 +655,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'No se pudieron guardar las claves', 'error');
     }
+    return true;
   };
 
 
@@ -632,9 +718,24 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const confirmResetDemo = () => {
     resetDemo();
     playSound.modalClose();
-    showToast('Datos de demostración restablecidos con éxito', 'info');
+    showToast('Datos de demostración cargados', 'info', 'Mientras estén cargados no se publica nada en la comunidad: tus cifras públicas se quedan como estaban.');
     setShowResetDemoConfirm(false);
     onDataReplaced();
+  };
+
+  // Quitar la demostración = empezar de cero (también en la comunidad: el progreso público se reinicia con los datos nuevos)
+  const confirmRemoveDemo = () => {
+    resetEmpty();
+    playSound.modalClose();
+    showToast('Datos de demostración quitados', 'info', 'Empiezas de cero, también en la comunidad. Si tienes una copia de tus datos, impórtala en Respaldo.');
+    setShowRemoveDemoConfirm(false);
+    onDataReplaced();
+  };
+
+  const setTheme = (theme: 'light' | 'dark') => {
+    if ((settings.theme ?? 'light') === theme) return;
+    updateSettings({ theme });
+    playSound.pop();
   };
 
   const handleResetEmpty = () => {
@@ -663,6 +764,25 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         Personaliza tu filosofía de hábitos, modelos de IA con respaldo automático, retroalimentación sonora y administración de respaldos.
       </p>
 
+      {/* Datos de demostración cargados: se avisa siempre (aunque solo el creador pueda cargarlos) */}
+      {demoMode && (
+        <div className="settings-notice is-info" role="status">
+          <FlaskConical aria-hidden />
+          <div className="settings-notice-body">
+            <span>
+              <strong>Estás viendo datos de demostración.</strong> Mientras estén cargados no se publica nada en la comunidad:
+              tu perfil, el ranking, los logros y las ligas se quedan como estaban. Al quitarlos empiezas de cero, también tu
+              progreso público (se conservan tus compras y premios).
+            </span>
+            <div>
+              <button type="button" className="btn btn-secondary sm" onClick={() => setShowRemoveDemoConfirm(true)}>
+                <RotateCcw size={14} /> Quitar datos de demostración
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Formulario de Ajustes */}
       <form
         ref={formRef}
@@ -672,6 +792,118 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         data-lpignore="true"
         data-1p-ignore="true"
       >
+        {/* DATOS PERSONALES: nombre, género del coach y alias opcional (se guardan con el resto del formulario) */}
+        <div className="card">
+          <div className="card-head">
+            <div className="row">
+              <UserRound size={18} style={{ color: 'var(--accent-2)' }} />
+              <div>
+                <div className="card-title">Datos personales</div>
+                <div className="card-sub">Tu nombre (o tu alias, si eliges uno) y tu foto se ven en la comunidad</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="form">
+            {aliasConflict && !profile?.alias && (
+              <div className="settings-notice" role="alert">
+                <AlertTriangle aria-hidden />
+                <span>
+                  <strong>El alias «{aliasConflict}» ya estaba en uso</strong> cuando se creó tu perfil. Por ahora se muestra tu
+                  nombre: elige otro alias abajo si quieres.
+                </span>
+              </div>
+            )}
+
+            <div className="form-row">
+              <label className="field">
+                <span className="label">Tu nombre</span>
+                <input
+                  className="input"
+                  value={personalName}
+                  onChange={(e) => setPersonalName(e.target.value)}
+                  maxLength={40}
+                  autoComplete="given-name"
+                  required
+                  aria-invalid={!personalName.trim()}
+                />
+                <span className="hint">Así te llama tu coach. En la comunidad se ve si no tienes alias.</span>
+              </label>
+
+              <AliasInput value={alias} onChange={onAliasChange} check={aliasCheck} />
+            </div>
+
+            <div className="field">
+              <span className="label" id="settings-gender-label">
+                Te identificas como
+              </span>
+              <div className="gender-options" role="radiogroup" aria-labelledby="settings-gender-label">
+                {(
+                  [
+                    ['male', 'Hombre'],
+                    ['female', 'Mujer'],
+                    ['other', 'Otro'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={userGender === value}
+                    className="gender-option"
+                    onClick={() => {
+                      setPersonalGender(value);
+                      playSound.pop();
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="hint">
+                Tu coach será {personaFor(userGender).name}, tu {personaFor(userGender).role}.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* APARIENCIA: tema claro u oscuro (se aplica al momento, sin guardar) */}
+        <div className="card">
+          <div className="card-head">
+            <div className="row">
+              <Palette size={18} style={{ color: 'var(--accent-2)' }} />
+              <div>
+                <div className="card-title">Apariencia</div>
+                <div className="card-sub">Se aplica al momento y viaja a tus otros dispositivos</div>
+              </div>
+            </div>
+          </div>
+          <div className="field">
+            <span className="label" id="settings-theme-label">
+              Tema
+            </span>
+            <div className="gender-options" role="radiogroup" aria-labelledby="settings-theme-label">
+              {(
+                [
+                  ['light', 'Claro', Sun],
+                  ['dark', 'Oscuro', Moon],
+                ] as const
+              ).map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={(settings.theme ?? 'light') === value}
+                  className="gender-option theme-option"
+                  onClick={() => setTheme(value)}
+                >
+                  <Icon aria-hidden /> {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Preferencias de hábitos (el perfil pasó a su propia página) */}
         <div className="card">
           <div className="card-head">
@@ -737,7 +969,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               </div>
             </div>
             {modelsLoadedStatus && (
-              <span className="badge" style={{ fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc' }}>
+              <span className="badge" style={{ fontSize: 11, background: 'rgba(139, 92, 246, 0.15)', color: 'var(--super)' }}>
                 {modelsLoadedStatus}
               </span>
             )}
@@ -764,7 +996,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                       padding: '10px 12px',
                       borderRadius: 8,
                       border: aiPlatform === plat.id ? '1.5px solid var(--accent)' : '1px solid var(--border)',
-                      background: aiPlatform === plat.id ? 'rgba(99, 102, 241, 0.16)' : 'var(--bg-panel)',
+                      background: aiPlatform === plat.id ? 'rgba(99, 102, 241, 0.16)' : 'transparent',
                       color: aiPlatform === plat.id ? 'var(--text)' : 'var(--text-2)',
                       cursor: 'pointer',
                       textAlign: 'left',
@@ -914,10 +1146,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <div className="field">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                    <ShieldCheck size={14} style={{ color: '#10b981' }} />
+                    <ShieldCheck size={14} style={{ color: 'var(--emerald)' }} />
                     Modelo de respaldo (Fallback)
                   </span>
-                  <span className="badge" style={{ fontSize: 10, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
+                  <span className="badge" style={{ fontSize: 10, background: 'rgba(16, 185, 129, 0.2)', color: 'var(--emerald)' }}>
                     Automático
                   </span>
                 </div>
@@ -981,10 +1213,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <div className="field">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                    <Volume2 size={14} style={{ color: '#06b6d4' }} />
+                    <Volume2 size={14} style={{ color: 'var(--cyan)' }} />
                     Plataforma de Voz (TTS)
                   </span>
-                  <span className="badge" style={{ fontSize: 10, background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
+                  <span className="badge" style={{ fontSize: 10, background: 'rgba(6, 182, 212, 0.15)', color: 'var(--cyan)' }}>
                     Lectura
                   </span>
                 </div>
@@ -995,11 +1227,11 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     { value: 'fish_audio', label: 'Fish Audio', sublabel: 'Neuronal ultra-realista' },
                     { value: 'elevenlabs', label: 'ElevenLabs', sublabel: 'Voces humanas premium' },
                     { value: 'openai', label: 'OpenAI TTS', sublabel: 'Nova, Alloy, Echo...' },
-                    { value: 'native', label: 'Síntesis nativa del navegador', sublabel: 'Sin costo (motor local)' },
+                    { value: 'native', label: 'Sin voz', sublabel: 'El coach no habla' },
                   ]}
                 />
                 <span className="hint">
-                  Selecciona qué proveedor generará las respuestas habladas de tu asistente.
+                  Selecciona qué proveedor generará las respuestas habladas de tu asistente, o «Sin voz» para que solo escriba.
                 </span>
               </div>
 
@@ -1053,7 +1285,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                         ? 'sk_...'
                         : ttsPlatform === 'openai'
                         ? 'sk-proj-...'
-                        : 'Síntesis local sin costo'
+                        : 'Sin voz: no hace falta clave'
                     }
                   />
                   {ttsPlatform !== 'native' && (
@@ -1080,7 +1312,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                 </div>
                 <span className="hint">
                   {ttsPlatform === 'native'
-                    ? 'Usa el motor de voz del sistema operativo de tu dispositivo.'
+                    ? 'Sin voz: el coach responde solo por escrito.'
                     : 'Clave privada almacenada únicamente en tu navegador.'}
                 </span>
               </div>
@@ -1107,7 +1339,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                     ? 'Multilingual v2 está optimizado para español nativo.'
                     : ttsPlatform === 'openai'
                     ? 'tts-1 ofrece baja latencia para conversaciones dinámicas.'
-                    : 'Voz estándar en español de tu navegador.'}
+                    : 'Sin voz: no hay modelo que elegir.'}
                 </span>
               </div>
 
@@ -1154,7 +1386,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
                 <span className="hint">
                   {ttsPlatform === 'native'
-                    ? 'Usa la síntesis de voz nativa del dispositivo.'
+                    ? 'Sin voz: no se usa ningún ID de voz.'
                     : 'ID de referencia para la síntesis de voz.'}
                 </span>
               </div>
@@ -1164,7 +1396,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
             <div className="field" style={{ marginTop: 4 }}>
               <div className="row-between">
                 <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Mic size={14} style={{ color: '#10b981' }} />
+                  <Mic size={14} style={{ color: 'var(--emerald)' }} />
                   Deepgram API Key (Dictado y Reconocimiento de Voz - STT)
                 </span>
                 <a
@@ -1235,7 +1467,16 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <Volume2 />
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="title">Voz del coach: {coachVoicePreview.label}</div>
-                {coachVoicePreview.note && <div className="detail">{coachVoicePreview.note}, por eso el coach usa esta voz en su lugar.</div>}
+                {coachVoicePreview.provider === null ? (
+                  // Sin voz (elegida o por falta de clave): el coach queda en silencio
+                  <div className="detail">
+                    {coachVoicePreview.note
+                      ? `${coachVoicePreview.note}, así que el coach queda en silencio.`
+                      : 'El coach queda en silencio: responde solo por escrito.'}
+                  </div>
+                ) : (
+                  coachVoicePreview.note && <div className="detail">{coachVoicePreview.note}, por eso el coach usa esta voz en su lugar.</div>
+                )}
               </div>
               <button
                 type="button"
@@ -1351,7 +1592,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                 className="badge"
                 style={{
                   background: soundEnabled ? 'rgba(16, 185, 129, 0.18)' : 'rgba(100, 100, 100, 0.18)',
-                  color: soundEnabled ? '#34d399' : 'var(--muted)',
+                  color: soundEnabled ? 'var(--success)' : 'var(--muted)',
                   fontWeight: 600,
                   padding: '3px 10px',
                   borderRadius: 12,
@@ -1394,7 +1635,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   className="custom-slider-input"
                   value={soundVolume}
                   style={{
-                    background: `linear-gradient(to right, #6366f1 0%, #a855f7 ${((soundVolume - 0.1) / 0.9) * 100}%, rgba(255, 255, 255, 0.12) ${((soundVolume - 0.1) / 0.9) * 100}%, rgba(255, 255, 255, 0.12) 100%)`,
+                    background: `linear-gradient(to right, #6366f1 0%, #a855f7 ${((soundVolume - 0.1) / 0.9) * 100}%, color-mix(in srgb, var(--tint) 12%, transparent) ${((soundVolume - 0.1) / 0.9) * 100}%, color-mix(in srgb, var(--tint) 12%, transparent) 100%)`,
                   }}
                   onChange={(e) => {
                     const val = Number(e.target.value);
@@ -1430,7 +1671,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   className="badge"
                   style={{
                     background: 'rgba(16, 185, 129, 0.18)',
-                    color: '#34d399',
+                    color: 'var(--success)',
                     fontWeight: 600,
                     padding: '4px 10px',
                     borderRadius: 12,
@@ -1444,7 +1685,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   className="badge"
                   style={{
                     background: 'rgba(239, 68, 68, 0.18)',
-                    color: '#f87171',
+                    color: 'var(--danger)',
                     fontWeight: 600,
                     padding: '4px 10px',
                     borderRadius: 12,
@@ -1624,7 +1865,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             <span className="custom-switch-thumb" />
                           </span>
                           <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Sun size={14} style={{ color: '#fbbf24' }} /> Impulso Matutino
+                            <Sun size={14} style={{ color: 'var(--warning)' }} /> Impulso Matutino
                           </span>
                         </label>
                       </div>
@@ -1654,7 +1895,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             <span className="custom-switch-thumb" />
                           </span>
                           <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Droplets size={14} style={{ color: '#22d3ee' }} /> Pausa e Hidratación
+                            <Droplets size={14} style={{ color: 'var(--info)' }} /> Pausa e Hidratación
                           </span>
                         </label>
                       </div>
@@ -1684,7 +1925,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                             <span className="custom-switch-thumb" />
                           </span>
                           <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Moon size={14} style={{ color: '#a78bfa' }} /> Cierre y Descanso
+                            <Moon size={14} style={{ color: 'var(--accent-2)' }} /> Cierre y Descanso
                           </span>
                         </label>
                       </div>
@@ -1740,12 +1981,12 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
       {/* Acciones destructivas / Restablecer datos (solo cuenta del creador) */}
       {isCreator && (
-      <div className="card" style={{ border: '1px solid var(--border-danger, rgba(239, 68, 68, 0.3))' }}>
+      <div className="card" style={{ border: '1px solid rgba(239, 68, 68, 0.3)' }}>
         <div className="card-head">
           <div className="row">
-            <RotateCcw size={18} style={{ color: '#ef4444' }} />
+            <RotateCcw size={18} style={{ color: 'var(--red)' }} />
             <div>
-              <div className="card-title" style={{ color: '#ef4444' }}>
+              <div className="card-title" style={{ color: 'var(--red)' }}>
                 Restablecer datos
               </div>
               <div className="card-sub">Acciones de mantenimiento y reinicio del sistema</div>
@@ -1755,6 +1996,11 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
         <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 14 }}>
           Puedes cargar los datos de ejemplo iniciales para explorar todas las métricas, o comenzar totalmente de cero limpiando los hábitos y registros. Tus claves de API y configuraciones de IA se conservarán.
+        </p>
+        <p className="hint" style={{ marginBottom: 14 }}>
+          Los datos de ejemplo no se publican en la comunidad: mientras estén cargados tu perfil, el ranking, los logros y las
+          ligas se quedan como estaban. Al quitarlos o al empezar de 0, tu progreso público vuelve a empezar con tus datos
+          nuevos (se conservan tus compras y premios; si importas una copia, se recalcula con ella).
         </p>
 
         <div className="grid-2">
@@ -1772,14 +2018,14 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
             className="btn btn-secondary"
             onClick={handleResetEmpty}
             style={{
-              borderColor: '#ef4444',
+              borderColor: 'var(--red)',
               borderWidth: '1.5px',
               borderStyle: 'solid',
-              color: '#ef4444',
+              color: 'var(--red)',
               fontWeight: 600,
             }}
           >
-            <RotateCcw size={16} style={{ color: '#ef4444' }} /> Empezar de 0
+            <RotateCcw size={16} style={{ color: 'var(--red)' }} /> Empezar de 0
           </button>
         </div>
       </div>
@@ -1792,7 +2038,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         onClose={() => setShowResetDemoConfirm(false)}
         onConfirm={confirmResetDemo}
         title="¿Cargar datos de ejemplo?"
-        message="Esta acción reemplazará los hábitos, sesiones e historiales actuales con el conjunto de datos de demostración de ~9 semanas, en todos tus dispositivos (se sincroniza con tu cuenta). Tus claves de API y modelos se conservarán."
+        message="Esta acción reemplazará los hábitos, sesiones e historiales actuales con el conjunto de datos de demostración de ~9 semanas, en todos tus dispositivos (se sincroniza con tu cuenta). Mientras estén cargados no se publica nada en la comunidad: tu progreso público (racha, XP, logros, ligas) se queda como estaba. Al quitarlos empezarás de cero, también en la comunidad. Tus claves de API y modelos se conservarán."
         confirmLabel="Cargar datos de ejemplo"
         confirmVariant="warning"
         zIndex={1300}
@@ -1804,8 +2050,35 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         onClose={() => setShowResetEmptyConfirm(false)}
         onConfirm={confirmResetEmpty}
         title="¿Empezar completamente de 0?"
-        message="Se eliminarán todos los hábitos, objetivos, retos, sesiones y registros de tu cuenta, también en tus otros dispositivos. Esta acción no se puede deshacer. ¿Deseas continuar?"
+        message="Se eliminarán todos los hábitos, objetivos, retos, sesiones y registros de tu cuenta, también en tus otros dispositivos, y tu progreso público (racha, XP, logros) se recalculará desde cero. Tus compras y premios de liga se conservan. Esta acción no se puede deshacer. ¿Deseas continuar?"
         confirmLabel="Sí, empezar de 0"
+        confirmVariant="danger"
+        zIndex={1300}
+      />
+
+      {/* Modal Confirmación Quitar datos de demostración */}
+      <ConfirmModal
+        isOpen={showRemoveDemoConfirm}
+        onClose={() => setShowRemoveDemoConfirm(false)}
+        onConfirm={confirmRemoveDemo}
+        title="¿Quitar los datos de demostración?"
+        message="Se borrarán los hábitos y registros de ejemplo en todos tus dispositivos y empezarás de cero. Tu progreso público (racha, XP, logros) también vuelve a empezar; tus compras y premios de liga se conservan. Si tienes una copia de tus datos, impórtala después en Respaldo."
+        confirmLabel="Quitar demostración"
+        confirmVariant="danger"
+        zIndex={1300}
+      />
+
+      {/* Modal Confirmación Quitar alias */}
+      <ConfirmModal
+        isOpen={showRemoveAliasConfirm}
+        onClose={() => setShowRemoveAliasConfirm(false)}
+        onConfirm={() => {
+          removeAliasConfirmed.current = true;
+          void handleSaveProfile();
+        }}
+        title="¿Quitar tu alias?"
+        message={`En la comunidad se mostrará tu nombre en lugar de «${currentAlias}», y otra persona podrá usar ese alias.`}
+        confirmLabel="Quitar alias"
         confirmVariant="danger"
         zIndex={1300}
       />
@@ -1839,8 +2112,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               type="button"
               className="btn btn-primary"
               onClick={async () => {
-                await handleSaveProfile();
-                blocker.proceed?.();
+                // Si algo no se pudo guardar (nombre vacío, alias), se queda en Ajustes para corregirlo
+                if (await handleSaveProfile()) blocker.proceed?.();
+                else blocker.reset?.();
               }}
             >
               <Save size={16} /> Guardar y salir

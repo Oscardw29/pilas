@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen } from 'lucide-react';
+import { Award, Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen } from 'lucide-react';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
+import { triggerAchievementCelebration } from '@/components/ui/AchievementUnlockOverlay';
+import { RARITY } from '@/social/texts';
+import type { Rarity } from '@/social/types';
 import { FLAME_LEVELS, getFlameLevel, StreakFlame } from '@/components/ui/StreakFlame';
 import { triggerCoachTeaser } from '@/components/coach/coachTeasers';
 import { useCoachPersona } from '@/components/coach/coachPersona';
@@ -16,6 +19,15 @@ const MILESTONES = FLAME_LEVELS.filter((l) => l.minDays > 0).map((l) => l.minDay
 
 const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(n)));
 
+/** Logros de ejemplo, uno por rareza (la animación crece de común a legendaria) */
+const SAMPLE_ACHIEVEMENTS: Record<Rarity, { name: string; icon: string; description: string; prize: number }> = {
+  common: { name: 'Primer paso', icon: '👣', description: 'Completa tu primer hábito', prize: 10 },
+  rare: { name: 'Semana redonda', icon: '📅', description: 'Una semana perfecta', prize: 50 },
+  epic: { name: 'Racha imparable', icon: '🔥', description: '30 días seguidos de racha', prize: 150 },
+  legendary: { name: 'Leyenda de ¡Pilas!', icon: '👑', description: '365 días seguidos de racha', prize: 500 },
+};
+const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+
 /**
  * Lanza a voluntad las celebraciones de racha y de canje para verlas.
  * Solo dispara lo visual y sonoro: no toca el store (ni registros, ni puntos, ni rachas).
@@ -23,7 +35,11 @@ const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.roun
 export const AnimationTestCard: React.FC = () => {
   const [daysInput, setDaysInput] = useState('7');
   const [isSuper, setIsSuper] = useState(false);
+  const [rarity, setRarity] = useState<Rarity>('epic');
   const coachName = useCoachPersona().name;
+
+  // Solo la animación: no concede el logro ni suma monedas
+  const handleAchievement = () => triggerAchievementCelebration({ ...SAMPLE_ACHIEVEMENTS[rarity], rarity });
 
   const parsed = Number(daysInput);
   const days = Number.isFinite(parsed) && daysInput.trim() !== '' ? clampDays(parsed) : MIN_DAYS;
@@ -124,6 +140,32 @@ export const AnimationTestCard: React.FC = () => {
             </button>
           </div>
           <span className="hint">Es solo una vista previa: no se gastan puntos ni se crea ningún canje.</span>
+        </div>
+
+        {/* Logro */}
+        <div className="field">
+          <span className="label" id="anim-test-rarity">
+            Logro desbloqueado
+          </span>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }} role="radiogroup" aria-labelledby="anim-test-rarity">
+            {RARITIES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="radio"
+                aria-checked={rarity === r}
+                className={`chip ${rarity === r ? 'active' : ''}`}
+                onClick={() => setRarity(r)}
+              >
+                {RARITY[r].label}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={handleAchievement} style={{ alignSelf: 'flex-start' }}>
+            <Award size={16} style={{ color: 'var(--accent-2)' }} />
+            Probar logro «{SAMPLE_ACHIEVEMENTS[rarity].name}» (rareza {RARITY[rarity].label.toLowerCase()})
+          </button>
+          <span className="hint">Es solo una vista previa: no se concede el logro ni se suman monedas.</span>
         </div>
 
         {/* Aviso del coach */}

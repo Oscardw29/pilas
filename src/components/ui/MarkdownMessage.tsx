@@ -24,7 +24,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
           <code
             key={`c-${match.index}`}
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'color-mix(in srgb, var(--tint) 8%, transparent)',
               padding: '2px 6px',
               borderRadius: 4,
               fontFamily: 'monospace',
@@ -37,7 +37,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
         );
       } else if (token.startsWith('**') && token.endsWith('**')) {
         parts.push(
-          <strong key={`b-${match.index}`} style={{ fontWeight: 700, color: '#fff' }}>
+          <strong key={`b-${match.index}`} style={{ fontWeight: 700, color: 'var(--text-strong)' }}>
             {token.slice(2, -2)}
           </strong>
         );
@@ -87,7 +87,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
       );
     } else if (trimmed.startsWith('# ')) {
       elements.push(
-        <h2 key={`h1-${i}`} style={{ margin: '16px 0 8px', fontSize: 18, fontWeight: 800, color: '#fff' }}>
+        <h2 key={`h1-${i}`} style={{ margin: '16px 0 8px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)' }}>
           {renderInline(trimmed.slice(2))}
         </h2>
       );

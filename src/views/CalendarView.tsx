@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Zap, Clock, Sparkles, TrendingUp, Flame, Snowflake } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Clock, TrendingUp, Flame, Snowflake } from 'lucide-react';
 import { StatusLabel } from '@/components/ui/icons';
 import {
   AreaChart,
@@ -63,7 +63,7 @@ export const CalendarView: React.FC = () => {
         fullDate: dk,
         completed: status ? status.completedCount : 0,
         scheduled: status ? status.scheduledCount : 0,
-        points: dayLogsPts + dayBonusPts,
+        points: Math.round(dayLogsPts + dayBonusPts),
         isSuper: Boolean(status?.isSuperStreak),
       });
     }
@@ -136,19 +136,19 @@ export const CalendarView: React.FC = () => {
 
               if (isFrozenDay) {
                 flameElement = (
-                  <span className="cal-streak-mark" style={{ color: '#38bdf8' }} title="Racha protegida: Día congelado con Escudo de Hielo">
+                  <span className="cal-streak-mark" style={{ color: 'var(--freeze)' }} title="Racha protegida: Día congelado con Escudo de Hielo">
                     <Snowflake size={13} strokeWidth={2.4} aria-hidden="true" />
                   </span>
                 );
               } else if (streakInfo?.isSuperStreak) {
                 flameElement = (
-                  <span className="cal-streak-mark" style={{ color: '#c084fc' }} title="¡Súper Racha! Todos los hábitos completados">
+                  <span className="cal-streak-mark" style={{ color: 'var(--super)' }} title="¡Súper Racha! Todos los hábitos completados">
                     <Flame size={13} strokeWidth={2.4} fill="currentColor" fillOpacity={0.35} aria-hidden="true" />
                   </span>
                 );
               } else if (streakInfo?.hasStreak) {
                 flameElement = (
-                  <span className="cal-streak-mark" style={{ color: '#fb923c' }} title="Racha activa: Al menos un hábito completado">
+                  <span className="cal-streak-mark" style={{ color: 'var(--streak)' }} title="Racha activa: Al menos un hábito completado">
                     <Flame size={13} strokeWidth={2.4} fill="currentColor" fillOpacity={0.35} aria-hidden="true" />
                   </span>
                 );
@@ -159,7 +159,7 @@ export const CalendarView: React.FC = () => {
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: 'rgba(255, 255, 255, 0.2)',
+                      background: 'color-mix(in srgb, var(--text) 20%, transparent)',
                     }}
                   />
                 );
@@ -215,16 +215,16 @@ export const CalendarView: React.FC = () => {
           {/* Leyenda de racha y llamas */}
           <div style={{ display: 'flex', gap: 18, marginTop: 18, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="cal-streak-mark" style={{ color: '#fb923c' }}><Flame size={13} fill="currentColor" fillOpacity={0.35} aria-hidden="true" /></span> Racha activa (hábito completado)
+              <span className="cal-streak-mark" style={{ color: 'var(--streak)' }}><Flame size={13} fill="currentColor" fillOpacity={0.35} aria-hidden="true" /></span> Racha activa (hábito completado)
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="cal-streak-mark" style={{ color: '#c084fc' }}><Flame size={13} fill="currentColor" fillOpacity={0.35} aria-hidden="true" /></span> Súper racha (todos completados)
+              <span className="cal-streak-mark" style={{ color: 'var(--super)' }}><Flame size={13} fill="currentColor" fillOpacity={0.35} aria-hidden="true" /></span> Súper racha (todos completados)
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="cal-streak-mark" style={{ color: '#38bdf8' }}><Snowflake size={13} aria-hidden="true" /></span> Día congelado (protegido)
+              <span className="cal-streak-mark" style={{ color: 'var(--freeze)' }}><Snowflake size={13} aria-hidden="true" /></span> Día congelado (protegido)
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.2)' }} /> Sin registros
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'color-mix(in srgb, var(--text) 20%, transparent)' }} /> Sin registros
             </span>
           </div>
         </div>
@@ -248,10 +248,12 @@ export const CalendarView: React.FC = () => {
           {/* Métricas rápidas del día */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
             <div style={{ padding: 10, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Energía del día</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Hábitos cumplidos</div>
               <div style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                <Zap size={15} style={{ color: 'var(--warning)' }} />
-                {summary.energy ? `${summary.energy.toFixed(1)} / 5` : 'No registrada'}
+                <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+                {summary.scheduled.length
+                  ? `${summary.full.length + summary.minimum.length} de ${summary.scheduled.length}`
+                  : summary.full.length + summary.minimum.length || 'Día libre'}
               </div>
             </div>
 
@@ -343,7 +345,7 @@ export const CalendarView: React.FC = () => {
             <p className="card-sub">Puntos diarios acumulados a lo largo del mes</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-            <TrendingUp size={15} style={{ color: '#34d399' }} />
+            <TrendingUp size={15} style={{ color: 'var(--success)' }} />
             <span>Progreso diario</span>
           </div>
         </div>
@@ -353,20 +355,20 @@ export const CalendarView: React.FC = () => {
             <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 12, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="monthAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#34d399" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.45} />
+                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="day" stroke="var(--muted)" fontSize={11} tickLine={false} />
               <YAxis stroke="var(--muted)" fontSize={11} tickLine={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'rgba(20, 21, 33, 0.96)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid color-mix(in srgb, var(--text) 12%, transparent)',
                   borderRadius: 10,
                   fontSize: 12,
-                  color: '#fff',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+                  color: 'var(--text)',
+                  boxShadow: '0 8px 24px color-mix(in srgb, var(--shadow-color) 70%, transparent)',
                 }}
                 formatter={(val: any) => [`${val} pts`, 'Puntos']}
                 labelFormatter={(lbl) => `Día ${lbl} de ${MONTHS[month]}`}
@@ -374,7 +376,7 @@ export const CalendarView: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="points"
-                stroke="#34d399"
+                stroke="var(--success)"
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#monthAreaGrad)"

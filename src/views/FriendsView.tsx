@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { playSound } from '@/lib/sound';
 import { getFeed, getMyFriends, removeFriend, respondFriendRequest, searchProfiles, sendFriendRequest, unblockUser } from '@/social/api';
 import { myUserId } from '@/social/runtime';
+import { personName, profilePath } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
 import type { MyFriends, Person, Post } from '@/social/types';
 import '@/components/social/social.css';
@@ -18,14 +19,18 @@ import '@/components/social/community.css';
 const PAGE = 20;
 const EMPTY: MyFriends = { friends: [], incoming: [], outgoing: [], blocked: [] };
 
-/** Fila de una persona: foto con marco, @alias (lleva a su perfil), una línea opcional y sus botones */
+/** Fila de una persona: foto con marco, su alias o nombre (lleva a su perfil), una línea opcional y sus botones */
 const PersonRow: React.FC<{ person: Person; sub?: React.ReactNode; children?: React.ReactNode }> = ({ person, sub, children }) => (
   <li className="person-row">
-    <Link to={`/u/${person.alias}`} tabIndex={-1} aria-hidden="true" style={{ display: 'inline-grid' }}>
+    <Link to={profilePath(person)} tabIndex={-1} aria-hidden="true" style={{ display: 'inline-grid' }}>
       <PersonAvatar person={person} size={40} />
     </Link>
     <div className="person-name">
-      <Link to={`/u/${person.alias}`}>@{person.alias}</Link>
+      <Link to={profilePath(person)}>{personName(person)}</Link>
+      {/* Con alias, el nombre va debajo para reconocer a la persona */}
+      {person.alias && person.display_name?.trim() && person.display_name.trim() !== person.alias && !sub && (
+        <span>{person.display_name.trim()}</span>
+      )}
       {sub && <span>{sub}</span>}
     </div>
     {children && <div className="person-actions">{children}</div>}
@@ -34,7 +39,8 @@ const PersonRow: React.FC<{ person: Person; sub?: React.ReactNode; children?: Re
 
 /**
  * AMIGOS (/amigos) — docs/plan-social.md, F6
- * Buscar por alias, responder solicitudes, la lista de amigos y bloqueados, y lo que publican tus amigos.
+ * Buscar por alias o nombre, responder solicitudes, la lista de amigos y bloqueados, y lo que publican tus amigos
+ * (las publicaciones propias no salen aquí: están en tu perfil).
  */
 export const FriendsView: React.FC = () => {
   const available = useSocial((s) => s.available);
@@ -97,7 +103,7 @@ export const FriendsView: React.FC = () => {
   // Búsqueda con espera de 300 ms; solo cuenta la última respuesta
   useEffect(() => {
     const term = q.trim();
-    if (!enabled || term.replace(/^@/, '').length < 2) {
+    if (!enabled || term.replace(/^@+/, '').trim().length < 2) {
       searchSeq.current++;
       setResults(null);
       setSearching(false);
@@ -106,7 +112,7 @@ export const FriendsView: React.FC = () => {
     const seq = ++searchSeq.current;
     setSearching(true);
     const t = setTimeout(() => {
-      searchProfiles(term.replace(/^@/, ''))
+      searchProfiles(term.replace(/^@+/, ''))
         .then((rows) => {
           if (seq === searchSeq.current) setResults(rows.filter((r) => r.user_id !== myUserId()));
         })
@@ -142,9 +148,9 @@ export const FriendsView: React.FC = () => {
         const status = await sendFriendRequest(p.user_id);
         if (status !== 'accepted') return undefined;
         void loadFeed();
-        return `¡Ahora eres amigo de @${p.alias}!`;
+        return `¡Ahora eres amigo de ${personName(p)}!`;
       },
-      `Solicitud enviada a @${p.alias}`,
+      `Solicitud enviada a ${personName(p)}`,
       'No se pudo enviar la solicitud.',
     );
 
@@ -155,7 +161,7 @@ export const FriendsView: React.FC = () => {
         await respondFriendRequest(p.user_id, accept);
         if (accept) void loadFeed();
       },
-      accept ? `¡Ahora eres amigo de @${p.alias}!` : 'Solicitud rechazada',
+      accept ? `¡Ahora eres amigo de ${personName(p)}!` : 'Solicitud rechazada',
       'No se pudo responder la solicitud.',
     );
 
@@ -192,8 +198,8 @@ export const FriendsView: React.FC = () => {
             <div>
               <div className="card-title">Crea tu perfil público</div>
               <p className="card-sub" style={{ marginTop: 4 }}>
-                Elige un alias para buscar amigos, enviar ánimos y compartir tus logros. Tus hábitos siguen siendo privados salvo los
-                que marques como visibles.
+                Con tu perfil público puedes buscar amigos, enviar ánimos y compartir tus logros. Tus hábitos siguen siendo privados
+                salvo los que marques como visibles.
               </p>
             </div>
             <Link to="/perfil" className="btn btn-primary">
@@ -218,6 +224,8 @@ export const FriendsView: React.FC = () => {
             : null;
   const writeOff = banned || busy !== null;
   const me = myUserId();
+  // El servidor ya no manda las tuyas en este feed; se filtran también aquí por si llega alguna (p. ej. un servidor antiguo)
+  const friendPosts = me ? posts.filter((p) => p.user_id !== me) : posts;
 
   return (
     <div className="stack fade-up" style={{ maxWidth: 860 }}>
@@ -227,7 +235,7 @@ export const FriendsView: React.FC = () => {
       {/* Buscar */}
       <section className="card" aria-label="Buscar personas">
         <label className="label" htmlFor={searchId} style={{ display: 'block', marginBottom: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>
-          Buscar por alias
+          Buscar por alias o nombre
         </label>
         <div className="friends-search">
           <Search aria-hidden="true" />
@@ -239,7 +247,7 @@ export const FriendsView: React.FC = () => {
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
-            placeholder="@alias (mínimo 2 letras)"
+            placeholder="Alias o nombre (mínimo 2 letras)"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -252,7 +260,7 @@ export const FriendsView: React.FC = () => {
               </div>
             ) : results && results.length === 0 ? (
               <p className="muted" style={{ fontSize: 13 }}>
-                No hay nadie con ese alias.
+                No hay nadie con ese alias o nombre.
               </p>
             ) : (
               <ul className="people-list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -315,7 +323,7 @@ export const FriendsView: React.FC = () => {
                       className="icon-btn sm danger"
                       disabled={writeOff}
                       onClick={() => void respond(f, false)}
-                      aria-label={`Rechazar la solicitud de @${f.alias}`}
+                      aria-label={`Rechazar la solicitud de ${personName(f)}`}
                     >
                       <X aria-hidden="true" />
                     </button>
@@ -331,7 +339,7 @@ export const FriendsView: React.FC = () => {
             </h2>
             {L.friends.length === 0 ? (
               <p className="muted" style={{ fontSize: 13.5 }}>
-                Aún no tienes amigos aquí. Búscalos por su alias o toca a alguien en las clasificaciones para ver su perfil.
+                Aún no tienes amigos aquí. Búscalos por su alias o su nombre, o toca a alguien en las clasificaciones para ver su perfil.
               </p>
             ) : (
               <ul className="people-list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -350,7 +358,7 @@ export const FriendsView: React.FC = () => {
                       className="icon-btn sm danger"
                       disabled={busy !== null}
                       onClick={() => setRemoving(f)}
-                      aria-label={`Eliminar a @${f.alias} de tus amigos`}
+                      aria-label={`Eliminar a ${personName(f)} de tus amigos`}
                       title="Eliminar amigo"
                     >
                       <UserMinus aria-hidden="true" />
@@ -392,7 +400,7 @@ export const FriendsView: React.FC = () => {
                 {L.blocked.map((b) => (
                   <li key={b.user_id} className="person-row">
                     <div className="person-name">
-                      <strong>{b.alias ? `@${b.alias}` : 'Perfil eliminado'}</strong>
+                      <strong>{b.alias || b.display_name?.trim() ? personName(b) : 'Perfil eliminado'}</strong>
                     </div>
                     <div className="person-actions">
                       <button
@@ -404,7 +412,7 @@ export const FriendsView: React.FC = () => {
                           void act(
                             b.user_id,
                             () => unblockUser(me, b.user_id),
-                            b.alias ? `Desbloqueaste a @${b.alias}` : 'Desbloqueado',
+                            b.alias || b.display_name?.trim() ? `Desbloqueaste a ${personName(b)}` : 'Desbloqueado',
                             'No se pudo desbloquear.',
                           )
                         }
@@ -420,7 +428,7 @@ export const FriendsView: React.FC = () => {
         </>
       )}
 
-      {/* Publicaciones de tus amigos (y las tuyas) */}
+      {/* Publicaciones de tus amigos (las tuyas están en tu perfil) */}
       <section className="card" aria-labelledby="fr-feed">
         <div className="card-head">
           <div>
@@ -437,13 +445,15 @@ export const FriendsView: React.FC = () => {
           <div className="row" style={{ justifyContent: 'center', padding: 16 }}>
             <span className="spinner" aria-hidden="true" /> <span className="muted">Cargando…</span>
           </div>
-        ) : posts.length === 0 ? (
+        ) : friendPosts.length === 0 ? (
           <p className="muted" style={{ fontSize: 13.5 }}>
-            {feedState === 'error' ? 'No se pudieron cargar las publicaciones.' : 'Todavía no hay publicaciones. ¡Sé la primera persona en compartir algo!'}
+            {feedState === 'error'
+              ? 'No se pudieron cargar las publicaciones.'
+              : 'Tus amigos todavía no han publicado nada. Lo que publiques tú aparece en tu perfil.'}
           </p>
         ) : (
           <div className="post-list">
-            {posts.map((post) => (
+            {friendPosts.map((post) => (
               <PostCard key={post.id} post={post} onDeleted={(id) => setPosts((list) => list.filter((x) => x.id !== id))} />
             ))}
           </div>
@@ -467,9 +477,9 @@ export const FriendsView: React.FC = () => {
         onClose={() => setRemoving(null)}
         onConfirm={() => {
           const f = removing;
-          if (f) void act(f.user_id, () => removeFriend(f.user_id), `@${f.alias} ya no está en tus amigos`, 'No se pudo eliminar la amistad.').then(() => loadFeed());
+          if (f) void act(f.user_id, () => removeFriend(f.user_id), `${personName(f)} ya no está en tus amigos`, 'No se pudo eliminar la amistad.').then(() => loadFeed());
         }}
-        title={removing ? `¿Eliminar a @${removing.alias} de tus amigos?` : 'Eliminar amigo'}
+        title={removing ? `¿Eliminar a ${personName(removing)} de tus amigos?` : 'Eliminar amigo'}
         message="Dejarás de ver sus publicaciones aquí. Podrás enviarle otra solicitud cuando quieras."
         confirmLabel="Eliminar"
         danger

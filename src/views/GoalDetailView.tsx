@@ -191,7 +191,7 @@ export const GoalDetailView: React.FC = () => {
         <div className="card stat">
           <div className="stat-top">
             <span className="stat-label">Horas invertidas</span>
-            <span className="stat-icon" style={{ '--c': '#34d399' } as React.CSSProperties}>
+            <span className="stat-icon" style={{ '--c': 'var(--success)' } as React.CSSProperties}>
               <Clock />
             </span>
           </div>
@@ -202,7 +202,7 @@ export const GoalDetailView: React.FC = () => {
         <div className="card stat">
           <div className="stat-top">
             <span className="stat-label">Días activos</span>
-            <span className="stat-icon" style={{ '--c': '#22d3ee' } as React.CSSProperties}>
+            <span className="stat-icon" style={{ '--c': 'var(--info)' } as React.CSSProperties}>
               <Calendar />
             </span>
           </div>
@@ -213,7 +213,7 @@ export const GoalDetailView: React.FC = () => {
         <div className="card stat">
           <div className="stat-top">
             <span className="stat-label">Consistencia media</span>
-            <span className="stat-icon" style={{ '--c': '#8b5cf6' } as React.CSSProperties}>
+            <span className="stat-icon" style={{ '--c': 'var(--accent)' } as React.CSSProperties}>
               <CheckCircle2 />
             </span>
           </div>
@@ -224,7 +224,7 @@ export const GoalDetailView: React.FC = () => {
         <div className="card stat">
           <div className="stat-top">
             <span className="stat-label">Mejor racha</span>
-            <span className="stat-icon" style={{ '--c': '#fbbf24' } as React.CSSProperties}>
+            <span className="stat-icon" style={{ '--c': 'var(--warning)' } as React.CSSProperties}>
               <Flame />
             </span>
           </div>
@@ -264,9 +264,9 @@ export const GoalDetailView: React.FC = () => {
                     gap: 8,
                     padding: '14px 16px',
                     borderRadius: 14,
-                    background: isPaused ? 'rgba(234, 179, 8, 0.05)' : 'var(--surface-2)',
-                    border: isPaused ? '1.5px solid #eab308' : '1px solid var(--border)',
-                    boxShadow: isPaused ? '0 0 12px rgba(234, 179, 8, 0.15)' : undefined,
+                    background: isPaused ? 'color-mix(in srgb, var(--yellow) 5%, transparent)' : 'var(--surface-2)',
+                    border: isPaused ? '1.5px solid var(--yellow)' : '1px solid var(--border)',
+                    boxShadow: isPaused ? '0 0 12px color-mix(in srgb, var(--yellow) 15%, transparent)' : undefined,
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -284,13 +284,13 @@ export const GoalDetailView: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: isPaused ? '#eab308' : 'var(--accent-2)' }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: isPaused ? 'var(--yellow)' : 'var(--accent-2)' }}>
                       {hConsistency}%
                     </div>
                   </div>
 
                   <div className="progress">
-                    <div style={{ width: `${hConsistency}%`, background: isPaused ? '#eab308' : habit.color }} />
+                    <div style={{ width: `${hConsistency}%`, background: isPaused ? 'var(--yellow)' : habit.color }} />
                   </div>
                 </div>
               );
@@ -322,15 +322,15 @@ export const GoalDetailView: React.FC = () => {
               <YAxis stroke="var(--muted)" fontSize={12} tickLine={false} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#181822',
+                  backgroundColor: 'var(--popover)',
                   border: '1px solid var(--border-2)',
                   borderRadius: 12,
-                  color: '#ffffff',
+                  color: 'var(--popover-text)',
                   fontSize: 13,
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.85)',
+                  boxShadow: '0 12px 32px color-mix(in srgb, var(--shadow-color) 85%, transparent)',
                   padding: '8px 14px',
                 }}
-                itemStyle={{ color: '#ffffff', fontWeight: 600 }}
+                itemStyle={{ color: 'var(--popover-text)', fontWeight: 600 }}
                 labelStyle={{ color: 'var(--muted)', marginBottom: 4 }}
                 formatter={(value) => [`${value}%`, 'Progreso']}
               />

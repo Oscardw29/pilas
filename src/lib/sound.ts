@@ -434,15 +434,6 @@ class SoundEngine {
     });
   }
 
-  /** Energía del día: cada nivel más agudo, del 1 al 5 */
-  public energy(level: 1 | 2 | 3 | 4 | 5) {
-    const freqs = { 1: 220, 2: 330, 3: 440, 4: 587.33, 5: 880 };
-    const freq = freqs[level] || 440;
-    this.play(() =>
-      this.tone({ type: level >= 4 ? 'triangle' : 'sine', freq, to: freq * 1.15, glide: 0.045, dur: 0.09, gain: 0.15, attack: 0.006 }),
-    );
-  }
-
   /** Tic-tac del temporizador: 5 pares que se van apagando */
   public startTimerCountdown() {
     this.play(() => {

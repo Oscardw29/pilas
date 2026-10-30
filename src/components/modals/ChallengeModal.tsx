@@ -41,7 +41,8 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       startDate,
       durationDays: Number(durationDays) || 30,
       successDays: Number(successDays) || 25,
-      rewardPoints: Number(rewardPoints) || 0,
+      // Las monedas son siempre enteras
+      rewardPoints: Math.max(0, Math.round(Number(rewardPoints) || 0)),
       rewardText: rewardText.trim() || undefined,
       conditions: conditions.trim() || undefined,
     };

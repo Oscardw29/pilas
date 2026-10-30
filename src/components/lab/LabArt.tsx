@@ -26,7 +26,7 @@ export const Beaker: React.FC<BeakerProps> = ({ level, color, shade, size = 76, 
         <path d="M21 14 H59 V84 Q59 91 52 91 H28 Q21 91 21 84 Z" />
       </clipPath>
       {/* Cristal */}
-      <path d="M12 8 H68 Q70 8 70 10 V12 Q70 14 68 14 H63 V84 Q63 96 51 96 H29 Q17 96 17 84 V14 H12 Q10 14 10 12 V10 Q10 8 12 8 Z" fill="rgba(255,255,255,0.1)" />
+      <path d="M12 8 H68 Q70 8 70 10 V12 Q70 14 68 14 H63 V84 Q63 96 51 96 H29 Q17 96 17 84 V14 H12 Q10 14 10 12 V10 Q10 8 12 8 Z" className="art-glass" fill="rgba(255,255,255,0.1)" />
       <g clipPath={`url(#${clip})`}>
         <g className="lab-liquid" style={{ transform: `translateY(${top}px)` }}>
           <rect x={10} y={4} width={60} height={100} fill={shade} />
@@ -43,7 +43,7 @@ export const Beaker: React.FC<BeakerProps> = ({ level, color, shade, size = 76, 
         <rect key={y} x={48} y={y} width={y % 32 === 30 ? 11 : 7} height={2.4} rx={1.2} fill="#fff" opacity={0.45} />
       ))}
       <rect x={24} y={20} width={5} height={50} rx={2.5} fill="#fff" opacity={0.28} />
-      <path d="M12 8 H68 Q70 8 70 10 V12 Q70 14 68 14 H63 V84 Q63 96 51 96 H29 Q17 96 17 84 V14 H12 Q10 14 10 12 V10 Q10 8 12 8 Z" fill="none" stroke="rgba(226,232,240,0.55)" strokeWidth={2.6} />
+      <path d="M12 8 H68 Q70 8 70 10 V12 Q70 14 68 14 H63 V84 Q63 96 51 96 H29 Q17 96 17 84 V14 H12 Q10 14 10 12 V10 Q10 8 12 8 Z" className="art-glass-edge" fill="none" stroke="rgba(226,232,240,0.55)" strokeWidth={2.6} />
     </svg>
   );
 };
@@ -59,7 +59,7 @@ export const LabShelfArt: React.FC<{ className?: string }> = ({ className = '' }
 
     {/* Erlenmeyer verde con vapor */}
     <g className="lab-art-flask">
-      <path d="M40 26 H56 V44 L74 84 Q77 96 66 96 H30 Q19 96 22 84 L40 44 Z" fill="rgba(255,255,255,0.12)" />
+      <path d="M40 26 H56 V44 L74 84 Q77 96 66 96 H30 Q19 96 22 84 L40 44 Z" className="art-glass" fill="rgba(255,255,255,0.12)" />
       <path d="M27 72 H69 L73 84 Q75 94 66 94 H30 Q21 94 23 84 Z" fill="#22c55e" />
       <path d="M27 72 H69 L70 75 H26 Z" fill="#4ade80" />
       <rect x={37} y={20} width={22} height={8} rx={4} fill="#94a3b8" />
@@ -70,8 +70,8 @@ export const LabShelfArt: React.FC<{ className?: string }> = ({ className = '' }
 
     {/* Matraz redondo violeta */}
     <g className="lab-art-round">
-      <rect x={104} y={30} width={14} height={30} fill="rgba(255,255,255,0.12)" />
-      <circle cx={111} cy={74} r={22} fill="rgba(255,255,255,0.12)" />
+      <rect x={104} y={30} width={14} height={30} className="art-glass" fill="rgba(255,255,255,0.12)" />
+      <circle cx={111} cy={74} r={22} className="art-glass" fill="rgba(255,255,255,0.12)" />
       <path d="M90 76 A21 21 0 0 0 132 76 Z" fill="#8b5cf6" />
       <ellipse cx={111} cy={76} rx={21} ry={3} fill="#a78bfa" />
       <rect x={102} y={26} width={18} height={7} rx={3.5} fill="#94a3b8" />
@@ -92,7 +92,7 @@ export const LabShelfArt: React.FC<{ className?: string }> = ({ className = '' }
         { x: 218, c: '#a78bfa', h: 22 },
       ].map((t, i) => (
         <g key={t.x} className={`lab-art-tube t${i}`}>
-          <rect x={t.x} y={44} width={11} height={48} rx={5.5} fill="rgba(255,255,255,0.14)" />
+          <rect x={t.x} y={44} width={11} height={48} rx={5.5} className="art-glass" fill="rgba(255,255,255,0.14)" />
           <rect x={t.x} y={92 - t.h} width={11} height={t.h} rx={5.5} fill={t.c} />
           <rect x={t.x + 2.5} y={50} width={2.5} height={18} rx={1.25} fill="#fff" opacity={0.4} />
         </g>

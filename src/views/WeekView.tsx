@@ -256,7 +256,7 @@ export const WeekView: React.FC = () => {
                         <div style={{ fontSize: 11, color: isToday ? 'var(--accent-2)' : 'var(--muted)' }}>
                           {DAY_SHORT[weekdayIndex(d)]}
                         </div>
-                        <div style={{ fontSize: 15, fontWeight: isToday ? 800 : 600, color: isToday ? '#fff' : 'inherit' }}>
+                        <div style={{ fontSize: 15, fontWeight: isToday ? 800 : 600, color: isToday ? 'var(--text-strong)' : 'inherit' }}>
                           {d.getDate()}
                         </div>
                       </th>
@@ -331,7 +331,7 @@ export const WeekView: React.FC = () => {
                                 key={dk}
                                 className="week-matrix-day"
                                 style={{
-                                  background: 'rgba(234, 179, 8, 0.06)',
+                                  background: 'color-mix(in srgb, var(--yellow) 6%, transparent)',
                                 }}
                               >
                                 <button
@@ -361,7 +361,7 @@ export const WeekView: React.FC = () => {
                                 background: isToday ? 'rgba(139, 92, 246, 0.04)' : 'transparent',
                               }}
                             >
-                              <span style={{ color: '#eab308', opacity: 0.5, fontSize: 14, userSelect: 'none' }} title="Hábito pausado en esta fecha">
+                              <span style={{ color: 'var(--yellow)', opacity: 0.5, fontSize: 14, userSelect: 'none' }} title="Hábito pausado en esta fecha">
                                 —
                               </span>
                             </td>
@@ -400,14 +400,14 @@ export const WeekView: React.FC = () => {
                         } else if (status === 'minimum') {
                           bg = 'var(--minimum)';
                           border = 'var(--minimum)';
-                          color = '#06201c';
+                          color = 'var(--on-status)';
                         } else if (status === 'missed') {
-                          bg = 'rgba(248, 113, 113, 0.2)';
+                          bg = 'color-mix(in srgb, var(--danger) 20%, transparent)';
                           border = 'var(--danger)';
                           color = 'var(--danger)';
                         } else if (status === 'partial') {
                           // Avance registrado que aún no alcanza el mínimo
-                          bg = 'rgba(45, 212, 191, 0.08)';
+                          bg = 'color-mix(in srgb, var(--minimum) 8%, transparent)';
                           border = 'var(--minimum)';
                           color = 'var(--minimum)';
                         }
@@ -516,10 +516,10 @@ export const WeekView: React.FC = () => {
             <span className="legend-cell" style={{ background: 'var(--accent)', color: '#fff' }}><StatusIcon status="full" size={10} strokeWidth={3.2} /></span> Objetivo completo (+100%)
           </span>
           <span className="week-legend-item">
-            <span className="legend-cell" style={{ background: 'var(--minimum)', color: '#06201c' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
+            <span className="legend-cell" style={{ background: 'var(--minimum)', color: 'var(--on-status)' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
           </span>
           <span className="week-legend-item">
-            <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'rgba(248, 113, 113, 0.2)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
+            <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
           </span>
           <span className="week-legend-item">
             <span className="legend-cell" style={{ background: 'var(--warning)', color: '#fff' }}><StatusIcon status="paused" size={9} strokeWidth={3} className="icon-filled" /></span> En pausa

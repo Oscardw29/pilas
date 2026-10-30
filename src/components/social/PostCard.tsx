@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { CloudOff, Flag, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CloudOff, Flag, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { PersonAvatar } from '@/components/profile/Avatar';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/ToastContext';
 import { playSound } from '@/lib/sound';
-import { deletePost, setReaction, SocialError } from '@/social/api';
+import { deletePost, editPost, setReaction, SocialError } from '@/social/api';
 import { myUserId, refreshSocialStatus } from '@/social/runtime';
-import { postText, REACTIONS, timeAgo } from '@/social/texts';
+import { personName, postText, profilePath, REACTIONS, timeAgo } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
 import type { Post, ReactionEmoji } from '@/social/types';
 import { ReasonModal, ReportModal } from './ReportModal';
@@ -165,8 +165,15 @@ export const MoreMenu: React.FC<{ items: MoreMenuItem[]; label?: string; classNa
 
 /* ---------------- Publicación ---------------- */
 
+/** Largo máximo del comentario (al publicar y al editar) */
+export const POST_COMMENT_MAX = 200;
+
+const fmtEdited = (iso: string) =>
+  new Date(iso).toLocaleString('es', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
 /**
  * Una publicación hecha desde plantilla: el texto lo pone el servidor (no se puede editar) y debajo va el comentario opcional.
+ * El comentario de las propias se edita aquí mismo (queda la marca «(editado)» junto al título).
  * Reacciones 🔥 💪 👏 con actualización optimista. `preview` dibuja la vista previa del modal (sin acciones).
  */
 export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; preview?: boolean }> = ({ post, onDeleted, preview }) => {
@@ -184,13 +191,33 @@ export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; 
   const [adminDelete, setAdminDelete] = useState(false);
   const [reporting, setReporting] = useState(false);
 
+  // Comentario y marca de edición: cambian al momento al guardar, sin esperar a recargar la lista
+  const [comment, setComment] = useState<string | null>(post.comment);
+  const [editedAt, setEditedAt] = useState<string | null>(post.edited_at ?? null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const editId = useId();
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
   // Si llega una versión nueva de la publicación (recarga), se usa la del servidor
   useEffect(() => {
     setCounts(post.reactions);
     setMine(post.mine ?? []);
+    setComment(post.comment);
+    setEditedAt(post.edited_at ?? null);
   }, [post]);
 
+  // Al abrir la edición, el cursor va al final del comentario
+  useEffect(() => {
+    const el = editRef.current;
+    if (!editing || !el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [editing]);
+
   const { icon, text } = postText(post.template, post.data ?? {});
+  const name = personName(post);
 
   const toggle = async (emoji: ReactionEmoji) => {
     if (!me || preview || pending.current.has(emoji)) return;
@@ -224,9 +251,39 @@ export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; 
     }
   };
 
+  const startEdit = () => {
+    setDraft(comment ?? '');
+    setEditing(true);
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    const next = draft.trim().slice(0, POST_COMMENT_MAX) || null;
+    // Sin cambios no se llama al servidor (ni queda marcada como editada)
+    if (next === (comment ?? null)) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await editPost(post.id, next);
+      setComment(next);
+      setEditedAt(new Date().toISOString());
+      setEditing(false);
+      playSound.pop();
+      showToast('Publicación actualizada', 'success');
+    } catch (err) {
+      fail(err, 'No se pudo guardar el cambio.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const items: MoreMenuItem[] = [];
   if (!preview) {
     if (isMine) {
+      items.push({ label: 'Editar', icon: <Pencil aria-hidden="true" />, onSelect: startEdit, disabled: banned || editing });
       items.push({ label: 'Borrar', icon: <Trash2 aria-hidden="true" />, danger: true, onSelect: () => setConfirmDelete(true) });
     } else {
       if (isAdmin) items.push({ label: 'Borrar (moderación)', icon: <Trash2 aria-hidden="true" />, danger: true, onSelect: () => setAdminDelete(true) });
@@ -235,20 +292,20 @@ export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; 
   }
 
   const when = preview ? 'ahora' : timeAgo(post.created_at);
-  const profileTo = `/u/${post.alias}`;
+  const profileTo = profilePath(post);
 
   return (
-    <article className={`post-card ${preview ? 'is-preview' : ''}`} aria-label={`Publicación de @${post.alias}`}>
+    <article className={`post-card ${preview ? 'is-preview' : ''}`} aria-label={`Publicación de ${name}`}>
       <header className="post-head">
         {preview ? (
           <PersonAvatar person={post} size={40} />
         ) : (
-          <Link to={profileTo} aria-label={`Ver el perfil de @${post.alias}`} tabIndex={-1}>
+          <Link to={profileTo} aria-label={`Ver el perfil de ${name}`} tabIndex={-1}>
             <PersonAvatar person={post} size={40} />
           </Link>
         )}
         <div className="post-who">
-          {preview ? <strong>@{post.alias}</strong> : <Link to={profileTo}>@{post.alias}</Link>}
+          {preview ? <strong>{name}</strong> : <Link to={profileTo}>{name}</Link>}
           {preview ? <span className="muted" style={{ fontSize: 12 }}>{when}</span> : <time dateTime={post.created_at}>{when}</time>}
         </div>
         <MoreMenu items={items} label="Opciones de la publicación" />
@@ -258,9 +315,56 @@ export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; 
         <span className="post-icon" aria-hidden="true">
           {icon}
         </span>
-        <p className="post-text">{text}</p>
+        <p className="post-text">
+          {text}
+          {editedAt && (
+            <>
+              {' '}
+              <span className="post-edited" title={`Editado el ${fmtEdited(editedAt)}`}>
+                (editado)<span className="c-sr"> el {fmtEdited(editedAt)}</span>
+              </span>
+            </>
+          )}
+        </p>
       </div>
-      {post.comment && <p className="post-comment">{post.comment}</p>}
+
+      {editing ? (
+        <form className="post-edit" onSubmit={(e) => void saveEdit(e)}>
+          <label className="c-sr" htmlFor={editId}>
+            Comentario de la publicación
+          </label>
+          <textarea
+            id={editId}
+            ref={editRef}
+            className="textarea"
+            rows={3}
+            value={draft}
+            maxLength={POST_COMMENT_MAX}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setEditing(false);
+              }
+            }}
+            placeholder="Cuéntales algo más (opcional)"
+            aria-describedby={`${editId}-count`}
+          />
+          <div className="post-edit-foot">
+            <span id={`${editId}-count`} className={`char-count ${draft.length > POST_COMMENT_MAX - 20 ? 'is-near' : ''}`}>
+              {draft.length}/{POST_COMMENT_MAX}
+            </span>
+            <button type="button" className="btn btn-ghost sm" onClick={() => setEditing(false)} disabled={saving}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary sm" disabled={saving}>
+              {saving ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        comment && <p className="post-comment">{comment}</p>
+      )}
 
       <div className="post-reactions" role="group" aria-label="Reacciones">
         {REACTIONS.map((r) => {
@@ -302,12 +406,19 @@ export const PostCard: React.FC<{ post: Post; onDeleted?: (id: string) => void; 
             isOpen={adminDelete}
             onClose={() => setAdminDelete(false)}
             title="Borrar publicación"
-            description={`La publicación de @${post.alias} se borrará y la acción quedará en el registro de moderación.`}
+            description={`La publicación de ${name} se borrará y la acción quedará en el registro de moderación.`}
             confirmLabel="Borrar"
             danger
             onSubmit={(reason) => remove(true, reason)}
           />
-          <ReportModal isOpen={reporting} onClose={() => setReporting(false)} targetUser={post.user_id} alias={post.alias} postId={post.id} />
+          <ReportModal
+            isOpen={reporting}
+            onClose={() => setReporting(false)}
+            targetUser={post.user_id}
+            alias={post.alias}
+            name={post.display_name}
+            postId={post.id}
+          />
         </>
       )}
     </article>

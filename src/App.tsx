@@ -7,6 +7,8 @@ import { useStore } from './store/useStore';
 import { useToast } from './components/ui/ToastContext';
 import { longDate, todayKey } from './lib/dates';
 import { prewarmConfetti } from './lib/confetti';
+import { applyTheme, themeOf } from './lib/theme';
+import { useSocial } from './social/useSocial';
 
 
 // Cada vista se carga bajo demanda (code-splitting): el arranque descarga mucho menos JavaScript
@@ -35,6 +37,37 @@ const CreatorView = lazy(() => import('./views/CreatorView').then((m) => ({ defa
 
 export const App: React.FC = () => {
   const { toast } = useToast();
+  const theme = useStore((s) => s.settings.theme);
+
+  // Tema claro u oscuro (sin elegir = claro). App se monta con los datos de la cuenta ya cargados
+  useEffect(() => {
+    applyTheme(themeOf(theme));
+  }, [theme]);
+
+  // El alias elegido ya estaba en uso al crear el perfil público: se creó sin alias y se avisa una vez
+  useEffect(
+    () =>
+      useSocial.subscribe((s, prev) => {
+        if (s.aliasConflict && s.aliasConflict !== prev.aliasConflict) {
+          toast(`El alias «${s.aliasConflict}» ya estaba en uso`, 'warning', 'Tu perfil se muestra con tu nombre. Elige otro alias en Ajustes › Datos personales.');
+        }
+        if (s.profileAutoCreated && !prev.profileAutoCreated) {
+          toast(
+            'Tu perfil ya es público en la comunidad',
+            'info',
+            'Se ven tu nombre o alias, tu foto y tus cifras (racha, XP, logros y ligas). Tus registros, notas y hábitos no visibles siguen cifrados. Puedes editarlo en Mi perfil.',
+          );
+        }
+        if (s.resetLimited && !prev.resetLimited) {
+          toast(
+            'Tu progreso público no se pudo reiniciar',
+            'warning',
+            'Tus datos cambiaron por completo hoy demasiadas veces (máximo 10 al día). Para no mezclar tus datos de antes con los nuevos, por ahora no se publica nada en la comunidad. Se volverá a intentar cuando abras la app de nuevo.',
+          );
+        }
+      }),
+    [toast],
+  );
 
   // Protector de racha: se consume solo al abrir la app (o al cambiar de día) si salvó un día roto
   useEffect(() => {

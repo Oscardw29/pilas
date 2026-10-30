@@ -67,7 +67,7 @@
 .eco-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 12px; }
 .eco-fields .input.invalid, .prize-input.invalid { border-color: var(--danger); }
 .field-error { font-size: 11.5px; color: var(--danger); }
-.prize-input { width: 84px; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border-2); text-align: right; font-variant-numeric: tabular-nums; }
+.prize-input { width: 84px; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--input-border); text-align: right; font-variant-numeric: tabular-nums; }
 .eco-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .history-list { display: flex; flex-direction: column; gap: 8px; }
 .history-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }

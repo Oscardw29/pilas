@@ -10,10 +10,9 @@ import { MAX_ACTIVE_HABITS } from './limits';
  *  2. Duración: abandono en sesiones largas (> 50-60 min).
  *  3. Día de la semana: días con menor consistencia sistemática (ej. lunes/domingos).
  *  4. Correlaciones entre hábitos (ej. Dormir temprano -> Ejercicio al día siguiente).
- *  5. Energía y productividad (duración y estado según nivel de energía).
- *  6. Razones de falla más repetidas.
- *  7. Detección de abandono (caída en las últimas semanas).
- *  8. Sobrecarga de hábitos (demasiados hábitos activos o con baja consistencia).
+ *  5. Razones de falla más repetidas.
+ *  6. Detección de abandono (caída en las últimas semanas).
+ *  7. Sobrecarga de hábitos (demasiados hábitos activos o con baja consistencia).
  */
 
 export const FAIL_REASON_LABELS: Record<FailReason, string> = {
@@ -212,30 +211,7 @@ export function detectInsights(data: AppData, ref = todayKey()): Insight[] {
     }
   }
 
-  /* 5. ENERGÍA VS. DURACIÓN Y ÉXITO */
-  if (data.energy.length >= 8 && sessions.length >= 8) {
-    const energyMap = new Map(data.energy.map((e) => [e.date, e.level]));
-    const lowEnergySessions = sessions.filter((s) => (energyMap.get(s.date) ?? 3) <= 2);
-    const highEnergySessions = sessions.filter((s) => (energyMap.get(s.date) ?? 3) >= 4);
-
-    if (lowEnergySessions.length >= 4 && highEnergySessions.length >= 4) {
-      const avgLow = Math.round(lowEnergySessions.reduce((a, s) => a + s.durationSec, 0) / lowEnergySessions.length / 60);
-      const avgHigh = Math.round(highEnergySessions.reduce((a, s) => a + s.durationSec, 0) / highEnergySessions.length / 60);
-
-      if (avgHigh > avgLow + 10) {
-        insights.push({
-          id: 'insight-energy-duration',
-          kind: 'energy',
-          title: 'Tu nivel de energía impacta fuertemente la duración',
-          detail: `Con energía alta (4-5) promedias ${avgHigh} min de enfoque, mientras que con energía baja (1-2) promedias ${avgLow} min. En días de baja energía, prioriza las versiones mínimas.`,
-          confidence: 0.85,
-          tone: 'neutral',
-        });
-      }
-    }
-  }
-
-  /* 6. RAZONES DE FALLA RECURRENTES */
+  /* 5. RAZONES DE FALLA RECURRENTES */
   const failLogs = Object.values(data.logs).filter((l) => l.status === 'missed' && l.failReason);
   if (failLogs.length >= 6) {
     const counts: Record<string, number> = {};
@@ -258,7 +234,7 @@ export function detectInsights(data: AppData, ref = todayKey()): Insight[] {
     }
   }
 
-  /* 7. DETECCIÓN DE HÁBITOS PROBLEMÁTICOS / BAJA CONSISTENCIA */
+  /* 6. DETECCIÓN DE HÁBITOS PROBLEMÁTICOS / BAJA CONSISTENCIA */
   activeHabits.forEach((h) => {
     const c = consistency(data, h, 30, ref);
     if (c != null && c < 0.35 && diffDays(habitStart(h), ref) >= 20) {
@@ -274,13 +250,13 @@ export function detectInsights(data: AppData, ref = todayKey()): Insight[] {
     }
   });
 
-  /* 8. DETECCIÓN DE SOBRECARGA */
+  /* 7. DETECCIÓN DE SOBRECARGA */
   if (activeHabits.length > MAX_ACTIVE_HABITS) {
     insights.push({
       id: 'insight-load-habits',
       kind: 'load',
       title: `Tienes ${activeHabits.length} hábitos activos simultáneos`,
-      detail: `La aplicación optimiza para mejores hábitos, no para acumularlos. Te recomendamos auditar y mantener un máximo de ${MAX_ACTIVE_HABITS} para no dispersar tu energía.`,
+      detail: `La aplicación optimiza para mejores hábitos, no para acumularlos. Te recomendamos auditar y mantener un máximo de ${MAX_ACTIVE_HABITS} para no dispersar tu atención.`,
       confidence: 0.95,
       tone: 'attention',
     });

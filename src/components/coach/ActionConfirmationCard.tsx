@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Check, X, Plus, Pencil, Trash2 } from 'lucide-react';
 import { describeCoachAction, type ParsedAction } from '@/lib/coachActions';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 /**
  * Tarjeta de confirmación de un cambio propuesto por el Coach IA (crear/editar hábitos, retos, etc.).
  * Los detalles salen de `describeCoachAction`: textos legibles con los mismos datos validados que se aplicarían.
+ * Las propuestas de eliminar piden además una confirmación explícita antes de aplicarse.
  */
 export const ActionConfirmationCard: React.FC<{
   action: ParsedAction;
@@ -14,6 +16,8 @@ export const ActionConfirmationCard: React.FC<{
 }> = ({ action, status, onConfirm, onDismiss }) => {
   const summary = describeCoachAction(action);
   const ToneIcon = summary.tone === 'delete' ? Trash2 : summary.tone === 'update' ? Pencil : Plus;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const accept = () => (summary.tone === 'delete' ? setConfirmDelete(true) : onConfirm());
 
   return (
     <div
@@ -53,11 +57,27 @@ export const ActionConfirmationCard: React.FC<{
           <button
             type="button"
             className={`btn sm ${summary.tone === 'delete' ? 'btn-danger-solid' : 'btn-primary'}`}
-            onClick={onConfirm}
+            onClick={accept}
           >
             <Check size={13} /> Aceptar
           </button>
         </div>
+      )}
+
+      {summary.tone === 'delete' && (
+        <ConfirmModal
+          isOpen={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onConfirm();
+          }}
+          title={`¿${summary.title}?`}
+          message={`Se eliminará «${summary.subject}» de tu lista de hábitos. ¿Quieres continuar?`}
+          confirmLabel="Sí, eliminar"
+          confirmVariant="danger"
+          zIndex={1500}
+        />
       )}
     </div>
   );

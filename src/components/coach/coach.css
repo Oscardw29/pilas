@@ -154,8 +154,8 @@
 }
 .gender-option:hover { border-color: var(--accent-2); color: var(--text); }
 .gender-option:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border-2); }
-.gender-option[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); color: #fff; box-shadow: 0 3px 0 var(--accent-strong); }
-.gender-option:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.gender-option[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--text-strong); box-shadow: 0 3px 0 var(--accent-strong); }
+.gender-option:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 
 .welcome-coach {
   display: flex; align-items: flex-end; gap: 12px; padding: 10px 14px 0; overflow: hidden;
@@ -220,7 +220,7 @@
   position: absolute; z-index: 2; left: -9px; top: -9px;
   width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
   color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border-2);
-  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.6); transition: color .15s, background .15s;
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--shadow-color) 60%, transparent); transition: color .15s, background .15s;
 }
 .coach-teaser-close:hover { color: var(--text); background: var(--surface-3); }
 
@@ -281,7 +281,7 @@
 }
 .coach-mute-btn:hover { background: #9d74f7; }
 .coach-mute-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #5b21b6; }
-.coach-mute-btn:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.coach-mute-btn:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 .coach-mute-btn.muted { background: var(--surface-3); border-color: var(--border-2); color: var(--muted); box-shadow: 0 4px 0 #0c0c10; }
 .coach-mute-label { line-height: 1; }
 
@@ -300,4 +300,20 @@
   .coach-stage-plate strong { color: var(--text); }
   .coach-stage-status { color: var(--text-2); }
   .coach-page .chat-container { height: calc(100dvh - var(--bottom-nav-h) - 250px - var(--safe-bottom)); min-height: 360px; }
+}
+
+/* =====================================================================
+   TEMA CLARO (ver «AJUSTES DEL TEMA CLARO» en global.css: mismo prefijo sin especificidad)
+   ===================================================================== */
+/* Escenario del coach: del blanco a un lila suave en vez de al violeta casi negro */
+:where(:root:not([data-theme="dark"])) .card.coach-stage {
+  background:
+    radial-gradient(220px 160px at 50% 78%, rgba(139, 92, 246, 0.2), transparent 70%),
+    linear-gradient(180deg, var(--surface) 0%, #efe9fe 100%);
+}
+/* Botón de silencio apagado: el labio inferior era el fondo oscuro de la app */
+:where(:root:not([data-theme="dark"])) .coach-mute-btn.muted { box-shadow: 0 4px 0 #c7c0d9; }
+@media (max-width: 899.98px) {
+  /* Tira compacta sin placa violeta: las barras de voz pasan del amarillo pálido al ámbar del rayo */
+  :where(:root:not([data-theme="dark"])) .coach-voice-bars i { background: #d97706; }
 }

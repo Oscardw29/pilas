@@ -10,10 +10,20 @@ export type CatalogStatus = 'draft' | 'published' | 'retired';
 export type ReactionEmoji = 'fire' | 'muscle' | 'clap';
 export type PostTemplate = 'streak' | 'habit_streak' | 'perfect_week' | 'xp_week' | 'achievement' | 'league_up' | 'podium';
 export type LeaderboardKind = 'streak' | 'xp_week' | 'xp_total';
+/** Colores del banner por defecto (sin cosmético). La paleta está en texts.ts (BANNER_COLORS) */
+export type BannerColor = 'violet' | 'blue' | 'teal' | 'green' | 'amber' | 'orange' | 'rose' | 'slate';
 
 export interface ProfileRow {
   user_id: string;
-  alias: string;
+  /** Opcional: sin alias se muestra el nombre (display_name) */
+  alias: string | null;
+  /** Nombre visible (el de la bienvenida / Ajustes) */
+  display_name: string;
+  /** Biografía corta (≤ 160) */
+  bio: string;
+  /** Color del banner por defecto (null = violeta) */
+  banner_color: BannerColor | null;
+  /** Ruta en Storage o `default:N` (foto por defecto, ver lib/defaultAvatars.ts) */
   avatar_path: string | null;
   banner_item: string | null;
   frame_item: string | null;
@@ -66,7 +76,8 @@ export interface Cosmetic {
 /** Lo mínimo para dibujar a alguien (avatar + marco) */
 export interface Person {
   user_id: string;
-  alias: string;
+  alias: string | null;
+  display_name?: string | null;
   avatar_path: string | null;
   frame_path?: string | null;
   frame_thumb?: string | null;
@@ -109,8 +120,13 @@ export interface LeagueStandings {
   week_start?: string;
   ends_at?: string;
   ranked?: number;
+  /** Los primeros `promote` suben, los `stay` siguientes se quedan y el resto (`demote`) baja */
   promote?: number;
+  stay?: number;
   demote?: number;
+  /** Solo hay una persona en el grupo: no sube ni baja y gana el premio de participación */
+  solo?: boolean;
+  solo_prize?: number;
   /** Premios del 1.º, 2.º, 3.º y 4.º–10.º */
   prizes?: number[] | null;
   members?: LeagueMember[];
@@ -145,7 +161,13 @@ export interface CheerInfo {
 
 export interface PublicProfile {
   user_id: string;
-  alias: string;
+  alias: string | null;
+  display_name: string;
+  bio: string;
+  banner_color: BannerColor | null;
+  /** «Me gusta» que ha recibido el perfil y si ya le diste el tuyo */
+  likes: number;
+  liked_by_me: boolean;
   avatar_path: string | null;
   member_since: string;
   cards: ProfileCard[];
@@ -162,6 +184,8 @@ export interface PublicProfile {
     week: { day: string; xp: number; completion: number | null }[];
     league: string | null;
   };
+  /** Primera semana con datos (lunes): hasta ahí se puede retroceder */
+  first_week: string;
   habits: PublicHabit[];
   achievements: FeaturedAchievement[];
   friendship: { status: 'pending' | 'accepted'; outgoing: boolean } | null;
@@ -179,7 +203,7 @@ export interface MyFriends {
   friends: FriendEntry[];
   incoming: FriendEntry[];
   outgoing: FriendEntry[];
-  blocked: { user_id: string; alias: string | null }[];
+  blocked: { user_id: string; alias: string | null; display_name?: string | null }[];
 }
 
 export interface Post extends Person {
@@ -188,6 +212,8 @@ export interface Post extends Person {
   data: Record<string, unknown>;
   comment: string | null;
   created_at: string;
+  /** Si se editó el comentario */
+  edited_at: string | null;
   reactions: Record<ReactionEmoji, number>;
   mine: ReactionEmoji[];
 }
@@ -211,6 +237,7 @@ export interface NotificationRow {
     | 'warning'
     | 'ban'
     | 'admin_coins'
+    | 'profile_like'
     | string;
   actor_id: string | null;
   data: Record<string, unknown>;
@@ -285,6 +312,14 @@ export interface AdminUserOverview {
   banned: boolean;
   bans: (Ban & { id: number; lifted_at: string | null })[];
   warnings: { id: number; reason: string; created_at: string }[];
+}
+
+/** Una semana del perfil de alguien (para recorrer sus semanas) */
+export interface ProfileWeek {
+  week_start: string;
+  week: { day: string; xp: number; completion: number | null }[];
+  /** null si la persona no muestra la tarjeta de hábitos; los días solo llegan para las últimas 8 semanas */
+  habits: PublicHabit[] | null;
 }
 
 /** Una fila de `publish_days` */

@@ -30,6 +30,7 @@ import { CoachAvatar } from '../components/coach/CoachAvatar';
 import { useCoachPersona, type CoachPersona } from '../components/coach/coachPersona';
 import { markCoachVisited } from '../components/coach/coachTeasers';
 import { speakCoach, stopCoachVoice, unlockCoachVoice } from '../lib/coachVoice';
+import { phraseText } from '../lib/coachPhrases';
 import { useToast } from '../components/ui/ToastContext';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -65,15 +66,16 @@ interface MenuState {
 }
 
 const PRESET_QUESTIONS = [
-  '¿Por qué suelo fallar más en ejercicio que en programación?',
-  '¿Qué cambio me daría el mayor impacto positivo esta semana?',
-  '¿Cómo estructurar mi día cuando mi energía está en 1 o 2 sobre 5?',
+  '¿Qué hago ahora mismo?',
+  '¿Cómo salvo mi racha hoy?',
+  '¿Cómo organizo mi día si tengo poco tiempo?',
   'Analiza mis razones de abandono y proponme versiones mínimas.',
   '¿Qué experimento A/B me recomiendas hacer ahora?',
+  'Resume mi semana',
 ];
 
-const welcomeText = (p: CoachPersona) =>
-  `¡Hola! Soy ${p.name}, tu ${p.role} de hábitos. Tengo acceso en tiempo real a tus objetivos, tus datos de consistencia de los últimos 30 días, patrones de energía y causas de fallo registradas.\n\n¿En qué te puedo asesorar hoy para optimizar tu constancia?`;
+/** Bienvenida del catálogo de frases fijas: con las frases grabadas tiene voz aunque no haya clave de TTS */
+const welcomeText = (p: CoachPersona) => phraseText('bienvenida.pagina', p.gender);
 
 export const AiCoachView: React.FC = () => {
   const {
@@ -203,10 +205,17 @@ export const AiCoachView: React.FC = () => {
     }
   }, []);
 
+  /** La conversación recién creada se carga con un saludo en voz alta */
+  const greetNewConversation = useRef(false);
+
   // Sincronizar mensajes al cambiar la conversación activa
   useEffect(() => {
     finishStream();
     stopCoachVoice({ fade: true });
+    if (greetNewConversation.current) {
+      greetNewConversation.current = false;
+      if (!useStore.getState().settings.coachMuted) void speakCoach(DEFAULT_WELCOME_TEXT, persona.gender);
+    }
     if (!activeConversationId) return;
     const currentConv = conversations.find((c) => c.id === activeConversationId);
     if (currentConv && Array.isArray(currentConv.messages) && currentConv.messages.length > 0) {
@@ -650,6 +659,9 @@ export const AiCoachView: React.FC = () => {
   // Crear nueva conversación
   const handleCreateNewConversation = () => {
     if (!newConvTitle.trim()) return;
+    // Crear la conversación es un gesto: el coach saluda en voz alta al cargarla (si tiene voz y no está silenciado)
+    unlockCoachVoice();
+    greetNewConversation.current = true;
     const newId = createConversation(newConvTitle.trim());
     const initialMsgs: ChatMessage[] = [
       {
@@ -702,7 +714,7 @@ export const AiCoachView: React.FC = () => {
           {settings.backupModel && (
             <span
               className="badge"
-              style={{ fontSize: 11, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}
+              style={{ fontSize: 11, background: 'var(--success-soft)', color: 'var(--success)' }}
               title="Modelo de respaldo automático si el principal falla"
             >
               Respaldo: {settings.backupModel}
@@ -928,7 +940,7 @@ export const AiCoachView: React.FC = () => {
                         title="Copiar texto"
                         aria-label="Copiar texto"
                       >
-                        {isCopied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
+                        {isCopied ? <Check size={13} style={{ color: 'var(--success)' }} /> : <Copy size={13} />}
                       </button>
 
                       {/* Botón Editar (Solo en mensajes de usuario) */}
@@ -1013,8 +1025,8 @@ export const AiCoachView: React.FC = () => {
                     gap: 12,
                     padding: '14px 20px',
                     borderRadius: 20,
-                    border: '1px solid rgba(139, 92, 246, 0.35)',
-                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
+                    background: 'var(--accent-soft)',
                   }}
                 >
                   <span className="chat-thinking-avatar" aria-hidden="true">
@@ -1042,9 +1054,9 @@ export const AiCoachView: React.FC = () => {
               style={{
                 marginTop: 8,
                 padding: '6px 10px',
-                background: 'rgba(255, 255, 255, 0.02)',
+                background: 'var(--well)',
                 borderRadius: 'var(--radius)',
-                border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.05))',
+                border: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
@@ -1079,10 +1091,9 @@ export const AiCoachView: React.FC = () => {
                       fontSize: 11.5,
                       cursor: 'pointer',
                       border: '1px solid var(--border)',
-                      background: 'var(--bg-card)',
+                      background: 'var(--surface)',
                       color: 'var(--text-2)',
                       flexShrink: 0,
-                      transition: 'all 0.15s ease',
                     }}
                   >
                     {q}
@@ -1106,7 +1117,7 @@ export const AiCoachView: React.FC = () => {
               className="input chat-input grow"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Pregunta sobre tus hábitos, energía o consistencia..."
+              placeholder="Pregunta sobre tus hábitos, tu racha o cómo organizar tu día..."
               disabled={loading}
             />
 

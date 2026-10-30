@@ -1,24 +1,29 @@
-import type { AchievementMetric, CatalogKind, NotificationRow, PostTemplate, Rarity, ReactionEmoji, ReportRow } from './types';
+import type { AchievementMetric, BannerColor, CatalogKind, NotificationRow, PostTemplate, Rarity, ReactionEmoji, ReportRow } from './types';
 
 /**
  * TEXTOS DE LA CAPA PÚBLICA (un solo sitio para notificaciones, plantillas, ánimos, rarezas y ligas)
  */
 
+/**
+ * `color`: tono vivo de la liga o rareza (rellenos, confeti; siempre un hex).
+ * `text`: el mismo tono para TEXTO, como token del tema: en oscuro es idéntico a `color`; en claro, su versión
+ * oscura con contraste AA (tokens --league-* y --rarity-* de global.css).
+ */
 export const LEAGUES = [
-  { id: 1, slug: 'bronze', name: 'Bronce', color: '#cd7f32', icon: '🥉' },
-  { id: 2, slug: 'silver', name: 'Plata', color: '#c0c7d1', icon: '🥈' },
-  { id: 3, slug: 'gold', name: 'Oro', color: '#f5c542', icon: '🥇' },
-  { id: 4, slug: 'platinum', name: 'Platino', color: '#7dd3fc', icon: '💠' },
-  { id: 5, slug: 'diamond', name: 'Diamante', color: '#a78bfa', icon: '💎' },
+  { id: 1, slug: 'bronze', name: 'Bronce', color: '#cd7f32', text: 'var(--league-bronze)', icon: '🥉' },
+  { id: 2, slug: 'silver', name: 'Plata', color: '#c0c7d1', text: 'var(--league-silver)', icon: '🥈' },
+  { id: 3, slug: 'gold', name: 'Oro', color: '#f5c542', text: 'var(--league-gold)', icon: '🥇' },
+  { id: 4, slug: 'platinum', name: 'Platino', color: '#7dd3fc', text: 'var(--league-platinum)', icon: '💠' },
+  { id: 5, slug: 'diamond', name: 'Diamante', color: '#a78bfa', text: 'var(--league-diamond)', icon: '💎' },
 ] as const;
 
 export const leagueName = (id: number | null | undefined) => LEAGUES.find((l) => l.id === id)?.name ?? 'Bronce';
 
-export const RARITY: Record<Rarity, { label: string; color: string }> = {
-  common: { label: 'Común', color: '#9ca3af' },
-  rare: { label: 'Rara', color: '#60a5fa' },
-  epic: { label: 'Épica', color: '#a78bfa' },
-  legendary: { label: 'Legendaria', color: '#f59e0b' },
+export const RARITY: Record<Rarity, { label: string; color: string; text: string }> = {
+  common: { label: 'Común', color: '#9ca3af', text: 'var(--rarity-common)' },
+  rare: { label: 'Rara', color: '#60a5fa', text: 'var(--rarity-rare)' },
+  epic: { label: 'Épica', color: '#a78bfa', text: 'var(--rarity-epic)' },
+  legendary: { label: 'Legendaria', color: '#f59e0b', text: 'var(--rarity-legendary)' },
 };
 
 export const KIND_LABEL: Record<CatalogKind, { one: string; many: string }> = {
@@ -72,7 +77,7 @@ export function postText(template: PostTemplate, data: Record<string, unknown>):
     case 'perfect_week':
       return { icon: '🏆', text: 'Semana perfecta: cumplí todos mis hábitos' };
     case 'xp_week':
-      return { icon: '⚡', text: `Gané ${num(data.xp).toLocaleString('es')} XP esta semana` };
+      return { icon: '⚡', text: `Gané ${Math.round(num(data.xp)).toLocaleString('es')} XP esta semana` };
     case 'achievement':
       return { icon: String(data.icon ?? '🏅'), text: `Conseguí el logro «${String(data.name ?? '')}»` };
     case 'league_up':
@@ -100,21 +105,47 @@ export function cheerText(data: Record<string, unknown>): string {
   return CHEER_TEXTS[num(data.variant) % CHEER_TEXTS.length] ?? CHEER_TEXTS[0];
 }
 
-/** Notificación → icono, texto (el alias de quien la envía va aparte, en negrita) y enlace */
+/* ---------------- Nombres y enlaces de las personas ---------------- */
+
+/** Lo que se muestra de alguien: su alias (sin «@») o, si no eligió alias, su nombre */
+export const personName = (p?: { alias?: string | null; display_name?: string | null } | null): string =>
+  p?.alias || p?.display_name?.trim() || 'Persona';
+
+/** Enlace a su perfil: por alias o, sin alias, por id */
+export const profilePath = (p: { alias?: string | null; user_id: string }) => `/u/${encodeURIComponent(p.alias || p.user_id)}`;
+
+/** Colores del banner por defecto (sin cosmético equipado) */
+export const BANNER_COLORS: { id: BannerColor; label: string; from: string; to: string }[] = [
+  { id: 'violet', label: 'Violeta', from: '#a78bfa', to: '#5b21b6' },
+  { id: 'blue', label: 'Azul', from: '#7dd3fc', to: '#1d4ed8' },
+  { id: 'teal', label: 'Turquesa', from: '#5eead4', to: '#0f766e' },
+  { id: 'green', label: 'Verde', from: '#86efac', to: '#15803d' },
+  { id: 'amber', label: 'Ámbar', from: '#fde68a', to: '#b45309' },
+  { id: 'orange', label: 'Naranja', from: '#fdba74', to: '#c2410c' },
+  { id: 'rose', label: 'Rosa', from: '#f9a8d4', to: '#be185d' },
+  { id: 'slate', label: 'Pizarra', from: '#cbd5e1', to: '#334155' },
+];
+
+export const bannerColor = (id: BannerColor | null | undefined) => BANNER_COLORS.find((c) => c.id === id) ?? BANNER_COLORS[0];
+
+/** Notificación → icono, texto (el nombre de quien la envía va aparte, en negrita) y enlace */
 export function notificationText(n: NotificationRow): { icon: string; actor?: string; text: string; to?: string } {
   const d = n.data ?? {};
-  const actor = n.actor?.alias ? `@${n.actor.alias}` : undefined;
+  const actor = n.actor ? personName(n.actor) : undefined;
+  const actorPath = n.actor ? profilePath(n.actor) : undefined;
   switch (n.kind) {
     case 'friend_request':
       return { icon: '🤝', actor, text: 'quiere ser tu amigo', to: '/amigos' };
     case 'friend_accepted':
-      return { icon: '🤝', actor, text: 'aceptó tu solicitud de amistad', to: n.actor ? `/u/${n.actor.alias}` : '/amigos' };
+      return { icon: '🤝', actor, text: 'aceptó tu solicitud de amistad', to: actorPath ?? '/amigos' };
     case 'friend_post': {
       const p = postText((d.template as PostTemplate) ?? 'streak', (d.data as Record<string, unknown>) ?? {});
-      return { icon: p.icon, actor, text: `publicó: ${p.text}`, to: n.actor ? `/u/${n.actor.alias}` : undefined };
+      return { icon: p.icon, actor, text: `publicó: ${p.text}`, to: actorPath };
     }
     case 'cheer':
-      return { icon: d.kind === 'congrats' ? '🎉' : '💪', actor, text: cheerText(d), to: n.actor ? `/u/${n.actor.alias}` : undefined };
+      return { icon: d.kind === 'congrats' ? '🎉' : '💪', actor, text: cheerText(d), to: actorPath };
+    case 'profile_like':
+      return { icon: '❤️', actor, text: 'le dio me gusta a tu perfil', to: actorPath };
     case 'achievement':
       return {
         icon: String(d.icon ?? '🏅'),

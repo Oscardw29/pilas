@@ -2,7 +2,7 @@ import type { AppData, DateKey, HabitLog, Settings, XpBoost } from '@/types';
 import { addDaysKey, todayKey, toKey } from './dates';
 import { doneCountByDate, getDayStreakStatus, isDoneLog } from './metrics';
 import {
-  ECONOMY, boostPrice, dayCoins, dayXp, economyRevision, freezePrice, logBaseXp, paramsFor, rewardEquivalence, round1,
+  ECONOMY, boostPrice, dayCoins, dayXp, economyRevision, freezePrice, logBaseXp, paramsFor, rewardEquivalence, round1, toInt,
   type RewardEquivalence,
 } from './economyRules';
 
@@ -13,6 +13,8 @@ import {
  *
  * Las reglas nuevas (tope de 200 monedas al día, hábitos nuevos sin XP, marcar como mucho 1 día atrás) rigen desde
  * `settings.economyStartDate`: el historial anterior se conserva tal cual, así que el saldo de nadie cambia al actualizar.
+ * Monedas y XP siempre en enteros: se redondea cada registro (los antiguos podían guardar 27,5), cada día, los bonos,
+ * los gastos, el saldo y la XP total.
  */
 
 export type EconomyData = Pick<AppData, 'habits' | 'logs' | 'pointEvents' | 'redemptions' | 'streakFreezes'> & {
@@ -104,7 +106,7 @@ export function economySummary(data: EconomyData, ref: DateKey = todayKey()): Ec
     // Cada día con los parámetros que regían ese día (el creador puede cambiarlos con fecha)
     const p = paramsFor(date);
     logs.sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
-    const sumCoins = logs.reduce((s, l) => s + (l.points || 0), 0);
+    const sumCoins = logs.reduce((s, l) => s + toInt(l.points || 0), 0);
     const coins = newRules ? dayCoins(sumCoins, p) : sumCoins;
 
     const entries = logs.map((l) => {
@@ -117,7 +119,9 @@ export function economySummary(data: EconomyData, ref: DateKey = todayKey()): Ec
       return { xp, boosted: isBoostActiveAt(data.xpBoosts, l.loggedAt) };
     });
     const status = getDayStreakStatus(data, date, doneIdx);
-    const xp = dayXp(
+    // Cada día en entero antes de sumarlo, igual que el servidor (guarda cada día redondeado): si se sumaran los
+    // decimales y se redondeara al final, la XP total se desviaría de la publicada en unas cuantas XP
+    const xp = toInt(dayXp(
       {
         entries,
         streak: streaks.get(date) ?? 0,
@@ -125,22 +129,22 @@ export function economySummary(data: EconomyData, ref: DateKey = todayKey()): Ec
         frozen: frozen.has(date),
       },
       p,
-    );
+    ));
     days.set(date, { coins, xp });
     fromLogs += coins;
     xpTotal += xp;
   }
 
-  const bonus = (data.pointEvents ?? []).reduce((a, e) => a + e.amount, 0);
-  const spent = (data.redemptions ?? []).reduce((a, r) => a + r.cost, 0);
-  const earned = round1(fromLogs + bonus);
+  const bonus = (data.pointEvents ?? []).reduce((a, e) => a + toInt(e.amount), 0);
+  const spent = (data.redemptions ?? []).reduce((a, r) => a + toInt(r.cost), 0);
+  const earned = toInt(fromLogs + bonus);
   const value: EconomySummary = {
-    fromLogs: round1(fromLogs),
+    fromLogs: toInt(fromLogs),
     bonus,
     earned,
     spent,
-    balance: Math.max(0, round1(earned - spent)),
-    xpTotal: round1(xpTotal),
+    balance: Math.max(0, toInt(earned - spent)),
+    xpTotal: toInt(xpTotal),
     days,
   };
   cacheKey = key;

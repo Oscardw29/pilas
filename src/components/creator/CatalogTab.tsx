@@ -178,7 +178,7 @@ export const CatalogTab: React.FC = () => {
                           <span className="preview-price" style={{ fontSize: 12.5 }}>
                             <Coins size={13} aria-hidden="true" /> {it.price.toLocaleString('es')}
                           </span>
-                          <span className="rarity" style={{ '--r': RARITY[it.rarity].color } as React.CSSProperties}>
+                          <span className="rarity" style={{ '--r': RARITY[it.rarity].color, '--r-text': RARITY[it.rarity].text } as React.CSSProperties}>
                             {RARITY[it.rarity].label}
                           </span>
                           <span className={`badge ${STATUS_BADGE[it.status]}`}>{STATUS_LABEL[it.status]}</span>

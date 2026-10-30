@@ -64,26 +64,67 @@ Sin este paso la app funciona igual, pero sin la sección **Comunidad** ni el pa
    **solo en el SQL**; si la cuenta aún no existe, al terminar vuelve a ejecutar la línea `insert into public.app_admins …`
    del archivo.
 2. **SQL Editor** → **New query** → pega todo [`supabase/migrations/0002_social.sql`](../supabase/migrations/0002_social.sql) → **Run**.
-   Se puede volver a ejecutar sin perder datos.
-3. Comprueba:
+   Si ya lo habías aplicado antes, no hace falta repetirlo.
+3. **Después de 0002**, en otra **New query** pega todo
+   [`supabase/migrations/0003_perfiles_ligas.sql`](../supabase/migrations/0003_perfiles_ligas.sql) → **Run**.
+   Se puede volver a ejecutar sin perder datos. Una vez aplicado, para repetir la instalación ejecuta **solo 0003**:
+   volver a ejecutar 0002 encima falla («cannot drop columns from view») y se cancela sin cambiar nada.
+
+   Qué cambia con 0003:
+   - **Todo perfil es público** y la app lo crea sola al entrar: el alias pasa a ser opcional y hay nombre visible
+     (`display_name`, ≤ 40), biografía (`bio`, ≤ 160), color del banner por defecto (`banner_color`) y fotos por defecto
+     (`avatar_path = 'default:1'` … `'default:5'`, las dibuja la app y no ocupan Storage). Los perfiles que ya existían
+     toman su alias como nombre. Un perfil nuevo muestra las cinco tarjetas.
+   - Las clasificaciones, el podio, Mi liga, amigos, publicaciones y la ficha del creador devuelven también `display_name`.
+     `public_profile` y `admin_user` aceptan el alias o el id de la persona.
+   - **«Me gusta» a perfiles** (`toggle_profile_like`): uno por persona, se puede quitar, no a uno mismo ni con un bloqueo
+     (bloquear los borra), máximo 100 al día y el aviso `profile_like` llega solo la primera vez.
+   - **Semanas del perfil** (`profile_week`): XP de los 7 días y hábitos visibles de cualquier semana, con las mismas
+     reglas de privacidad que el perfil. `public_profile` trae `likes`, `liked_by_me` y `first_week`. Los hábitos visibles
+     de otra persona solo se pueden leer (también directamente en la tabla) si muestra la tarjeta de hábitos.
+   - **Publicaciones**: se puede editar el comentario (`edit_post`, máximo 30 al día; queda marcada con `edited_at`).
+     «Publicaciones de tus amigos» ya no incluye las propias.
+   - **Ligas por puestos**: del 1.º al 5.º suben, del 6.º al 10.º se quedan y del 11.º en adelante bajan (en Diamante nadie
+     sube y en Bronce nadie baja). Si en el grupo solo compite una persona, no sube ni baja y gana 25 monedas de
+     participación. Parámetros de la economía: `leaguePromoteCount` (5), `leagueStayCount` (5) y `leagueSoloPrize` (25);
+     `leaguePromotePct` y `leagueDemotePct` dejan de usarse.
+   - **Creador**: `admin_set_achievement` le marca o quita un logro en su propia cuenta (sin premio ni aviso; queda registrado).
+   - **Reiniciar el progreso** (`reset_my_progress(p_reset_at)`, máximo 10 al día): cuando los datos del dispositivo
+     cambian por completo (empezar de cero, quitar la demostración, importar una copia; cargar la demostración no reinicia:
+     con datos de demostración la app simplemente no publica) borra lo publicado desde el dispositivo (días, hábitos
+     visibles, logros de racha / XP / hábitos cumplidos, saldo de partida, monedas del día, extras y gastos) y deja libre el
+     punto de partida. `p_reset_at` es la hora del cambio: llega desde todos los dispositivos de la cuenta, pero solo se
+     atiende una vez (`profile_stats.last_reset_at`). Conserva compras, premios de liga y de logros (no se vuelven a
+     cobrar), logros de monedas gastadas, ajustes del creador, publicaciones, amistades y la liga. Si el saldo queda
+     negativo (por las compras), se devuelve a 0 con un ajuste `admin` de referencia `reset:…` que no cuenta como monedas
+     ganadas. Al volver a reclamar el punto de partida, el tope es lo más alto que hubo publicado hasta anteayer
+     (`cap_xp`, `cap_best`, `cap_done`, `cap_coins`) más lo que se pudo ganar desde el reinicio, o la antigüedad de la
+     cuenta sin el año extra del primer reclamo: reiniciar no sirve para inflar el perfil. Sustituye a la versión anterior
+     sin argumentos (se borra al aplicar el archivo).
+   - **XP y monedas siempre enteros**: el servidor redondea lo que recibe y, al aplicar el archivo, lo ya guardado.
+4. Comprueba:
    - **Table Editor**: `profiles`, `daily_stats`, `coin_ledger`, `catalog_items`… con **RLS enabled**.
    - **Storage**: buckets `avatars` (1 MB) y `catalog` (2 MB), públicos y solo `image/webp`.
    - **Database → Extensions → pg_cron** activado y, en **Integrations → Cron**, la tarea `pilas-close-week`
      (`0 5 * * 1` = lunes 00:00 de Colombia). Si el SQL avisó que no pudo programarla, activa `pg_cron` y vuelve a ejecutar
-     el último bloque del archivo.
+     el último bloque del archivo de 0002.
    - **Database → Publications → supabase_realtime** incluye `notifications` (avisos en tiempo real).
-4. Entra en la app con tu cuenta: en el menú de perfil aparece **Panel del creador**. Desde allí puedes **Importar muestras**
+   - **Table Editor → profiles** tiene las columnas `display_name`, `bio` y `banner_color`, y existe `profile_likes` con
+     **RLS enabled** (señal de que 0003 quedó aplicado).
+5. Entra en la app con tu cuenta: en el menú de perfil aparece **Panel del creador**. Desde allí puedes **Importar muestras**
    (se suben como borradores) y publicarlas.
 
-Qué se publica: solo lo que cada persona acepta al crear su perfil público (alias, foto, cosméticos, racha, XP por día,
-% de cumplimiento y los hábitos que marque como visibles). Lo demás sigue cifrado de extremo a extremo en `records`.
+Qué se publica: el perfil público que la app crea al entrar (nombre, alias si lo elige, foto, biografía, cosméticos,
+racha, XP por día, % de cumplimiento y los hábitos que la persona marque como visibles). Lo demás sigue cifrado de
+extremo a extremo en `records`.
 
 > ⚠️ Si la app la usan personas en Colombia aplica la Ley 1581 de 2012 de datos personales: confírmalo con asesoría legal
 > antes de abrirla al público.
 
 ### Pruebas de la capa pública
-`npm test` ejecuta `tests/social.sql.test.ts` contra un Postgres real en memoria (PGlite) con las dos migraciones:
-topes de XP y monedas, fechas, compras, multiplicador, cierre semanal, logros, ánimos, vetos y permisos.
+`npm test` ejecuta `tests/social.sql.test.ts` contra un Postgres real en memoria (PGlite) con las migraciones 0001, 0002
+y 0003: topes de XP y monedas (enteros), fechas, compras, multiplicador, cierre semanal y zonas de las ligas, logros,
+ánimos, «me gusta», semanas del perfil, edición de publicaciones, reinicio del progreso, vetos y permisos.
 
 ## 8. Comprobar que nadie ve datos ajenos
 1. Crea dos cuentas de prueba (A y B) y añade un hábito en cada una.

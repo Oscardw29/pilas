@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { aliasTaken, removeAvatarFiles, SocialError, updateProfile, uploadAvatar } from '@/social/api';
 import { dataUrlToBlob, isWebp, photoToWebp, readBytes } from '@/social/images';
-import { myUserId, refreshSocialStatus } from '@/social/runtime';
+import { myUserId, refreshSocialStatus, rememberPublishedAvatar } from '@/social/runtime';
 import { ALIAS_RE } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
+import { useStore } from '@/store/useStore';
+import { defaultAvatarPath, effectivePreset, parseDefaultAvatarPath } from '@/lib/defaultAvatars';
 import type { ToastType } from '@/components/ui/ToastContext';
 
 /**
- * AYUDAS DEL PERFIL PÚBLICO (las usan /perfil y la tienda de cosméticos)
+ * AYUDAS DEL PERFIL PÚBLICO (las usan /perfil, la bienvenida, Ajustes y la tienda de cosméticos)
  * El servidor decide todo (profiles_guard, purchase_item): aquí solo se adelantan los avisos para la interfaz.
  */
 
@@ -75,22 +77,29 @@ export async function avatarBlobFrom(dataUrl: string): Promise<Blob> {
 }
 
 /**
- * Publica la foto del dispositivo (o la quita) en el perfil público. No hace nada sin perfil o con veto.
- * El archivo anterior se borra sin esperar: si falla, solo queda un archivo huérfano en tu carpeta.
+ * Publica la foto del dispositivo en el perfil público o, sin foto (`undefined`), la foto por defecto que se ve
+ * (`effectivePreset` → `default:N`). No hace nada sin perfil o con veto. El archivo anterior se borra sin esperar: si
+ * falla, solo queda un archivo huérfano en tu carpeta. Las fotos por defecto no son archivos: no hay nada que borrar.
+ * Recuerda en el dispositivo qué foto quedó publicada: si esto falla (sin conexión, sin perfil todavía), la capa pública
+ * vuelve a intentarlo sola en el siguiente ciclo (social/runtime.ts).
  */
 export async function syncPublicAvatar(dataUrl: string | undefined): Promise<boolean> {
   const { profile, available, ban } = useSocial.getState();
   const uid = myUserId();
   if (!profile || !available || ban || !uid) return false;
   const prev = profile.avatar_path;
-  const path = dataUrl ? await uploadAvatar(uid, await avatarBlobFrom(dataUrl)) : null;
-  try {
-    const row = await updateProfile(uid, { avatar_path: path });
-    useSocial.getState().set({ profile: row });
-  } catch (err) {
-    if (path) void removeAvatarFiles([path]).catch(() => undefined);
-    throw err;
+  const uploaded = dataUrl ? await uploadAvatar(uid, await avatarBlobFrom(dataUrl)) : null;
+  const path = uploaded ?? defaultAvatarPath(effectivePreset(useStore.getState().settings.avatarPreset, uid));
+  if (path !== prev) {
+    try {
+      const row = await updateProfile(uid, { avatar_path: path });
+      useSocial.getState().set({ profile: row });
+    } catch (err) {
+      if (uploaded) void removeAvatarFiles([uploaded]).catch(() => undefined);
+      throw err;
+    }
+    if (prev && !parseDefaultAvatarPath(prev)) void removeAvatarFiles([prev]).catch(() => undefined);
   }
-  if (prev && prev !== path) void removeAvatarFiles([prev]).catch(() => undefined);
+  await rememberPublishedAvatar(uid, dataUrl).catch(() => undefined);
   return true;
 }

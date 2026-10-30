@@ -3,6 +3,7 @@
  * - Solo WebP (estático o animado), como pide el plan. Lo comprueba el servidor (bucket) y aquí, por los bytes.
  * - Para los WebP animados se genera un fotograma fijo: es lo que se ve en tamaños pequeños y fuera de pantalla.
  * - `muxAnimatedWebp` arma un WebP animado a partir de fotogramas WebP (para las muestras del creador).
+ * - Las imágenes estáticas que no miden lo pedido se encuadran con ImageCropModal (components/ui) antes de llegar aquí.
  */
 
 const ascii = (b: Uint8Array, at: number, len = 4) => String.fromCharCode(...b.subarray(at, at + len));
@@ -27,6 +28,24 @@ export function isAnimatedWebp(bytes: Uint8Array): boolean {
     if (id === 'VP8X' && (bytes[at + 8] & 0x02) !== 0) return true;
     if (id === 'ANIM' || id === 'ANMF') return true;
     at += 8 + size + (size & 1);
+  }
+  return false;
+}
+
+/**
+ * ¿GIF o PNG animado (APNG)? Al recortarlos quedaría solo el primer fotograma sin avisar: lo animado se sube como
+ * WebP animado a su medida exacta. Los GIF se tratan siempre como animados (casi siempre lo son).
+ */
+export function isOtherAnimated(bytes: Uint8Array): boolean {
+  if (bytes.length > 6 && ascii(bytes, 0) === 'GIF8') return true;
+  // PNG: firma de 8 bytes y luego bloques (longitud big-endian, tipo). Un bloque acTL antes de IDAT = APNG
+  if (bytes.length < 16 || bytes[0] !== 0x89 || ascii(bytes, 1).slice(0, 3) !== 'PNG') return false;
+  for (let at = 8; at + 8 <= bytes.length; ) {
+    const size = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
+    const id = ascii(bytes, at + 4);
+    if (id === 'acTL') return true;
+    if (id === 'IDAT') return false;
+    at += 12 + size;
   }
   return false;
 }
@@ -74,6 +93,26 @@ export async function photoToWebp(file: Blob, size = 256): Promise<Blob> {
   ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
   bmp.close();
   return canvasToWebp(canvas, 0.85);
+}
+
+/** Medidas de una imagen (de un WebP animado, las de su primer fotograma) */
+export async function imageDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+  const bmp = await createImageBitmap(blob).catch(() => {
+    throw new Error('No se pudo leer la imagen.');
+  });
+  const out = { width: bmp.width, height: bmp.height };
+  bmp.close();
+  return out;
+}
+
+/** Blob → data URL (para guardar la foto en los ajustes cifrados) */
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 /** data URL → Blob sin `fetch` (el CSP no permite `data:` en connect-src) */

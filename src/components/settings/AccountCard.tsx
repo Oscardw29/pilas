@@ -6,6 +6,7 @@ import { changePassword, deleteAccount, passwordProblem, regenerateRecoveryCode 
 import { afterAccountDeleted, pendingChanges, signOut, syncNow } from '@/account/runtime';
 import { RecoveryCodeStep } from '@/components/auth/AuthGate';
 import { useToast } from '@/components/ui/ToastContext';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SyncPill } from '@/components/auth/SyncPill';
 
 type Panel = null | 'password' | 'recovery' | 'signout' | 'delete';
@@ -38,6 +39,8 @@ export const AccountCard: React.FC = () => {
   const [pending, setPending] = useState(0);
   /** Tras intentar subirlos, quedaron cambios sin subir: hay que confirmar que se pierden */
   const [unsynced, setUnsynced] = useState(0);
+  /** Eliminar la cuenta pide una última confirmación después de la contraseña */
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -98,6 +101,10 @@ export const AccountCard: React.FC = () => {
 
   const onDelete = (e: React.FormEvent) => {
     e.preventDefault();
+    setConfirmDelete(true);
+  };
+
+  const doDelete = () => {
     void run(async () => {
       await deleteAccount(supabase(), user.id, user.email, current);
       await afterAccountDeleted();
@@ -187,9 +194,12 @@ export const AccountCard: React.FC = () => {
               Hay {pending} cambios que aún no se subieron. Si no hay conexión al cerrar sesión, se perderán.
             </p>
           )}
-          <label className="checkbox">
+          <label className="custom-switch">
             <input type="checkbox" checked={forgetKeys} onChange={(e) => setForgetKeys(e.target.checked)} />
-            Olvidar también las claves API de este dispositivo
+            <span className="custom-switch-track">
+              <span className="custom-switch-thumb" />
+            </span>
+            <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>Olvidar también las claves API de este dispositivo</span>
           </label>
           {unsynced > 0 ? (
             <>
@@ -225,6 +235,16 @@ export const AccountCard: React.FC = () => {
           </button>
         </form>
       )}
+
+      <ConfirmModal
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
+        title="¿Eliminar tu cuenta para siempre?"
+        message="Se borrarán tu cuenta, tu perfil público y todos tus datos en la nube y en este dispositivo. No se puede deshacer."
+        confirmLabel="Eliminar mi cuenta"
+        confirmVariant="danger"
+      />
     </div>
   );
 };

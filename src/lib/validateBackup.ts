@@ -16,7 +16,10 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isStr = (v: unknown): v is string => typeof v === 'string';
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-/** Colecciones opcionales que, si existen, deben ser arrays de objetos */
+/**
+ * Colecciones opcionales que, si existen, deben ser arrays de objetos.
+ * `energy` ya no se usa (se quitó el registro de energía) pero se acepta para no rechazar respaldos antiguos.
+ */
 const OPTIONAL_ARRAYS = [
   'sessions', 'energy', 'challenges', 'experiments', 'relations', 'weeklyReviews', 'checkins', 'habitReviews',
   'rewards', 'redemptions', 'pointEvents', 'conversations', 'streakFreezes', 'xpBoosts',

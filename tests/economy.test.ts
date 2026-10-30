@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Habit, HabitLog } from '@/types';
-import { dayCoins, dayXp, freezePrice, logBaseXp, logCoins, rewardEquivalence, round1, timeHabitCoins } from '@/lib/economyRules';
+import { boostPrice, dayCoins, dayXp, dayXpCap, freezePrice, habitCoinValue, logBaseXp, logCoins, rewardEquivalence, timeHabitCoins } from '@/lib/economyRules';
 import { boostOffer, economySummary, freezeOffer, isBackdated } from '@/lib/economy';
 import { createEmptyData } from '@/data/seed';
 
@@ -16,39 +16,39 @@ function day(items: { h: Habit; status?: HabitLog['status']; minutes?: number; q
   return { coins: dayCoins(coins), xp: dayXp({ entries, streak, perfect }) };
 }
 
-describe('reglas de monedas y XP (ejemplos del documento)', () => {
-  it('fórmula de monedas de tiempo', () => {
+describe('reglas de monedas y XP (ejemplos del documento, en enteros)', () => {
+  it('fórmula de monedas de tiempo (redondeada al entero)', () => {
     expect(timeHabitCoins(10)).toBe(10);
     expect(timeHabitCoins(60)).toBe(35);
-    expect(timeHabitCoins(45)).toBe(27.5);
+    expect(timeHabitCoins(45)).toBe(28); // 27,5 → 28
     expect(timeHabitCoins(200)).toBe(50);
     expect(timeHabitCoins(2)).toBe(10);
   });
 
-  it('Ejemplo 1: usuario casual, racha de 3 → 40 monedas y 116.5 XP', () => {
+  it('Ejemplo 1: usuario casual, racha de 3 → 40 monedas y 117 XP', () => {
     const r = day([{ h: action(10) }, { h: time(10), minutes: 10 }, { h: qty(20, 8), quantity: 8 }], 3, true);
     expect(r.coins).toBe(40);
-    expect(r.xp).toBe(116.5);
+    expect(r.xp).toBe(117); // 84 × 1,03 + 30 = 116,52
   });
 
-  it('Ejemplo 2: usuario constante, racha de 15 → 112.5 monedas y 318.1 XP', () => {
+  it('Ejemplo 2: usuario constante, racha de 15 → 113 monedas y 319 XP', () => {
     const r = day(
       [{ h: time(60), minutes: 60 }, { h: time(45), minutes: 45 }, { h: qty(30, 10), quantity: 10 }, { h: action(10) }, { h: { ...action(10), id: 'a10b' } }],
       15,
       true,
     );
-    expect(r.coins).toBe(112.5);
-    expect(r.xp).toBe(318.1);
+    expect(r.coins).toBe(113); // 35 + 28 + 30 + 10 + 10
+    expect(r.xp).toBe(319); // (90 + 68 + 45 + 24 + 24) × 1,15 + 30 = 318,65
   });
 
-  it('Ejemplo 3: día flojo, racha de 15 → 52.5 monedas y 132.8 XP', () => {
+  it('Ejemplo 3: día flojo, racha de 15 → 53 monedas y 133 XP', () => {
     const r = day(
       [{ h: time(60), status: 'minimum', minutes: 30 }, { h: qty(30, 10), status: 'minimum', quantity: 5 }, { h: action(10) }, { h: { ...action(10), id: 'x' } }],
       15,
       false,
     );
-    expect(r.coins).toBe(52.5);
-    expect(r.xp).toBe(132.8);
+    expect(r.coins).toBe(53); // 18 (17,5) + 15 + 10 + 10
+    expect(r.xp).toBe(133); // (45 + 23 + 24 + 24) × 1,15 = 133,4
   });
 
   it('Ejemplo 4: abuso con 25 acciones a +30 → 200 monedas (tope) y 192 XP de base (solo 8 cuentan)', () => {
@@ -76,7 +76,32 @@ describe('reglas de monedas y XP (ejemplos del documento)', () => {
     expect(dayXp({ entries: [{ xp: 90, boosted: true }], streak: 0, perfect: false })).toBe(135);
     const big = Array.from({ length: 8 }, () => ({ xp: 150, boosted: true }));
     expect(dayXp({ entries: big, streak: 0, perfect: false })).toBe(1200);
-    expect(dayXp({ entries: big, streak: 30, perfect: true })).toBe(round1(1200 * 1.3 + 30));
+    expect(dayXp({ entries: big, streak: 30, perfect: true })).toBe(1590);
+    // Cada hábito con multiplicador se redondea al aplicarlo: 45 × 1,5 = 67,5 → 68
+    expect(dayXp({ entries: [{ xp: 45, boosted: true }], streak: 0, perfect: false })).toBe(68);
+  });
+
+  it('ni las monedas ni la XP tienen decimales', () => {
+    // Versión mínima de una acción: 24 × 0,4 = 9,6 → 10 XP; 15 × 0,4 = 6 monedas
+    expect(logBaseXp(action(10), 'minimum', undefined, RATIO)).toBe(10);
+    expect(logCoins(action(15), 'minimum', undefined, RATIO)).toBe(6);
+    // Tiempo: 1,5 × 45 = 67,5 → 68 XP; mitad de un hábito de 28 monedas = 14
+    expect(logBaseXp(time(45), 'full', { minutes: 45 }, RATIO)).toBe(68);
+    expect(logCoins(time(45), 'minimum', { minutes: 22.5 }, RATIO)).toBe(14);
+    // Cantidad: 45 × 3/8 = 16,875 → 17
+    expect(logBaseXp(qty(20, 8), 'minimum', { quantity: 3 }, RATIO)).toBe(17);
+    // Un chip guardado con decimales (versión antigua) cuenta entero
+    expect(habitCoinValue({ kind: 'action', points: 12.5 })).toBe(13);
+    // Topes y precios
+    expect(dayCoins(37.5)).toBe(38);
+    expect(Number.isInteger(dayXpCap(false))).toBe(true);
+    expect(Number.isInteger(dayXpCap(true))).toBe(true);
+    expect(freezePrice(62.3)).toBe(125);
+    expect(boostPrice(62.3)).toBe(125);
+    for (let streak = 0; streak <= 30; streak += 7) {
+      const xp = dayXp({ entries: [{ xp: 17, boosted: true }, { xp: 9, boosted: false }], streak, perfect: streak > 10 });
+      expect(Number.isInteger(xp)).toBe(true);
+    }
   });
 
   it('Ejemplo 6: precio del protector según el ritmo (casual 100, constante 200)', () => {
@@ -108,6 +133,23 @@ describe('economía sobre el historial', () => {
     d.logs = { a: log('2026-10-10', 500), b: log('2026-10-16', 500) };
     const s = economySummary(d, T);
     expect(s.fromLogs).toBe(700);
+  });
+
+  it('saldo, días y XP total en enteros aunque haya registros antiguos con decimales', () => {
+    const d = data();
+    d.logs = { a: log('2026-10-10', 27.5), b: log('2026-10-16', 12.5), c: log('2026-10-17', 30) };
+    d.pointEvents = [{ id: 'p1', amount: 2.5, reason: 'x', source: 'other', at: '2026-10-17T10:00:00.000Z' }];
+    d.redemptions = [{ id: 'r1', rewardId: 'rw', name: 'p', icon: 'x', cost: 10.4, date: '2026-10-18T10:00:00.000Z' }];
+    const s = economySummary(d, T);
+    expect(s.fromLogs).toBe(28 + 13 + 30);
+    expect(s.bonus).toBe(3);
+    expect(s.spent).toBe(10);
+    expect(s.balance).toBe(71 + 3 - 10);
+    expect(Number.isInteger(s.xpTotal)).toBe(true);
+    for (const day of s.days.values()) {
+      expect(Number.isInteger(day.coins)).toBe(true);
+      expect(Number.isInteger(day.xp)).toBe(true);
+    }
   });
 
   it('un registro marcado más de 1 día tarde no da XP', () => {

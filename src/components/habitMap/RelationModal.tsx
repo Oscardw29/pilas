@@ -87,19 +87,26 @@ export const RelationModal: React.FC<Props> = ({ isOpen, onClose, habits, relati
           </div>
         </div>
 
-        <fieldset className="field hm-types">
-          <legend className="label">¿Cómo se relacionan?</legend>
+        {/* Botones tipo radio (sin el control nativo del sistema) */}
+        <div className="field hm-types" role="radiogroup" aria-labelledby="hm-types-label">
+          <span id="hm-types-label" className="label">¿Cómo se relacionan?</span>
           {RELATION_OPTIONS.map((o) => (
-            <label key={o.type} className={`hm-type${type === o.type ? ' active' : ''}`}>
-              <input type="radio" name="relation-type" value={o.type} checked={type === o.type} onChange={() => { setType(o.type); setError(null); }} />
+            <button
+              key={o.type}
+              type="button"
+              role="radio"
+              aria-checked={type === o.type}
+              className={`hm-type${type === o.type ? ' active' : ''}`}
+              onClick={() => { setType(o.type); setError(null); }}
+            >
               <EdgeSwatch type={o.type} />
               <span className="grow">
                 <span className="hm-type-title">{o.title}</span>
                 <span className="hm-type-example">{o.example}</span>
               </span>
-            </label>
+            </button>
           ))}
-        </fieldset>
+        </div>
 
         <div className="hm-preview" aria-live="polite">
           {from && to ? (

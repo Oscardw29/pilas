@@ -1,6 +1,9 @@
 import React, { useRef } from 'react';
 import { useStore } from '@/store/useStore';
+import { useSession } from '@/store/useSession';
 import { assetUrl } from '@/social/api';
+import { defaultAvatarSrc, effectivePreset, type DefaultAvatarId } from '@/lib/defaultAvatars';
+import { personName } from '@/social/texts';
 import { useCatalogItem, useSocial } from '@/social/useSocial';
 import { useInView } from '@/social/useInView';
 import type { Cosmetic } from '@/social/types';
@@ -61,25 +64,46 @@ export const Avatar: React.FC<{ src?: string; name?: string; size?: number; clas
   );
 };
 
+/** Foto por defecto que se ve: la elegida o, sin elegir, la que corresponde a la cuenta (la misma en todos los dispositivos) */
+export const useMyPreset = (): DefaultAvatarId => {
+  const preset = useStore((s) => s.settings.avatarPreset);
+  const uid = useSession((s) => s.user?.id ?? '');
+  return effectivePreset(preset, uid);
+};
+
+/** Foto propia: la subida o, si no hay, la foto por defecto */
+export const useMyAvatarSrc = () => {
+  const photo = useStore((s) => s.settings.avatarDataUrl);
+  const preset = useMyPreset();
+  return photo || defaultAvatarSrc(preset);
+};
+
 /** Avatar de la persona con sesión iniciada (con el marco equipado en su perfil público) */
 export const MyAvatar: React.FC<{ size?: number; className?: string }> = (props) => {
-  const src = useStore((s) => s.settings.avatarDataUrl);
+  const src = useMyAvatarSrc();
   const name = useStore((s) => s.settings.userName);
   const frameId = useSocial((s) => s.profile?.frame_item);
   const alias = useSocial((s) => s.profile?.alias);
   const item = useCatalogItem(frameId);
   const frame = item ? { path: item.asset_path, thumb: item.thumb_path, animated: item.animated } : null;
-  return <Avatar src={src} name={name || alias} frame={frame} {...props} />;
+  return <Avatar src={src} name={alias || name} frame={frame} {...props} />;
 };
 
 /** Avatar de otra persona a partir de lo que devuelve el servidor */
 export const PersonAvatar: React.FC<{
-  person: { alias: string; avatar_path: string | null; frame_path?: string | null; frame_thumb?: string | null; frame_animated?: boolean | null };
+  person: {
+    alias: string | null;
+    display_name?: string | null;
+    avatar_path: string | null;
+    frame_path?: string | null;
+    frame_thumb?: string | null;
+    frame_animated?: boolean | null;
+  };
   size?: number;
   className?: string;
 }> = ({ person, size = 36, className }) => {
   const frame = person.frame_path ? { path: person.frame_path, thumb: person.frame_thumb ?? null, animated: Boolean(person.frame_animated ?? person.frame_thumb) } : null;
-  return <Avatar src={assetUrl('avatars', person.avatar_path)} name={person.alias} size={size} className={className} frame={frame} />;
+  return <Avatar src={assetUrl('avatars', person.avatar_path)} name={personName(person)} size={size} className={className} frame={frame} />;
 };
 
 /**

@@ -1,0 +1,9 @@
+{
+  "_comentario": "Voz original del coach con Gemini TTS. La usan src/lib/coachVoice.ts (en la app) y scripts/generate-coach-voice.mjs (frases grabadas): cambiarla aquí cambia las dos.",
+  "geminiTtsModels": ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash-tts"],
+  "geminiVoices": { "male": "Puck", "female": "Zephyr" },
+  "clipVoices": { "male": "pilo", "female": "pila" },
+  "stylePrompt": "Lee en español latino, con voz cálida y enérgica de entrenador personal que anima sin exagerar",
+  "sampleRate": 24000,
+  "clipsDir": "coach-voice"
+}

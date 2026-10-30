@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { UserDb } from '@/db/localDb';
 import { applyRemoteKeys, attachPersistence, detachPersistence, flushNow, hydrateFromDb } from '@/db/persistence';
-import { useStore } from '@/store/useStore';
+import { mergeSettings, useStore } from '@/store/useStore';
 
 describe('persistencia del store', () => {
   it('solo marca como pendientes los registros que cambian', async () => {
@@ -32,6 +32,27 @@ describe('persistencia del store', () => {
     await hydrateFromDb(db);
     expect(useStore.getState().settings.userName).toBe('Ana');
     expect(useStore.getState().goals).toHaveLength(0);
+  });
+
+  it('arrancar no vuelve a subir lo que no cambió (un dispositivo desfasado no pisa los ajustes ni los datos de otro)', async () => {
+    const db = new UserDb(`persist-avatar-${Math.random()}`);
+    // Ajustes tal como los guarda la app (completos), sin foto ni foto por defecto elegida y con un cambio de datos
+    const value = mergeSettings({ userName: 'Leo', economyStartDate: '2026-10-01', demoMode: false, dataResetAt: '2026-10-20T10:00:00.000Z' });
+    await db.records.put({ key: 'single:settings', value, updatedAt: 1, deleted: 0, dirty: 0 });
+    const goal = { id: 'g1', name: 'Correr', description: '', category: 'Salud', icon: '🏃', color: '#fff', startDate: '2026-10-01', status: 'active', priority: 2, createdAt: '2026-10-01T00:00:00.000Z' };
+    await db.records.put({ key: 'goals:g1', value: goal, order: 0, updatedAt: 1, deleted: 0, dirty: 0 });
+    await hydrateFromDb(db);
+    expect(useStore.getState().settings.avatarPreset).toBeUndefined();
+    attachPersistence(db);
+    await flushNow();
+    // Sin cambios: no se marcan para subir ni cambia su hora (si no, ganarían a los cambios más nuevos de otro dispositivo)
+    for (const key of ['single:settings', 'goals:g1']) {
+      const saved = await db.records.get(key);
+      expect(saved?.dirty, key).toBe(0);
+      expect(saved?.updatedAt, key).toBe(1);
+    }
+    expect(((await db.records.get('single:settings'))?.value as { avatarPreset?: number }).avatarPreset).toBeUndefined();
+    detachPersistence();
   });
 
   it('aplicar cambios remotos no pisa ediciones locales sin guardar', async () => {

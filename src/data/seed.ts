@@ -1,5 +1,5 @@
 import type {
-  AppData, Challenge, EnergyEntry, Experiment, FailReason, Goal, Habit, HabitLog, HabitRelation, Level5, PointEvent,
+  AppData, Challenge, Experiment, FailReason, Goal, Habit, HabitLog, HabitRelation, Level5, PointEvent,
   Redemption, Reward, Session, Settings, WeeklyReview,
 } from '@/types';
 import { addDaysKey, fromKey, todayKey, weekdayIndex } from '@/lib/dates';
@@ -49,6 +49,36 @@ export function createEmptyData(): AppData {
   };
 }
 
+/**
+ * Ids fijos de los hábitos de la demostración. Los hábitos reales usan ids aleatorios sin guion (ver `uid()` en el
+ * store), así que nunca coinciden con estos.
+ */
+export const DEMO_HABIT_IDS: readonly string[] = [
+  'h-csharp', 'h-projects', 'h-python', 'h-docs', 'h-exercise', 'h-sleep', 'h-water', 'h-meditate', 'h-read', 'h-guitar',
+];
+const DEMO_HABITS = new Set(DEMO_HABIT_IDS);
+
+/** Registros ya revisados (el store es inmutable: mientras no cambie el objeto, la respuesta es la misma) */
+const demoLogsCache = new WeakMap<object, boolean>();
+
+/**
+ * ¿Son datos de demostración? Se reconoce por los datos y no solo por `settings.demoMode`: los ajustes son un único
+ * registro que se sincroniza entero (gana el último que escribe) y un dispositivo desfasado podría devolverlo a
+ * `false` con la demostración cargada. También cuenta un registro de un hábito de la demo ya eliminado (sigue dando XP).
+ */
+export function isDemoData(data: Pick<AppData, 'habits' | 'logs'>): boolean {
+  if (data.habits.some((h) => DEMO_HABITS.has(h.id))) return true;
+  const logs = data.logs ?? {};
+  const cached = demoLogsCache.get(logs);
+  if (cached !== undefined) return cached;
+  const demo = Object.values(logs).some((l) => DEMO_HABITS.has(l.habitId));
+  demoLogsCache.set(logs, demo);
+  return demo;
+}
+
+/** Modo demostración: el ajuste o los propios datos (con datos de demostración no se publica nada en la comunidad) */
+export const isDemoActive = (data: Pick<AppData, 'habits' | 'logs' | 'settings'>) => Boolean(data.settings.demoMode) || isDemoData(data);
+
 /** PRNG determinista */
 function mulberry32(seed: number) {
   return () => {
@@ -72,7 +102,7 @@ const clamp5 = (n: number) => Math.max(1, Math.min(5, Math.round(n))) as Level5;
  *  - Lunes: menos ejercicio.
  *  - C# rinde mejor entre 16-19 h que de noche (y un experimento lo confirma).
  *  - Sesiones largas (Crear proyectos, 90 min) se abandonan más.
- *  - Energía alta → sesiones más largas.
+ *  - Días de buena forma (tras dormir temprano) → sesiones más largas.
  *  - "Practicar Python" cae fuerte las últimas 2 semanas; "Leer documentación" tiene baja consistencia.
  *  - Razones de falla dominadas por falta de energía / tiempo.
  */
@@ -124,7 +154,6 @@ export function createDemoData(): AppData {
 
   const logs: Record<string, HabitLog> = {};
   const sessions: Session[] = [];
-  const energy: EnergyEntry[] = [];
   let sid = 0;
 
   const reasonsDefault: [FailReason, number][] = [['no_energy', 40], ['no_time', 28], ['distracted', 18], ['forgot', 9], ['other', 5]];
@@ -140,8 +169,8 @@ export function createDemoData(): AppData {
   for (let i = DAYS; i >= 1; i--) {
     const d = addDaysKey(T, -i);
     const wd = weekdayIndex(d);
-    const en = clamp5(2.5 + (sleptEarlyPrev ? 1 : 0) + rnd() * 1.6 - (wd === 0 ? 0.6 : 0));
-    energy.push({ id: `e-${i}`, date: d, at: iso(d, 8, Math.floor(rnd() * 50)), level: en });
+    // Forma del día (1-5, oculta): sube tras dormir temprano y baja los lunes. Ya no se guarda como «energía»
+    const form = clamp5(2.5 + (sleptEarlyPrev ? 1 : 0) + rnd() * 1.6 - (wd === 0 ? 0.6 : 0));
     let sleptEarly = false;
 
     for (const h of habits) {
@@ -153,7 +182,7 @@ export function createDemoData(): AppData {
       if (h.id === 'h-exercise' && wd === 0) p *= 0.5;
       if (h.id === 'h-python' && i <= 14) p = 0.18;
       if (h.id === 'h-meditate' && wd >= 5) p *= 0.7;
-      if (en <= 2) p *= 0.8;
+      if (form <= 2) p *= 0.8;
 
       // Hora de la sesión
       let hour = h.preferredTime === 'morning' ? 7 + Math.floor(rnd() * 2) : h.preferredTime === 'afternoon' ? 16 + Math.floor(rnd() * 3) : 20 + Math.floor(rnd() * 2);
@@ -171,13 +200,13 @@ export function createDemoData(): AppData {
 
       const r = rnd();
       if (r < p) {
-        const minimum = (en <= 2 && rnd() < 0.5) || rnd() < 0.1 || (h.id === 'h-csharp' && hour >= 20 && rnd() < 0.35);
+        const minimum = (form <= 2 && rnd() < 0.5) || rnd() < 0.1 || (h.id === 'h-csharp' && hour >= 20 && rnd() < 0.35);
         const status = minimum ? 'minimum' : 'full';
         let minutes: number | undefined;
         if (h.targetMinutes) {
           const target = h.targetMinutes;
-          const energyFactor = 0.75 + en * 0.08;
-          const dur = minimum ? (h.minimumMinutes ?? 10) * (1 + rnd()) : target * Math.max(0.9, energyFactor * (0.95 + rnd() * 0.2));
+          const formFactor = 0.75 + form * 0.08;
+          const dur = minimum ? (h.minimumMinutes ?? 10) * (1 + rnd()) : target * Math.max(0.9, formFactor * (0.95 + rnd() * 0.2));
           minutes = Math.round(dur);
           const startMin = Math.floor(rnd() * 40);
           const startedAt = iso(d, hour, startMin);
@@ -185,7 +214,7 @@ export function createDemoData(): AppData {
           sessions.push({
             id: `s-${++sid}`, habitId: h.id, date: d, startedAt, endedAt: new Date(new Date(startedAt).getTime() + dur * 60000).toISOString(),
             durationSec: Math.round(dur * 60), targetSec: target * 60, status: minimum ? 'minimum' : 'completed',
-            energy: en, mood: clamp5(en + (night ? -1 : 0.5) + (rnd() - 0.5)), difficulty: clamp5(2 + (night ? 1.3 : 0) + (en <= 2 ? 1 : 0) + (target >= 90 ? 0.8 : 0) + (rnd() - 0.5)),
+            mood: clamp5(form + (night ? -1 : 0.5) + (rnd() - 0.5)), difficulty: clamp5(2 + (night ? 1.3 : 0) + (form <= 2 ? 1 : 0) + (target >= 90 ? 0.8 : 0) + (rnd() - 0.5)),
             experimentId: expId, variantId: varId,
           });
         }
@@ -198,8 +227,8 @@ export function createDemoData(): AppData {
           const startedAt = iso(d, hour, Math.floor(rnd() * 30));
           sessions.push({
             id: `s-${++sid}`, habitId: h.id, date: d, startedAt, endedAt: new Date(new Date(startedAt).getTime() + dur * 60000).toISOString(),
-            durationSec: Math.round(dur * 60), targetSec: h.targetMinutes * 60, status: 'abandoned', energy: en,
-            mood: clamp5(en - 1.5), difficulty: clamp5(4 + rnd()), experimentId: expId, variantId: varId,
+            durationSec: Math.round(dur * 60), targetSec: h.targetMinutes * 60, status: 'abandoned',
+            mood: clamp5(form - 1.5), difficulty: clamp5(4 + rnd()), experimentId: expId, variantId: varId,
           });
         }
         if (rnd() < 0.68) {
@@ -270,7 +299,7 @@ export function createDemoData(): AppData {
 
   return {
     ...createEmptyData(),
-    goals, habits, logs, sessions, energy, challenges, experiments, relations, weeklyReviews, rewards, redemptions, pointEvents,
+    goals, habits, logs, sessions, challenges, experiments, relations, weeklyReviews, rewards, redemptions, pointEvents,
     settings: { ...defaultSettings(), userName: '', lastHabitReviewAt: addDaysKey(T, -40) },
   };
 }

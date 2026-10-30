@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useStore, minimumMinutesFor } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
 import { getLog, pointsFor } from '@/lib/metrics';
@@ -136,9 +137,12 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
     onClose();
   };
 
+  // «Borrar registro» siempre pide confirmación antes de quitar lo anotado ese día
+  const [confirmClear, setConfirmClear] = useState(false);
   const handleClear = () => {
     clearLog(habit.id, targetDate);
-    toast(`Registro de hoy removido para «${habit.name}»`, 'info');
+    playSound.delete();
+    toast(targetDate === T ? `Registro de hoy borrado para «${habit.name}»` : `Registro borrado para «${habit.name}»`, 'info');
     onClose();
   };
 
@@ -217,7 +221,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                 }}
               >
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>A sumar ahora</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)' }}>
                   +{Number(minutesToAdd) || 0} min
                 </div>
               </div>
@@ -229,13 +233,13 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                   background: isTimeFullAchieved
                     ? 'rgba(34, 197, 94, 0.15)'
                     : isTimeMinAchieved
-                    ? 'rgba(249, 115, 22, 0.15)'
+                    ? 'color-mix(in srgb, var(--orange) 15%, transparent)'
                     : 'var(--surface-2)',
                   border: `1px solid ${
                     isTimeFullAchieved
                       ? 'var(--success)'
                       : isTimeMinAchieved
-                      ? '#f97316'
+                      ? 'var(--orange)'
                       : 'var(--border-2)'
                   }`,
                 }}
@@ -245,7 +249,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                   style={{
                     fontSize: 18,
                     fontWeight: 800,
-                    color: isTimeFullAchieved ? 'var(--success)' : isTimeMinAchieved ? '#f97316' : '#fff',
+                    color: isTimeFullAchieved ? 'var(--success)' : isTimeMinAchieved ? 'var(--orange)' : 'var(--text-strong)',
                   }}
                 >
                   {newTotalMin} / {targetMin}m
@@ -346,7 +350,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                 }}
               >
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>A sumar ahora</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)' }}>
                   +{Number(quantityToAdd) || 0} {unit}
                 </div>
               </div>
@@ -358,13 +362,13 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                   background: isQtyFullAchieved
                     ? 'rgba(34, 197, 94, 0.15)'
                     : isQtyMinAchieved
-                    ? 'rgba(249, 115, 22, 0.15)'
+                    ? 'color-mix(in srgb, var(--orange) 15%, transparent)'
                     : 'var(--surface-2)',
                   border: `1px solid ${
                     isQtyFullAchieved
                       ? 'var(--success)'
                       : isQtyMinAchieved
-                      ? '#f97316'
+                      ? 'var(--orange)'
                       : 'var(--border-2)'
                   }`,
                 }}
@@ -374,7 +378,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                   style={{
                     fontSize: 18,
                     fontWeight: 800,
-                    color: isQtyFullAchieved ? 'var(--success)' : isQtyMinAchieved ? '#f97316' : '#fff',
+                    color: isQtyFullAchieved ? 'var(--success)' : isQtyMinAchieved ? 'var(--orange)' : 'var(--text-strong)',
                   }}
                 >
                   {newTotalQty} / {targetQty}
@@ -444,7 +448,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
             <button
               type="button"
               className="btn btn-ghost sm danger"
-              onClick={handleClear}
+              onClick={() => setConfirmClear(true)}
               style={{ marginRight: 'auto' }}
             >
               <RotateCcw size={14} /> Borrar registro
@@ -458,6 +462,17 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        onConfirm={handleClear}
+        title="¿Borrar el registro?"
+        message={`Se borra lo anotado ${targetDate === T ? 'hoy' : 'ese día'} en «${habit.name}» (tiempo o cantidad y su estado). Los puntos de ese día se recalculan.`}
+        confirmLabel="Borrar registro"
+        danger
+        zIndex={1350}
+      />
     </Modal>
   );
 };

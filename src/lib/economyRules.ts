@@ -7,6 +7,8 @@ import type { Habit, HabitKind, HabitLog, LogStatus } from '@/types';
  * - XP: la calcula la app, nunca se gasta; mide el progreso (nivel) y, más adelante, el ranking.
  * Todos los valores viven en ECONOMY_DEFAULTS. El panel del creador publica versiones con fecha (tabla `economy_config`):
  * cada día se calcula con la versión que regía ese día, así cambiar un valor nunca reescribe el pasado.
+ * Monedas y XP son siempre números enteros: cada resultado se redondea al entero más cercano (x,5 sube), igual en el
+ * registro, el multiplicador, el día, los topes y los precios. Así nadie ve «12,5 XP».
  */
 export const ECONOMY_DEFAULTS = {
   /* Monedas */
@@ -48,6 +50,13 @@ export const ECONOMY_DEFAULTS = {
   /* Ritmo del usuario */
   rhythmDays: 14,
   rhythmMinActiveDays: 3,
+  /* Ligas (las aplica el servidor al cerrar la semana; la app las usa para explicarlas) */
+  /** Suben de liga los N primeros del grupo */
+  leaguePromoteCount: 5,
+  /** Los N siguientes se quedan en su liga; el resto baja */
+  leagueStayCount: 5,
+  /** Monedas de participación si estás solo en el grupo (con una sola persona no hay ascenso ni descenso) */
+  leagueSoloPrize: 25,
 };
 
 export type EconomyParams = typeof ECONOMY_DEFAULTS;
@@ -62,6 +71,9 @@ interface EconomyVersion {
 let versions: EconomyVersion[] = [];
 /** Cambia con cada versión aplicada (invalida las cachés que dependen de los parámetros) */
 export let economyRevision = 0;
+
+/** Parámetros que cuentan personas o monedas sueltas: siempre enteros */
+const INTEGER_PARAMS = new Set<keyof EconomyParams>(['leaguePromoteCount', 'leagueStayCount', 'leagueSoloPrize']);
 
 /** Solo números finitos dentro de un rango razonable; lo demás se ignora (un borrador mal escrito no rompe la app) */
 export function parseEconomyParams(raw: Record<string, unknown>): EconomyParams {
@@ -78,7 +90,7 @@ export function parseEconomyParams(raw: Record<string, unknown>): EconomyParams 
       }
       continue;
     }
-    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1_000_000) (out[key] as number) = v;
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1_000_000) (out[key] as number) = INTEGER_PARAMS.has(key) ? Math.round(v) : v;
   }
   return out;
 }
@@ -116,20 +128,23 @@ export const CHIP_HINTS: Record<number, string> = {
   40: 'Cerca de 1 hora',
 };
 
+/** Un decimal (solo para lo que no son monedas ni XP: ritmo medio, días de equivalencia) */
 export const round1 = (n: number) => Math.round(n * 10) / 10;
+/** Monedas y XP: entero más cercano */
+export const toInt = (n: number) => Math.round(n);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 export const habitKind = (h: Pick<Habit, 'kind'>): HabitKind => h.kind ?? 'action';
 
-/** Monedas de un hábito de tiempo con meta de T minutos: min(50, max(10, 5 + T/2)) */
+/** Monedas de un hábito de tiempo con meta de T minutos: min(50, max(10, 5 + T/2)), en entero */
 export const timeHabitCoins = (targetMinutes: number) =>
-  round1(clamp(5 + targetMinutes / 2, ECONOMY.timeCoinsMin, ECONOMY.timeCoinsMax));
+  toInt(clamp(5 + targetMinutes / 2, ECONOMY.timeCoinsMin, ECONOMY.timeCoinsMax));
 
 /** Monedas por cumplir el hábito completo (el «valor» que se muestra en su tarjeta) */
 export function habitCoinValue(h: Pick<Habit, 'kind' | 'points' | 'targetMinutes'>): number {
   const kind = habitKind(h);
   if (kind === 'time') return timeHabitCoins(h.targetMinutes || 25);
-  return Math.min(h.points || 10, ECONOMY.chipMax[kind]);
+  return toInt(Math.min(h.points || 10, ECONOMY.chipMax[kind]));
 }
 
 type Progress = Pick<HabitLog, 'minutes' | 'quantity'> | undefined;
@@ -164,14 +179,14 @@ function effectiveMinutes(h: HabitForRules, status: LogStatus, progress: Progres
   return Math.min(progress?.minutes ?? fallback, p.maxSessionMinutes);
 }
 
-/** Monedas que da un registro: valor del hábito × parte cumplida (0 si es parcial o no hecho) */
+/** Monedas que da un registro: valor del hábito × parte cumplida, en entero (0 si es parcial o no hecho) */
 export function logCoins(h: HabitForRules, status: LogStatus, progress: Progress, minimumRatio: number): number {
   if (status !== 'full' && status !== 'minimum') return 0;
-  return round1(habitCoinValue(h) * progressRatio(h, status, progress, minimumRatio));
+  return toInt(habitCoinValue(h) * progressRatio(h, status, progress, minimumRatio));
 }
 
 /**
- * XP base de un registro (antes de topes, racha y bono):
+ * XP base de un registro (antes de topes, racha y bono), en entero:
  * acción directa 24 · tiempo 1,5 por minuto (desde 5 min, máx. 90) · cantidad 45 × avance.
  */
 export function logBaseXp(h: HabitForRules, status: LogStatus, progress: Progress, minimumRatio: number, p: EconomyParams = ECONOMY): number {
@@ -179,10 +194,10 @@ export function logBaseXp(h: HabitForRules, status: LogStatus, progress: Progres
   const kind = habitKind(h);
   if (kind === 'time') {
     const t = effectiveMinutes(h, status, progress, minimumRatio, p);
-    return t < p.timeXpMinMinutes ? 0 : round1(Math.min(p.timeXpMax, p.timeXpPerMinute * t));
+    return t < p.timeXpMinMinutes ? 0 : toInt(Math.min(p.timeXpMax, p.timeXpPerMinute * t));
   }
-  if (kind === 'quantity') return round1(p.quantityXpMax * progressRatio(h, status, progress, minimumRatio, p));
-  return round1(status === 'full' ? p.actionXp : p.actionXp * minimumRatio);
+  if (kind === 'quantity') return toInt(p.quantityXpMax * progressRatio(h, status, progress, minimumRatio, p));
+  return toInt(status === 'full' ? p.actionXp : p.actionXp * minimumRatio);
 }
 
 export interface DayXpInput {
@@ -198,34 +213,35 @@ export interface DayXpInput {
 
 /**
  * XP del día: solo los primeros 8 hábitos, tope de 800 de base (1200 si hubo multiplicador),
- * × (1 + min(racha, 30)/100) + 30 si fue un día perfecto.
+ * × (1 + min(racha, 30)/100) + 30 si fue un día perfecto. Cada hábito con multiplicador se redondea
+ * al aplicarlo (90 × 1,5 = 135; 45 × 1,5 = 67,5 → 68) y el total del día también.
  */
 export function dayXp({ entries, streak, perfect, frozen }: DayXpInput, p: EconomyParams = ECONOMY): number {
   if (frozen) return 0;
   const counted = entries.slice(0, p.xpHabitsPerDay);
   const anyBoost = counted.some((e) => e.boosted);
-  const base = counted.reduce((sum, e) => sum + e.xp * (e.boosted ? p.boostMultiplier : 1), 0);
-  const cap = p.xpBaseDailyCap * (anyBoost ? p.boostMultiplier : 1);
+  const base = counted.reduce((sum, e) => sum + toInt(e.boosted ? e.xp * p.boostMultiplier : e.xp), 0);
+  const cap = toInt(p.xpBaseDailyCap * (anyBoost ? p.boostMultiplier : 1));
   const streakBonus = 1 + Math.min(Math.max(streak, 0), p.streakBonusMaxDays) * p.streakBonusPerDay;
-  return round1(Math.min(base, cap) * streakBonus + (perfect ? p.perfectDayBonus : 0));
+  return toInt(Math.min(base, cap) * streakBonus + (perfect ? p.perfectDayBonus : 0));
 }
 
-/** Tope de XP de un día (con o sin multiplicador): lo mismo que acepta el servidor */
+/** Tope de XP de un día (con o sin multiplicador): lo mismo que acepta el servidor, en entero */
 export const dayXpCap = (boosted: boolean, p: EconomyParams = ECONOMY) =>
-  round1(p.xpBaseDailyCap * (boosted ? p.boostMultiplier : 1) * (1 + p.streakBonusMaxDays * p.streakBonusPerDay) + p.perfectDayBonus);
+  toInt(toInt(p.xpBaseDailyCap * (boosted ? p.boostMultiplier : 1)) * (1 + p.streakBonusMaxDays * p.streakBonusPerDay) + p.perfectDayBonus);
 
-/** Monedas del día con el tope diario */
-export const dayCoins = (sumOfLogs: number, p: EconomyParams = ECONOMY) => round1(Math.min(sumOfLogs, p.coinDailyCap));
+/** Monedas del día con el tope diario, en entero */
+export const dayCoins = (sumOfLogs: number, p: EconomyParams = ECONOMY) => toInt(Math.min(sumOfLogs, p.coinDailyCap));
 
 /* ---------------- Precios dinámicos y equivalencias ---------------- */
 
-/** Protector de racha: unos 2 días de esfuerzo al ritmo del usuario, entre 100 y 600 */
+/** Protector de racha: unos 2 días de esfuerzo al ritmo del usuario, entre 100 y 600 (entero) */
 export const freezePrice = (avgDailyCoins: number) =>
-  Math.round(clamp(ECONOMY.freezePriceFactor * avgDailyCoins, ECONOMY.freezePriceMin, ECONOMY.freezePriceMax));
+  toInt(clamp(ECONOMY.freezePriceFactor * avgDailyCoins, ECONOMY.freezePriceMin, ECONOMY.freezePriceMax));
 
 /** Multiplicador 1.5× de XP (12 h): mismo criterio de precio */
 export const boostPrice = (avgDailyCoins: number) =>
-  Math.round(clamp(ECONOMY.boostPriceFactor * avgDailyCoins, ECONOMY.boostPriceMin, ECONOMY.boostPriceMax));
+  toInt(clamp(ECONOMY.boostPriceFactor * avgDailyCoins, ECONOMY.boostPriceMin, ECONOMY.boostPriceMax));
 
 export type RewardEquivalence =
   | { kind: 'no-history' }

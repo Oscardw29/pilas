@@ -5,11 +5,6 @@ import {
   X,
   CircleDashed,
   Pause,
-  BatteryWarning,
-  BatteryLow,
-  BatteryMedium,
-  BatteryFull,
-  BatteryCharging,
   FaceExpressionless,
   FaceSlightlyFrowning,
   FaceNeutral,
@@ -22,7 +17,7 @@ import type { HabitLog, Level5 } from '@/types';
 /**
  * ICONOGRAFÍA COMÚN
  * Un solo set de iconos (lucide) para los estados que se repiten por toda la app:
- * registro de hábitos, nivel de energía y ánimo de sesión. Evita mezclar emojis con iconos.
+ * registro de hábitos y ánimo de sesión. Evita mezclar emojis con iconos.
  */
 
 type LogStatus = HabitLog['status'] | 'paused';
@@ -75,26 +70,14 @@ export const PausedBadge: React.FC<{ label?: string }> = ({ label = 'Pausado' })
   </span>
 );
 
-/* ---------- Energía (1-5): una pila que se va cargando ---------- */
-const ENERGY_ICONS: Record<Level5, LucideIcon> = {
-  1: BatteryWarning,
-  2: BatteryLow,
-  3: BatteryMedium,
-  4: BatteryFull,
-  5: BatteryCharging,
-};
-
-export const ENERGY_COLORS: Record<Level5, string> = {
-  1: '#f87171',
-  2: '#fb923c',
-  3: '#fbbf24',
-  4: '#a3e635',
-  5: '#34d399',
-};
-
-export const EnergyIcon: React.FC<{ level: Level5; size?: number; colored?: boolean }> = ({ level, size = 20, colored = true }) => {
-  const Icon = ENERGY_ICONS[level] ?? BatteryMedium;
-  return <Icon size={size} color={colored ? ENERGY_COLORS[level] : undefined} aria-hidden="true" />;
+/* ---------- Escala 1-5: de rojo (bajo) a verde (alto) ----------
+   Tokens del tema: en oscuro #f87171 · #fb923c · #fbbf24 · #a3e635 · #34d399; en claro, sus tonos legibles */
+export const LEVEL_COLORS: Record<Level5, string> = {
+  1: 'var(--danger)',
+  2: 'var(--streak)',
+  3: 'var(--warning)',
+  4: 'var(--lime)',
+  5: 'var(--success)',
 };
 
 /* ---------- Ánimo de una sesión (1-5) ---------- */
@@ -108,7 +91,7 @@ const MOOD_ICONS: Record<Level5, LucideIcon> = {
 
 export const MoodIcon: React.FC<{ level: Level5; size?: number; colored?: boolean }> = ({ level, size = 20, colored = true }) => {
   const Icon = MOOD_ICONS[level] ?? FaceNeutral;
-  return <Icon size={size} color={colored ? ENERGY_COLORS[level] : undefined} aria-hidden="true" />;
+  return <Icon size={size} color={colored ? LEVEL_COLORS[level] : undefined} aria-hidden="true" />;
 };
 
 /** Icono de línea del coach (cara con cinta deportiva) al estilo lucide, para la navegación */
