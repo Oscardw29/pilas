@@ -636,10 +636,8 @@ export const DashboardView: React.FC = () => {
               <Sparkles size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            {pts.balance}
-          </div>
-          <div style={{ marginTop: 8 }}>
+          <div className="dash-kpi-body">
+            <div className="stat-value">{pts.balance}</div>
             <span
               style={{
                 display: 'inline-flex',
@@ -699,10 +697,8 @@ export const DashboardView: React.FC = () => {
               <CheckCircle2 size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            {thisWeek.consistency != null ? `${Math.round(thisWeek.consistency * 100)}%` : '—'}
-          </div>
-          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="dash-kpi-body">
+            <div className="stat-value">{thisWeek.consistency != null ? `${Math.round(thisWeek.consistency * 100)}%` : '—'}</div>
             <div style={{ width: '100%', height: 4, background: 'color-mix(in srgb, var(--text) 8%, transparent)', borderRadius: 99, overflow: 'hidden' }}>
               <div
                 style={{
@@ -892,15 +888,8 @@ export const DashboardView: React.FC = () => {
               <Zap size={18} />
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <div className="stat-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-              {data.goals.filter((g) => g.status === 'active').length}
-            </div>
-            <span style={{ color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600 }}>
-              Ver todos <ArrowUpRight size={14} />
-            </span>
-          </div>
-          <div style={{ marginTop: 8 }}>
+          <div className="dash-kpi-body">
+            <div className="stat-value">{data.goals.filter((g) => g.status === 'active').length}</div>
             <span
               style={{
                 display: 'inline-flex',
@@ -918,6 +907,9 @@ export const DashboardView: React.FC = () => {
               {data.goals.length === 0
                 ? 'Comienza a trazar tus metas'
                 : `${data.habits.filter((h) => h.status === 'active').length} hábitos vinculados`}
+            </span>
+            <span style={{ color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 600 }}>
+              Ver todos <ArrowUpRight size={14} />
             </span>
           </div>
         </div>

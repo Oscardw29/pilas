@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore, selectData } from '../store/useStore';
 import { useSecrets } from '../store/useSecrets';
 import { generateHabitAdvice, hasGeminiKey, generateTopicTitle } from '../lib/gemini';
+import { useAppAi } from '../lib/appAi';
 import { coachChoiceMessage, executeCoachAction, type ParsedAction } from '../lib/coachActions';
 import { ActionConfirmationCard } from '../components/coach/ActionConfirmationCard';
 import { extractActionAndText } from '../components/coach/extractAction';
@@ -11,7 +12,6 @@ import { stripVoiceTags } from '../lib/voiceTags';
 import {
   Send,
   Sparkles,
-  Key,
   Trash2,
   Lightbulb,
   Pencil,
@@ -24,8 +24,9 @@ import {
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CoachStage } from '../components/coach/CoachStage';
+import { LocalModeNotice } from '../components/coach/LocalModeNotice';
 import { CoachAvatar } from '../components/coach/CoachAvatar';
 import { useCoachPersona, type CoachPersona } from '../components/coach/coachPersona';
 import { markCoachVisited } from '../components/coach/coachTeasers';
@@ -99,8 +100,8 @@ export const AiCoachView: React.FC = () => {
       setConversationMessages: s.setConversationMessages,
     }))
   );
-  const isKeyConfigured = useSecrets((s) => hasGeminiKey(s.keys.geminiApiKey));
-  const keysLocked = useSecrets((s) => s.locked);
+  const ownKey = useSecrets((s) => hasGeminiKey(s.keys.geminiApiKey));
+  const appLlm = useAppAi((s) => s.status.llm);
   const { toast } = useToast();
   const persona = useCoachPersona();
   const DEFAULT_WELCOME_TEXT = welcomeText(persona);
@@ -155,7 +156,7 @@ export const AiCoachView: React.FC = () => {
   /** Animación de escritura en curso: el texto completo ya está guardado, esto es solo visual */
   const streamRef = useRef<{ timer: ReturnType<typeof setInterval>; botId: string; fullText: string; onDone?: () => void } | null>(null);
 
-  const activePrimaryModel = settings.geminiModel || 'Gemini 3.5 Flash Lite';
+  const activePrimaryModel = ownKey ? settings.geminiModel || 'Gemini 3.5 Flash Lite' : appLlm ? appLlm.model || 'IA de la app' : 'Motor local';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: streamRef.current ? 'auto' : 'smooth', block: 'end' });
@@ -711,7 +712,7 @@ export const AiCoachView: React.FC = () => {
             <Sparkles size={13} /> {activePrimaryModel}
           </span>
 
-          {settings.backupModel && (
+          {ownKey && settings.backupModel && (
             <span
               className="badge"
               style={{ fontSize: 11, background: 'var(--success-soft)', color: 'var(--success)' }}
@@ -722,26 +723,6 @@ export const AiCoachView: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Alerta de API Key si no está configurada */}
-      {!isKeyConfigured && (
-        <div className="callout attention coach-key-callout">
-          <Key />
-          <div className="row-between grow" style={{ flexWrap: 'wrap', gap: 10 }}>
-            <div>
-              <div className="title">{keysLocked ? 'Claves de API bloqueadas' : 'Modo Local Algorítmico Activo'}</div>
-              <div className="detail">
-                {keysLocked
-                  ? 'Tus claves están cifradas. Desbloquéalas en Ajustes con tu contraseña para usar los modelos de IA; mientras tanto responde el motor analítico local.'
-                  : `El coach está respondiendo con el motor analítico local. Para activar los modelos neuronales con respaldo automático (${activePrimaryModel} + ${settings.backupModel || 'Gemini 3.1 Flash'}), añade tu clave de API en Ajustes.`}
-              </div>
-            </div>
-            <Link to="/ajustes" className="btn btn-secondary sm">
-              {keysLocked ? 'Desbloquear claves' : 'Configurar clave y modelos'}
-            </Link>
-          </div>
-        </div>
-      )}
 
       {/* LAYOUT PRINCIPAL: CONVERSACIONES A LA IZQUIERDA Y CHAT A LA DERECHA */}
       <div className="coach-layout">
@@ -1044,6 +1025,8 @@ export const AiCoachView: React.FC = () => {
               </div>
             )}
 
+            <LocalModeNotice />
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -1133,8 +1116,11 @@ export const AiCoachView: React.FC = () => {
           </form>
           {/* Privacidad: el coach necesita contexto, pero el usuario debe saber qué sale del dispositivo */}
           <p className="faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.45 }}>
-            Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA
-            que elegiste en Ajustes, con tu propia clave.
+            {ownKey
+              ? 'Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA que elegiste en Ajustes, con tu propia clave.'
+              : appLlm
+                ? 'Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA de la app. El servidor no los guarda.'
+                : 'Con el motor local tus mensajes se responden en este dispositivo: no se envían a ninguna IA.'}
           </p>
         </div>
       </div>

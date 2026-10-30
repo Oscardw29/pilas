@@ -355,8 +355,8 @@ export const CalendarView: React.FC = () => {
             <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 12, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="monthAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--chart-green)" stopOpacity={0.45} />
+                  <stop offset="95%" stopColor="var(--chart-green)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="day" stroke="var(--muted)" fontSize={11} tickLine={false} />
@@ -376,7 +376,7 @@ export const CalendarView: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="points"
-                stroke="var(--success)"
+                stroke="var(--chart-green)"
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#monthAreaGrad)"

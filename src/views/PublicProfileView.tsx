@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Ban, Check, Clock, Flag, Gavel, HandHeart, ImageOff, PartyPopper, PenSquare, Send, ShieldAlert, ShieldCheck,
+  ArrowLeft, Ban, Check, Clock, Flag, Gavel, HandHeart, ImageOff, PartyPopper, ShieldAlert, ShieldCheck,
   Trash2, UserCheck, UserPlus, UserRoundX, X,
 } from 'lucide-react';
 import {
@@ -9,7 +9,6 @@ import {
 } from '@/components/profile/ProfileSections';
 import { BanScreen } from '@/components/social/BanScreen';
 import { CommunityUnavailable, MoreMenu, useSocialFail, type MoreMenuItem } from '@/components/social/PostCard';
-import { PostModal } from '@/components/social/PostModal';
 import { ReasonModal, ReportModal } from '@/components/social/ReportModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/ToastContext';
@@ -35,7 +34,8 @@ type Confirm = 'remove' | 'cancel' | 'block' | 'unblock' | null;
 /**
  * PERFIL PÚBLICO (/u/:alias, también /u/:id para quien no tiene alias) — docs/plan-social.md, F5 y F6
  * Lo que se ve aquí lo decide el servidor (public_profile): tarjetas elegidas, hábitos visibles y la relación contigo.
- * La presentación es la misma que «Mi perfil» (components/profile/ProfileSections.tsx).
+ * La presentación es la misma que «Mi perfil» (components/profile/ProfileSections.tsx). Tu propio perfil se abre siempre en
+ * /perfil: así hay una sola página para él y nunca ves dos cifras distintas (en modo demostración las del dispositivo).
  */
 export const PublicProfileView: React.FC = () => {
   const { alias: handle = '' } = useParams();
@@ -56,8 +56,6 @@ export const PublicProfileView: React.FC = () => {
   const [likeBusy, setLikeBusy] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [reporting, setReporting] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [postsKey, setPostsKey] = useState(0);
   const [mod, setMod] = useState<ModAction | null>(null);
 
   // Al pasar de un perfil a otro (/u/a → /u/b) la respuesta del anterior no pisa la del nuevo
@@ -98,6 +96,8 @@ export const PublicProfileView: React.FC = () => {
     p?.stats ? p.first_week || (p.member_since ? startOfWeekKey(p.member_since.slice(0, 10)) : null) : null,
   );
   const srvWeek = useServerWeek(p?.user_id, nav.weekStart, Boolean(p?.stats) && !nav.isCurrent);
+
+  if (p?.is_me || (myProfile && (handle === myProfile.alias || handle === myProfile.user_id))) return <Navigate to="/perfil" replace />;
 
   /* ---------- Acciones ---------- */
 
@@ -164,7 +164,7 @@ export const PublicProfileView: React.FC = () => {
   }
 
   const who = personName(p);
-  const canSeeFull = !(p.suspended && !isAdmin && !p.is_me);
+  const canSeeFull = !p.suspended || isAdmin;
 
   if (!canSeeFull) {
     return (
@@ -289,14 +289,12 @@ export const PublicProfileView: React.FC = () => {
     unban: { title: 'Levantar veto', description: `${who} podrá volver a usar la comunidad.`, confirmLabel: 'Levantar veto' },
   };
 
-  const menu: MoreMenuItem[] = p.is_me
-    ? []
-    : [
-        { label: 'Reportar', icon: <Flag aria-hidden="true" />, onSelect: () => setReporting(true), disabled: banned },
-        p.i_blocked
-          ? { label: 'Desbloquear', icon: <ShieldCheck aria-hidden="true" />, onSelect: () => setConfirm('unblock') }
-          : { label: 'Bloquear', icon: <ShieldAlert aria-hidden="true" />, onSelect: () => setConfirm('block'), danger: true },
-      ];
+  const menu: MoreMenuItem[] = [
+    { label: 'Reportar', icon: <Flag aria-hidden="true" />, onSelect: () => setReporting(true), disabled: banned },
+    p.i_blocked
+      ? { label: 'Desbloquear', icon: <ShieldCheck aria-hidden="true" />, onSelect: () => setConfirm('unblock') }
+      : { label: 'Bloquear', icon: <ShieldAlert aria-hidden="true" />, onSelect: () => setConfirm('block'), danger: true },
+  ];
 
   const writeOff = busy || banned;
 
@@ -350,7 +348,7 @@ export const PublicProfileView: React.FC = () => {
   };
 
   const cheerHint =
-    !p.is_me && cheer?.kind === 'congrats' && !cheer.sent_today
+    cheer?.kind === 'congrats' && !cheer.sent_today
       ? cheer.reason === 'streak'
         ? `¡Lleva ${cheer.n ?? ''} días de racha!`
         : cheer.reason === 'achievement'
@@ -364,7 +362,7 @@ export const PublicProfileView: React.FC = () => {
 
   return (
     <div className="stack fade-up profile-page" style={{ maxWidth: 860 }}>
-      {!p.is_me && backBtn}
+      {backBtn}
       {banned && <BanScreen compact />}
 
       <ProfileHero
@@ -378,7 +376,7 @@ export const PublicProfileView: React.FC = () => {
         likes={{
           count: likes,
           liked: Boolean(p.liked_by_me),
-          onToggle: p.is_me ? undefined : () => void onLike(),
+          onToggle: () => void onLike(),
           disabled: likeBusy || banned || p.i_blocked,
         }}
         meta={
@@ -394,45 +392,33 @@ export const PublicProfileView: React.FC = () => {
           </>
         }
         actions={
-          p.is_me ? (
-            <>
-              <Link to="/perfil?editar=1" className="btn btn-secondary sm">
-                <PenSquare aria-hidden="true" /> Editar perfil
-              </Link>
-              <button type="button" className="btn btn-primary sm" onClick={() => setPosting(true)} disabled={banned}>
-                <Send aria-hidden="true" /> Publicar
+          <>
+            {friendButtons()}
+            {!p.i_blocked && cheer && (
+              <button
+                type="button"
+                className={`btn sm ${cheer.kind === 'congrats' && !cheer.sent_today ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => void onCheer()}
+                disabled={writeOff || cheer.sent_today}
+              >
+                {cheer.kind === 'congrats' ? <PartyPopper aria-hidden="true" /> : <HandHeart aria-hidden="true" />} {cheerLabel}
               </button>
-            </>
-          ) : (
-            <>
-              {friendButtons()}
-              {!p.i_blocked && cheer && (
-                <button
-                  type="button"
-                  className={`btn sm ${cheer.kind === 'congrats' && !cheer.sent_today ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => void onCheer()}
-                  disabled={writeOff || cheer.sent_today}
-                >
-                  {cheer.kind === 'congrats' ? <PartyPopper aria-hidden="true" /> : <HandHeart aria-hidden="true" />} {cheerLabel}
-                </button>
-              )}
-              <MoreMenu items={menu} label={`Más opciones para ${who}`} className="btn btn-ghost sm" />
-            </>
-          )
+            )}
+            <MoreMenu items={menu} label={`Más opciones para ${who}`} className="btn btn-ghost sm" />
+          </>
         }
       >
-        {p.is_me && <p className="ph-hint">Así ven tu perfil los demás.</p>}
-        {!p.is_me && p.i_blocked && <p className="ph-hint">Bloqueaste a esta persona. Puedes desbloquearla desde el menú ⋯.</p>}
+        {p.i_blocked && <p className="ph-hint">Bloqueaste a esta persona. Puedes desbloquearla desde el menú ⋯.</p>}
         {cheerHint && <p className="ph-hint">{cheerHint}</p>}
       </ProfileHero>
 
       <ProfileStats
         stats={{ xpTotal: Number(p.stats.xp_total) || 0, currentStreak: p.stats.current_streak, bestStreak: p.stats.best_streak }}
         showStreak={Boolean(has('streak'))}
-        isMe={p.is_me}
+        isMe={false}
       />
 
-      {has('achievements') && <FeaturedAchievements achievements={p.achievements ?? []} isMe={p.is_me} />}
+      {has('achievements') && <FeaturedAchievements achievements={p.achievements ?? []} isMe={false} />}
 
       <ProfileWeekSection
         nav={nav}
@@ -443,12 +429,12 @@ export const PublicProfileView: React.FC = () => {
         loading={srvWeek.loading}
         failed={srvWeek.failed}
         onRetry={srvWeek.retry}
-        isMe={p.is_me}
+        isMe={false}
       />
 
-      <ProfilePosts userId={uid} subtitle={p.is_me ? 'Lo que has compartido' : `Lo que ha compartido ${who}`} reloadKey={postsKey} />
+      <ProfilePosts userId={uid} subtitle={`Lo que ha compartido ${who}`} reloadKey={0} />
 
-      {isAdmin && !p.is_me && (
+      {isAdmin && (
         <section className="card" aria-label="Moderación">
           <div className="card-head">
             <div>
@@ -496,7 +482,6 @@ export const PublicProfileView: React.FC = () => {
         />
       )}
       <ReportModal isOpen={reporting} onClose={() => setReporting(false)} targetUser={uid} alias={who} />
-      <PostModal isOpen={posting} onClose={() => setPosting(false)} onPosted={() => setPostsKey((k) => k + 1)} />
       {mod && (
         <ReasonModal
           isOpen

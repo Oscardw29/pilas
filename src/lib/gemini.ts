@@ -6,6 +6,7 @@ import { todayKey } from './dates';
 import { FAIL_REASON_LABELS } from './insights';
 import { getSecrets } from '@/store/useSecrets';
 import { getCoachPersona } from '@/components/coach/coachPersona';
+import { appAiComplete, appAiInfo, AppAiError, hasOwnAiKey } from './appAi';
 import { voiceTagsEnabled } from './coachVoice';
 import { VOICE_TAGS_PROMPT } from './voiceTags';
 import { localCoachReply } from './coachLocal';
@@ -253,9 +254,7 @@ El usuario siempre verá una tarjeta de confirmación interactiva para verificar
 `;
 }
 
-export function hasGeminiKey(apiKey?: string): boolean {
-  return Boolean(apiKey && apiKey.trim().length > 8);
-}
+export const hasGeminiKey = hasOwnAiKey;
 
 /** Tiempo máximo de espera de una respuesta de IA */
 const AI_TIMEOUT_MS = 45_000;
@@ -378,14 +377,15 @@ export async function generateHabitAdvice(
   const apiKey = getSecrets().geminiApiKey.trim();
   const { platform, primaryModel, backupModel } = resolveModels(data);
 
-  if (!hasGeminiKey(apiKey)) {
-    // Sin clave configurada (o bloqueada): motor analítico local
-    return generateLocalHabitAdvice(data, userPrompt);
-  }
-
   // Con una voz expresiva (Fish Audio S2) el coach añade etiquetas de tono que solo oye el usuario
   const withVoiceTags = !data.settings.coachMuted && voiceTagsEnabled();
   const systemInstruction = buildSystemContext(data) + (withVoiceTags ? `\n\n${VOICE_TAGS_PROMPT}` : '');
+
+  if (!hasGeminiKey(apiKey)) {
+    // Sin clave propia: la IA de la app, si el creador la dejó puesta; sin ninguna de las dos, motor analítico local
+    if (appAiInfo('llm')) return adviceFromAppAi(data, systemInstruction, userPrompt, history);
+    return generateLocalHabitAdvice(data, userPrompt);
+  }
 
   // 1. INTENTAR CON EL MODELO PRINCIPAL
   try {
@@ -402,13 +402,27 @@ export async function generateHabitAdvice(
       } catch (backupErr: unknown) {
         const backupMsg = describeError(backupErr);
         console.warn(`[AI Coach] Modelo de respaldo "${backupModel}" también falló: ${backupMsg}`);
-        const fallback = generateLocalHabitAdvice(data, userPrompt, false);
+        const fallback = generateLocalHabitAdvice(data, userPrompt);
         return `${fallback}\n\n*(⚠️ Nota: Falló el modelo principal «${primaryModel}» [${primaryMsg}] y el de respaldo «${backupModel}» [${backupMsg}]. Se activó el motor analítico local).*`;
       }
     }
 
-    const fallback = generateLocalHabitAdvice(data, userPrompt, false);
+    const fallback = generateLocalHabitAdvice(data, userPrompt);
     return `${fallback}\n\n*(⚠️ Nota: El modelo «${primaryModel}» falló [${primaryMsg}]. Se activó el motor analítico local).*`;
+  }
+}
+
+/** Respuesta con la IA de la app. Si no responde o se acabó el cupo del día, contesta el motor local y lo dice */
+async function adviceFromAppAi(data: AppData, systemInstruction: string, userPrompt: string, history: ChatTurn[]): Promise<string> {
+  try {
+    return await appAiComplete(systemInstruction, history, userPrompt);
+  } catch (err) {
+    console.warn('[AI Coach] La IA de la app no respondió:', err);
+    const note =
+      err instanceof AppAiError && err.kind === 'quota'
+        ? 'Llegaste al límite diario de la IA de la app: mañana se renueva. Si quieres seguir hoy, puedes añadir tu propia clave en Ajustes.'
+        : 'La IA de la app no respondió ahora mismo.';
+    return `${generateLocalHabitAdvice(data, userPrompt)}\n\n*(⚠️ Nota: ${note} Te respondí con el motor local).*`;
   }
 }
 
@@ -419,17 +433,15 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/**
- * Motor de respuestas local (sin IA): intenciones, frases con voz grabada y datos reales en lib/coachLocal.
- * `withNote`: recuerda de vez en cuando que con una clave de IA el coach responde mejor.
- */
-export function generateLocalHabitAdvice(data: AppData, userPrompt: string, withNote = true): string {
-  return localCoachReply(data, userPrompt, { withNote });
+/** Motor de respuestas local (sin IA): intenciones, frases con voz grabada y datos reales en lib/coachLocal */
+export function generateLocalHabitAdvice(data: AppData, userPrompt: string): string {
+  return localCoachReply(data, userPrompt);
 }
 
 /**
  * Genera un título automático conciso (2 a 4 palabras) basado en el tema de la conversación.
- * Usa la plataforma y el modelo configurados (nunca envía la clave a otro proveedor).
+ * Usa la plataforma y el modelo configurados (nunca envía la clave a otro proveedor). Sin clave propia se queda con el
+ * título heurístico: no vale la pena gastar un uso de la IA de la app en un título.
  */
 export async function generateTopicTitle(userPrompt: string, data: AppData): Promise<string> {
   const clean = userPrompt.trim();

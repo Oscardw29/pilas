@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { getSecrets, useSecrets } from '@/store/useSecrets';
+import { appAiSpeech, AppAiError, useAppAi, type AppAiInfo } from '@/lib/appAi';
 import { fishTts } from '@/platform/fish';
 import { useStore } from '@/store/useStore';
 import type { CoachGender } from '@/components/coach/coachPersona';
@@ -17,7 +18,8 @@ const FISH_MODEL_IDS = PRESET_TTS_MODELS.fish_audio.map((m) => m.id);
  * del personaje se mueva al ritmo de lo que dice.
  *
  * 1. Voz de IA, por orden: la plataforma elegida en «Voz (TTS)» de Ajustes (Fish Audio, ElevenLabs u
- *    OpenAI con su clave) y, si falta su clave, la de la plataforma de IA del chat (Gemini u OpenAI).
+ *    OpenAI con su clave), si falta su clave, la de la plataforma de IA del chat (Gemini u OpenAI) y, si
+ *    tampoco hay, la voz de la app (claves del creador, servidas por la función `pilas-ai`).
  *    Se reproduce con Web Audio: así el silencio puede hacerse con un fundido de 0,5 s y la boca
  *    sigue la señal real. Si falla se reintenta y, si sigue fallando, se calla.
  * 2. Frases grabadas: las frases fijas del catálogo (src/data/coachPhrases.json) que ya tienen audio en
@@ -37,7 +39,9 @@ type Provider =
   | { kind: 'openai'; key: string; model: string; voice: string }
   | { kind: 'elevenlabs'; key: string; model: string; voice: string }
   /** Fish Audio a través del relay /api/fish-tts (su API no admite llamadas desde el navegador) */
-  | { kind: 'fish'; key: string; model: string; voice: string };
+  | { kind: 'fish'; key: string; model: string; voice: string }
+  /** Voz de la app: la clave se queda en el servidor. `via` es el proveedor que eligió el creador */
+  | { kind: 'app'; via: string; model: string };
 
 /** Duración del fundido al silenciar o cambiar de conversación */
 const FADE_S = 0.5;
@@ -199,7 +203,7 @@ export async function speakCoach(
   const { provider } = choice;
   if (!ensureCtx()) return 'unavailable';
   // Las frases grabadas solo se buscan si pueden sonar (sin voz de IA o con la de Gemini)
-  if (!provider || provider.kind === 'gemini') await ensureClipManifest();
+  if (usesRecordedClips(provider)) await ensureClipManifest();
   if (session !== mySession) return 'ok';
 
   // Las etiquetas de expresión ([excited], [pause]…) solo llegan a la voz que las interpreta
@@ -220,8 +224,13 @@ export async function speakCoach(
  * sintaxis). El prompt del chat solo las pide si esto es true y el coach no está silenciado.
  */
 export function voiceTagsEnabled(choice: CoachVoiceChoice = resolveCoachVoice()): boolean {
-  return choice.provider?.kind === 'fish' && choice.provider.model !== 's1';
+  const p = choice.provider;
+  if (p?.kind === 'app') return p.via === 'fish_audio' && p.model !== 's1';
+  return p?.kind === 'fish' && p.model !== 's1';
 }
+
+/** Las frases grabadas son de la voz de Gemini: suenan sin voz de IA o con esa misma voz (también la de la app) */
+const usesRecordedClips = (provider: Provider | null) => !provider || provider.kind === 'gemini' || (provider.kind === 'app' && provider.via === 'gemini');
 
 const usableKey = (k: string | undefined) => (k && k.trim().length >= 9 ? k.trim() : '');
 
@@ -246,6 +255,7 @@ const NO_VOICE_LABEL = 'Sin voz configurada (el coach no suena)';
 export function resolveCoachVoice(
   settings: VoiceSettings = useStore.getState().settings,
   secrets: VoiceSecrets = getSecrets(),
+  appTts: AppAiInfo | undefined = useAppAi.getState().status.tts,
 ): CoachVoiceChoice {
   const tts = settings.ttsPlatform || 'fish_audio';
   const ttsModel = settings.ttsModel?.trim() || '';
@@ -279,6 +289,7 @@ export function resolveCoachVoice(
   if (aiKey && platform === 'openai') {
     return { provider: { kind: 'openai', key: aiKey, model: 'gpt-4o-mini-tts', voice: '' }, label: 'OpenAI TTS (clave de IA)', note };
   }
+  if (appTts) return { provider: { kind: 'app', via: appTts.provider, model: appTts.model ?? '' }, label: 'Voz de la app (incluida)' };
   return { provider: null, label: NO_VOICE_LABEL, note };
 }
 
@@ -307,11 +318,12 @@ export function useCoachVoiceMode(gender: CoachGender): CoachVoiceMode {
     })),
   );
   const keys = useSecrets((s) => s.keys);
+  const appTts = useAppAi((s) => s.status.tts);
   useSyncExternalStore(subscribeManifest, () => manifestRev, () => 0);
   useEffect(() => {
     void ensureClipManifest();
   }, []);
-  return coachVoiceMode(gender, resolveCoachVoice(settings, keys));
+  return coachVoiceMode(gender, resolveCoachVoice(settings, keys, appTts));
 }
 
 /** Dónde se configura la voz (para el aviso al intentar activar el sonido sin voz) */
@@ -416,12 +428,13 @@ type SpeechJob = { kind: 'clip'; url: string } | { kind: 'tts'; text: string };
 
 /**
  * Decide qué suena y con qué:
- * - Fish Audio, ElevenLabs u OpenAI: todo con esa voz (las frases grabadas son de Gemini y sonarían distintas).
- * - Gemini: cada línea que es una frase grabada suena con su audio; el resto se sintetiza con la misma voz.
+ * - Fish Audio, ElevenLabs u OpenAI (propios o de la app): todo con esa voz (las frases grabadas son de Gemini y
+ *   sonarían distintas).
+ * - Gemini (propia o de la app): cada línea que es una frase grabada suena con su audio; el resto se sintetiza con la misma voz.
  * - Sin voz de IA: solo las líneas que son frases grabadas; el resto se calla.
  */
 function planSpeech(source: string, gender: CoachGender, provider: Provider | null): SpeechJob[] {
-  if (provider && provider.kind !== 'gemini') {
+  if (!usesRecordedClips(provider)) {
     const clean = cleanForSpeech(source);
     return clean ? splitChunks(clean).map((text) => ({ kind: 'tts' as const, text })) : [];
   }
@@ -550,6 +563,7 @@ async function speakJobs(chunks: SpeechJob[], gender: CoachGender, provider: Pro
 
 /** Clave inválida, sin saldo, sin permiso o petición mal formada: reintentar no arregla nada */
 function isRetryable(err: unknown): boolean {
+  if (err instanceof AppAiError) return err.retryable;
   const msg = err instanceof Error ? err.message : String(err);
   return !/\b(400|401|402|403|404)\b|API key not valid|PERMISSION_DENIED|INVALID_ARGUMENT/i.test(msg);
 }
@@ -572,6 +586,8 @@ function waitUntilDrained(mySession: number): Promise<void> {
 let geminiModelIdx = 0;
 
 async function synthesize(text: string, gender: CoachGender, provider: Provider): Promise<{ data: Uint8Array; mime: string }> {
+  if (provider.kind === 'app') return appAiSpeech(text, gender);
+
   if (provider.kind === 'openai') {
     const model = provider.model || 'gpt-4o-mini-tts';
     const res = await fetch('https://api.openai.com/v1/audio/speech', {

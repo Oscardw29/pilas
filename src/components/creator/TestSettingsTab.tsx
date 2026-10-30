@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { AnimationTestCard } from '@/components/settings/AnimationTestCard';
-import { ApiKeySecurityCard } from '@/components/settings/ApiKeySecurityCard';
 
 /** Ajustes de prueba de este dispositivo (los que Ajustes solo muestra a la cuenta del creador) */
 export const TestSettingsTab: React.FC = () => (
@@ -19,7 +18,5 @@ export const TestSettingsTab: React.FC = () => (
       </div>
     </div>
     <AnimationTestCard />
-    {/* Las claves viven en useSecrets: aquí no hay copia local que limpiar */}
-    <ApiKeySecurityCard onKeysForgotten={() => {}} />
   </div>
 );

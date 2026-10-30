@@ -193,7 +193,7 @@ export const TimerView: React.FC = () => {
                     y1={tickY1}
                     x2={tickX2}
                     y2={tickY2}
-                    stroke="var(--orange)"
+                    stroke="var(--orange-fill)"
                     strokeWidth={4}
                     strokeLinecap="round"
                     style={{ filter: 'drop-shadow(0 0 4px var(--orange))' }}
@@ -432,7 +432,7 @@ export const TimerView: React.FC = () => {
                 formatter={(val: any) => [`${val} min`, 'Enfoque total']}
                 labelFormatter={(lbl) => `${lbl}`}
               />
-              <Bar dataKey="minutes" fill="var(--freeze)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="minutes" fill="var(--freeze-fill)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

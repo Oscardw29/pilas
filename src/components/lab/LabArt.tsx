@@ -52,10 +52,10 @@ export const Beaker: React.FC<BeakerProps> = ({ level, color, shade, size = 76, 
 export const LabShelfArt: React.FC<{ className?: string }> = ({ className = '' }) => (
   <svg className={`lab-shelf-art ${className}`} viewBox="0 0 300 120" aria-hidden="true" focusable="false">
     {/* Balda */}
-    <rect x={0} y={96} width={300} height={14} rx={4} fill="#1e3a5f" />
-    <rect x={0} y={96} width={300} height={9} rx={4} fill="#2b5280" />
-    <rect x={18} y={110} width={10} height={10} fill="#1e3a5f" />
-    <rect x={272} y={110} width={10} height={10} fill="#1e3a5f" />
+    <rect x={0} y={96} width={300} height={14} rx={4} fill="var(--lab-shelf, #1e3a5f)" />
+    <rect x={0} y={96} width={300} height={9} rx={4} fill="var(--lab-shelf-top, #2b5280)" />
+    <rect x={18} y={110} width={10} height={10} fill="var(--lab-shelf, #1e3a5f)" />
+    <rect x={272} y={110} width={10} height={10} fill="var(--lab-shelf, #1e3a5f)" />
 
     {/* Erlenmeyer verde con vapor */}
     <g className="lab-art-flask">

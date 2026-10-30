@@ -54,6 +54,14 @@ import { habitCoinValue } from '@/lib/economyRules';
 /** Fase de la animación al cambiar de semana: sale la semana mostrada y luego entra la nueva. */
 type WeekSlide = { phase: 'idle' | 'out' | 'in'; dir: 'next' | 'prev' };
 
+/** Check blanco u oscuro según el color del hábito: blanco sobre amarillo o turquesa claro casi no se ve */
+const readableOn = (hex: string) => {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return '#fff';
+  const [r, g, b] = m.slice(1).map((c) => parseInt(c, 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 170 ? '#1b1730' : '#fff';
+};
+
 export const WeekView: React.FC = () => {
   const data = useData();
   const logHabit = useStore((s) => s.logHabit);
@@ -396,10 +404,10 @@ export const WeekView: React.FC = () => {
                         if (status === 'full') {
                           bg = h.color;
                           border = h.color;
-                          color = '#fff';
+                          color = readableOn(h.color);
                         } else if (status === 'minimum') {
-                          bg = 'var(--minimum)';
-                          border = 'var(--minimum)';
+                          bg = 'var(--minimum-fill)';
+                          border = 'var(--minimum-fill)';
                           color = 'var(--on-status)';
                         } else if (status === 'missed') {
                           bg = 'color-mix(in srgb, var(--danger) 20%, transparent)';
@@ -516,13 +524,13 @@ export const WeekView: React.FC = () => {
             <span className="legend-cell" style={{ background: 'var(--accent)', color: '#fff' }}><StatusIcon status="full" size={10} strokeWidth={3.2} /></span> Objetivo completo (+100%)
           </span>
           <span className="week-legend-item">
-            <span className="legend-cell" style={{ background: 'var(--minimum)', color: 'var(--on-status)' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
+            <span className="legend-cell" style={{ background: 'var(--minimum-fill)', color: 'var(--on-status)' }}><StatusIcon status="minimum" size={10} strokeWidth={3} /></span> Versión mínima ({Math.round(data.settings.minimumRatio * 100)}%)
           </span>
           <span className="week-legend-item">
             <span className="legend-cell" style={{ border: '1.5px solid var(--danger)', background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)' }}><StatusIcon status="missed" size={10} strokeWidth={3} /></span> No realizado
           </span>
           <span className="week-legend-item">
-            <span className="legend-cell" style={{ background: 'var(--warning)', color: '#fff' }}><StatusIcon status="paused" size={9} strokeWidth={3} className="icon-filled" /></span> En pausa
+            <span className="legend-cell" style={{ background: 'var(--warning-fill)', color: '#fff' }}><StatusIcon status="paused" size={9} strokeWidth={3} className="icon-filled" /></span> En pausa
           </span>
           <span className="week-legend-item">
             <span style={{ color: 'var(--muted)', opacity: 0.5, fontWeight: 700 }}>—</span> No programado hoy

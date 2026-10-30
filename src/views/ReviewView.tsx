@@ -360,7 +360,7 @@ export const ReviewView: React.FC = () => {
                 }}
               />
               <Bar dataKey="minutos" name="Minutos de foco" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="completados" name="Hábitos completados" fill="var(--success)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="completados" name="Hábitos completados" fill="var(--chart-green)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

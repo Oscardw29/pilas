@@ -789,15 +789,8 @@ function replyCrearHabito(ctx: Ctx, habit: Record<string, unknown>): Out {
 
 /* ---------------- Entrada ---------------- */
 
-/** Cada cuántas respuestas locales se recuerda que con clave de IA el coach responde mejor */
-const NOTE_EVERY = 5;
-let localReplies = 0;
-
-/**
- * Respuesta del coach sin IA. `withNote`: añade de vez en cuando el aviso de que responde el motor local
- * (no cuando la IA falló: esa respuesta ya lleva su propia nota).
- */
-export function localCoachReply(data: AppData, prompt: string, { withNote = true }: { withNote?: boolean } = {}): string {
+/** Respuesta del coach sin IA. El aviso de que responde el motor local va aparte, dentro del chat (LocalModeNotice) */
+export function localCoachReply(data: AppData, prompt: string): string {
   const ref = todayKey();
   const ctx = buildCtx(data, prompt, ref);
   // La respuesta a una propuesta («Acepté tu propuesta de crear hábito…») no es un pedido de hábito nuevo
@@ -838,8 +831,5 @@ export function localCoachReply(data: AppData, prompt: string, { withNote = true
     }
   }
 
-  // Charla corta (saludos, gracias, despedidas, acciones) sin la nota: sería más larga que la respuesta
-  const chit = intent === 'saludo' || intent === 'gracias' || intent === 'despedida' || intent === 'accion';
-  if (withNote && !chit && localReplies++ % NOTE_EVERY === 0) out.push(pickPhrase('local.nota', ctx.gender));
   return out.filter(Boolean).join('\n\n');
 }

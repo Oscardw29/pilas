@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { DatabaseZap, ShieldAlert } from 'lucide-react';
 import { useSocial } from '@/social/useSocial';
 import { useIsCreator } from '@/lib/creator';
+import { AiServicesTab } from '@/components/creator/AiServicesTab';
 import { CatalogTab } from '@/components/creator/CatalogTab';
 import { EconomyTab } from '@/components/creator/EconomyTab';
 import { LeaguesAchievementsTab } from '@/components/creator/LeaguesAchievementsTab';
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'economy', label: 'Economía' },
   { id: 'leagues', label: 'Ligas y logros' },
   { id: 'moderation', label: 'Moderación' },
+  { id: 'ai', label: 'IA de la app' },
   { id: 'tests', label: 'Ajustes de prueba' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -141,6 +143,7 @@ export const CreatorView: React.FC = () => {
           />
         )}
         {tab === 'moderation' && <ModerationTab />}
+        {tab === 'ai' && <AiServicesTab />}
         {tab === 'tests' && <TestSettingsTab />}
       </div>
     </div>

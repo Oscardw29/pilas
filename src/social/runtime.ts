@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { deviceDelete, deviceGet, deviceSet } from '@/db/localDb';
 import { isDemoActive } from '@/data/seed';
 import { todayKey } from '@/lib/dates';
+import { refreshAppAi } from '@/lib/appAi';
 import { applyEconomyVersions } from '@/lib/economyRules';
 import { defaultAvatarPath, effectivePreset, textHash } from '@/lib/defaultAvatars';
 import { useStore } from '@/store/useStore';
@@ -130,6 +131,8 @@ export async function rememberPublishedAvatar(uid: string, dataUrl: string | und
 export async function refreshSocialStatus(): Promise<void> {
   const r = running;
   if (!r) return;
+  // Qué IA incluye la app (claves del creador): si las quita, los avisos vuelven sin reinstalar nada
+  void refreshAppAi().catch(() => undefined);
   try {
     const s = await api.getStatus();
     if (running !== r || !s) return;

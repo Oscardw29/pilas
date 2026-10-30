@@ -66,7 +66,8 @@ describe('sincronización', () => {
     await syncOnce(a, keys, remote);
     await syncOnce(b, keys, remote);
     expect(await b.records.count()).toBe(1234);
-  });
+    // Cifra y descifra más de mil registros: junto a las pruebas de PGlite, en paralelo, supera los 5 s por defecto
+  }, 30_000);
 
   it('con otra clave de cuenta los registros no se pueden leer', async () => {
     const remote = memoryRemote();

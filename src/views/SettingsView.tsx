@@ -46,7 +46,8 @@ import { myUserId } from '../social/runtime';
 import { useSocial } from '../social/useSocial';
 import '../components/coach/coach.css';
 import '../components/settings/settings.css';
-import { ApiKeySecurityCard } from '../components/settings/ApiKeySecurityCard';
+import { LockedKeysCard } from '../components/settings/LockedKeysCard';
+import { useAppAi } from '../lib/appAi';
 import { BackupCard } from '../components/settings/BackupCard';
 import { AccountCard } from '../components/settings/AccountCard';
 import { AnimationTestCard } from '../components/settings/AnimationTestCard';
@@ -179,6 +180,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const userName = personalName.trim() || 'Usuario';
   const userGender: UserGender = personalGender || 'other';
   const isCreator = useIsCreator();
+  const appHasAi = useAppAi((s) => Boolean(s.status.llm));
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
   // IA Settings
@@ -571,6 +573,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     return () => obs.disconnect();
   }, []);
 
+  const showStickySave = isDirty && !saveVisible;
+
   /** Guarda todo el formulario. false si algo no se pudo guardar (nombre vacío, alias no válido o rechazado) */
   const handleSaveProfile = async (e?: React.FormEvent): Promise<boolean> => {
     e?.preventDefault();
@@ -751,7 +755,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   };
 
   return (
-    <div className="stack fade-up" style={{ maxWidth: 860 }}>
+    <div className={`stack fade-up${showStickySave ? ' has-sticky-save' : ''}`} style={{ maxWidth: 860 }}>
       {/* Cabecera */}
       <div className="page-head">
         <div>
@@ -784,6 +788,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       )}
 
       {/* Formulario de Ajustes */}
+      <LockedKeysCard />
+
       <form
         ref={formRef}
         onSubmit={handleSaveProfile}
@@ -1111,8 +1117,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               </div>
               <span className="hint">
                 {secretsLocked
-                  ? 'Las claves están cifradas y bloqueadas. Desbloquéalas en «Seguridad de las claves de API» para editarlas.'
-                  : 'Al ingresar tu API key se detectan automáticamente los modelos disponibles en tu cuenta. Se guarda solo en este navegador y nunca se incluye en los respaldos.'}
+                  ? 'Tus claves están cifradas: recupéralas con tu contraseña en el aviso de arriba para editarlas.'
+                  : `${appHasAi ? 'La app ya incluye IA: tu clave es opcional y, si la pones, se usa la tuya. ' : ''}Al ingresar tu API key se detectan automáticamente los modelos disponibles en tu cuenta. Se guarda solo en este navegador y nunca se incluye en los respaldos.`}
               </span>
             </div>
 
@@ -1969,16 +1975,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
       {isCreator && <AnimationTestCard />}
 
-      {isCreator && (
-      <ApiKeySecurityCard
-        onKeysForgotten={() => {
-          setGeminiApiKey('');
-          setTtsApiKey('');
-          setDeepgramApiKey('');
-        }}
-      />
-      )}
-
       {/* Acciones destructivas / Restablecer datos (solo cuenta del creador) */}
       {isCreator && (
       <div className="card" style={{ border: '1px solid rgba(239, 68, 68, 0.3)' }}>
@@ -2082,15 +2078,15 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         confirmVariant="danger"
         zIndex={1300}
       />
-      {/* Guardar desde cualquier punto de la página */}
-      {!saveVisible && (
+      {/* Solo con cambios por guardar y con el botón normal fuera de la pantalla */}
+      {showStickySave && (
         <button
           type="button"
           className="btn btn-primary lg sticky-save"
           onClick={() => formRef.current?.requestSubmit()}
-          aria-label={isDirty ? 'Guardar configuración (hay cambios sin guardar)' : 'Guardar configuración'}
+          aria-label="Guardar configuración (hay cambios sin guardar)"
         >
-          {isDirty && <span className="dot" aria-hidden="true" />}
+          <span className="dot" aria-hidden="true" />
           <Save size={16} /> Guardar configuración
         </button>
       )}

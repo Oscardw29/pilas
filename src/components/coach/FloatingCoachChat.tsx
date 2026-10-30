@@ -11,6 +11,7 @@ import { ActionConfirmationCard } from './ActionConfirmationCard';
 import { extractActionAndText } from './extractAction';
 import { CoachAvatar } from './CoachAvatar';
 import { CoachTeaser } from './CoachTeaser';
+import { LocalModeNotice } from './LocalModeNotice';
 import { useCoachPersona } from './coachPersona';
 import { useCoachMute } from './useCoachMute';
 
@@ -368,6 +369,8 @@ export const FloatingCoachChat: React.FC = () => {
                 ))}
               </div>
             )}
+
+            <LocalModeNotice />
           </div>
 
           <form

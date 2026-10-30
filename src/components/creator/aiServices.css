@@ -1,0 +1,16 @@
+/* Pestaña «IA de la app» del panel del creador */
+.ai-service { display: flex; flex-direction: column; gap: 14px; }
+.ai-service .card-head { margin-bottom: 0; flex-wrap: wrap; gap: 10px; }
+.ai-service-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; color: var(--accent-2); background: var(--accent-soft); }
+.ai-service-icon svg { width: 18px; height: 18px; }
+.ai-service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.ai-service-key { display: flex; align-items: center; gap: 6px; }
+.ai-service-key .input { flex: 1; min-width: 0; }
+.ai-service-test { padding: 10px 12px; }
+.ai-service-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ai-service-clear { color: var(--danger); }
+
+@media (max-width: 639.98px) {
+  .ai-service-fields { grid-template-columns: minmax(0, 1fr); }
+  .ai-service-foot .row { width: 100%; justify-content: flex-end; }
+}

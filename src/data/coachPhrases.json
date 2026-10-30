@@ -6,8 +6,6 @@
     { "id": "bienvenida.flotante", "pilo": "¡Hola! Soy Pilo. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página.", "pila": "¡Hola! Soy Pila. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página." },
     { "id": "ajustes.prueba_voz", "pilo": "¡Hola! Soy Pilo, tu entrenador. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!", "pila": "¡Hola! Soy Pila, tu entrenadora. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!" },
 
-    { "id": "local.nota.1", "text": "Te respondo con mi motor local. Con una clave de IA en Ajustes puedo darte respuestas todavía más personalizadas." },
-    { "id": "local.nota.2", "text": "Esta respuesta sale de mi motor local, sin conexión. Si añades una clave de IA en Ajustes, puedo profundizar mucho más." },
 
     { "id": "saludo.apertura.1", "text": "¡Hola! Qué bueno verte por aquí." },
     { "id": "saludo.apertura.2", "text": "¡Hey! Aquí estoy, con ganas de ayudarte." },

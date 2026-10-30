@@ -334,3 +334,16 @@ export interface DayRow {
   streak: number;
   boosted: boolean;
 }
+
+/** Un servicio de la IA de la app, como lo ve el creador: de la clave solo llegan sus 4 últimos caracteres */
+export interface AdminAiService {
+  service: 'llm' | 'tts' | 'stt';
+  provider: string;
+  model: string;
+  backup_model: string;
+  voice: string;
+  daily_limit: number;
+  updated_at: string;
+  key_hint: string;
+  used_today: number;
+}

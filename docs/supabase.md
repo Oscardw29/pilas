@@ -126,6 +126,30 @@ extremo a extremo en `records`.
 y 0003: topes de XP y monedas (enteros), fechas, compras, multiplicador, cierre semanal y zonas de las ligas, logros,
 ánimos, «me gusta», semanas del perfil, edición de publicaciones, reinicio del progreso, vetos y permisos.
 
+### IA de la app: tus claves para todos
+Con esto quien no tenga clave propia usa la IA y la voz sin configurar nada. Tus claves se guardan en el servidor y nunca
+llegan a los dispositivos: la app le pide cada respuesta a una función de Supabase. Sin este paso la app funciona igual,
+con el motor local y los avisos de configurar una clave.
+
+1. **SQL Editor** → **New query** → pega todo [`supabase/migrations/0004_ia_de_la_app.sql`](../supabase/migrations/0004_ia_de_la_app.sql)
+   → **Run**. Se puede volver a ejecutar.
+2. **Edge Functions** → **Deploy a new function** → **Via Editor** → nómbrala exactamente `pilas-ai` → pega todo
+   [`supabase/functions/pilas-ai/index.ts`](../supabase/functions/pilas-ai/index.ts) → **Deploy function**.
+3. En la función, **Details** → desactiva **Verify JWT** (o «Enforce JWT verification») → **Save**. La función comprueba la
+   sesión por su cuenta; dejar esa opción activa puede bloquear las peticiones de la app.
+4. En la app: **Panel del creador → IA de la app** → elige proveedor, pega la clave → **Guardar** → **Probar**.
+
+Cada servicio tiene un límite de usos al día por persona (tú no tienes tope) y el panel muestra los usos de hoy. Para
+retirarlas, **Quitar clave**: se borra del servidor y vuelven el modo local y los avisos. Una clave propia en Ajustes
+siempre tiene prioridad sobre las tuyas.
+
+Si **Probar** dice que no hay respuesta de la función, revisa el nombre (`pilas-ai`) y que esté desplegada. El plan gratuito
+incluye 500 000 ejecuciones de funciones al mes; lo que cobre el proveedor de IA corre por tu cuenta, por eso el límite diario.
+El mensaje de cada persona pasa por la función hacia el proveedor y no se guarda en ningún sitio.
+
+Pruebas: `tests/appAi.sql.test.ts` (la clave no se puede leer desde la app y el límite se cumple),
+`tests/appAi.function.test.ts` y `tests/appAi.client.test.ts`.
+
 ## 8. Comprobar que nadie ve datos ajenos
 1. Crea dos cuentas de prueba (A y B) y añade un hábito en cada una.
 2. En **Table Editor → records** verás filas con `ciphertext` ilegible: no aparece ningún nombre de hábito.

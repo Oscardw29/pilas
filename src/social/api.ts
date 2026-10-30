@@ -1,7 +1,7 @@
 import { isSupabaseConfigured, supabase } from '@/sync/supabase';
 import { defaultAvatarSrc, parseDefaultAvatarPath } from '@/lib/defaultAvatars';
 import type {
-  AchievementDef, AdminUserOverview, CatalogItem, DayRow, EconomyVersion, LeaderRow, LeaderboardKind, LeagueStandings,
+  AchievementDef, AdminAiService, AdminUserOverview, CatalogItem, DayRow, EconomyVersion, LeaderRow, LeaderboardKind, LeagueStandings,
   LedgerEntry, ModerationAction, MyFriends, MyStatus, NotificationRow, Person, PodiumEntry, Post, ProfileRow,
   ProfileWeek, PublicProfile, ReactionEmoji, ReportRow, TemplateOption,
 } from './types';
@@ -494,3 +494,29 @@ export async function adminClosures(limit = 8): Promise<{ week_start: string; cl
   fail(error);
   return (data ?? []) as { week_start: string; closed_at: string; forced: boolean; summary: Record<string, number> | null }[];
 }
+
+/* ---------------- IA de la app (panel del creador) ---------------- */
+
+export const adminAiServices = () => rpc<AdminAiService[]>('admin_ai_services');
+
+export const adminSetAiService = (v: {
+  service: string;
+  provider: string;
+  /** Vacía: se conserva la guardada */
+  apiKey: string;
+  model: string;
+  backupModel: string;
+  voice: string;
+  dailyLimit: number;
+}) =>
+  rpc<void>('admin_set_ai_service', {
+    p_service: v.service,
+    p_provider: v.provider,
+    p_api_key: v.apiKey,
+    p_model: v.model,
+    p_backup_model: v.backupModel,
+    p_voice: v.voice,
+    p_daily_limit: v.dailyLimit,
+  });
+
+export const adminClearAiService = (service: string) => rpc<void>('admin_clear_ai_service', { p_service: service });

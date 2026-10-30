@@ -130,8 +130,8 @@
   border: 1.5px solid var(--border-2); background: var(--surface-2); color: inherit;
 }
 .pub-cell svg { display: block; }
-.pub-cell.full { background: var(--success); border-color: var(--success); color: var(--on-status); }
-.pub-cell.minimum { background: var(--minimum); border-color: var(--minimum); color: var(--on-status); }
+.pub-cell.full { background: var(--success-fill); border-color: var(--success-fill); color: var(--on-status); }
+.pub-cell.minimum { background: var(--minimum-fill); border-color: var(--minimum-fill); color: var(--on-status); }
 .pub-cell.missed { background: color-mix(in srgb, var(--danger) 20%, transparent); border-color: var(--danger); color: var(--danger); }
 .pub-cell.partial { background: color-mix(in srgb, var(--minimum) 8%, transparent); border-color: var(--minimum); color: var(--minimum); }
 .pub-cell.future { opacity: .3; border-style: dashed; }

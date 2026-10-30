@@ -168,9 +168,10 @@
 }
 
 /* ---------- Tema claro (ver «AJUSTES DEL TEMA CLARO» en global.css: mismo prefijo sin especificidad) ---------- */
-/* Variantes A / B: violeta y ámbar oscuros para que porcentajes y etiquetas lleguen a AA sobre blanco */
-:where(:root:not([data-theme="dark"])) .lab-variant { --v: #6d28d9; }
-:where(:root:not([data-theme="dark"])) .lab-variant.slot-b { --v: #9e4c08; }
+/* Variantes A / B y repisa del laboratorio: tonos vivos y claros sobre blanco */
+:where(:root:not([data-theme="dark"])) .lab-variant { --v: #7c3aed; }
+:where(:root:not([data-theme="dark"])) .lab-variant.slot-b { --v: #d97706; }
+:where(:root:not([data-theme="dark"])) .lab-shelf-art { --lab-shelf: #a78bfa; --lab-shelf-top: #c4b5fd; }
 :where(:root:not([data-theme="dark"])) .lab-tooltip { background: color-mix(in srgb, var(--popover) 96%, transparent); }
 /* Capa del hábito en pausa: velo claro en vez del casi negro */
 :where(:root:not([data-theme="dark"])) .lab-resume { background: color-mix(in srgb, var(--surface) 86%, transparent); }

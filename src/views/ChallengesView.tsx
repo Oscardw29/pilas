@@ -177,7 +177,7 @@ export const ChallengesView: React.FC = () => {
                   }}
                   wrapperStyle={{ pointerEvents: 'none', zIndex: 50 }}
                 />
-                <Bar dataKey="diasCompletados" fill="var(--yellow)" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="diasCompletados" fill="var(--yellow-fill)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -23,7 +23,8 @@
    --lilac, --orchid, --mint, --aqua, --aqua-2  tonos claros de texto e iconos de las tarjetas del panel
                      (#c4b5fd, #d8b4fe, #6ee7b7, #67e8f9, #a5f3fc en oscuro; en claro su versión oscura ≥ 4.5:1)
    --popover-end     final del degradado de los desplegables (selector, calendario, reloj)
-   --on-status       texto o icono sobre un color de estado sólido (--success, --minimum, --warning)
+   --on-status       texto o icono sobre un color de estado sólido (--success-fill, --minimum-fill, --warning-fill)
+   --*-fill          rellenos sólidos (celdas, barras, gráficas): en claro, un punto más luminosos que --success y compañía
    --overlay         velo de modales y hojas
    --well            fondo «hundido» dentro de una tarjeta (detalles, recuadros)
    --toast-bg        fondo de las notificaciones
@@ -42,8 +43,9 @@
 
 /* ---------- Tema claro (por defecto) ----------
    Fondo lavanda muy suave, tarjetas blancas y el violeta del logo (#a78bfa → #7c3aed → #4c1d95) como acento.
-   Contrastes sobre blanco: --text 16:1 · --text-2 10:1 · --muted 6.5:1 · --faint 5.5:1 · --accent-2 7.1:1 ·
-   estados ≥ 6:1 y ≥ 4.5:1 sobre su propio --*-soft (también encima de --surface-2). */
+   Contrastes sobre blanco: --text 16:1 · --text-2 10:1 · --muted 6.5:1 · --faint 5.5:1 · --accent-2 5.7:1.
+   Los colores de estado son los vivos de la marca, no versiones oscurecidas: oscuros se veían apagados en números,
+   iconos, gráficas y degradados. Rondan 3.5:1 sobre blanco; para texto muy pequeño, mejor --text-2 o --muted. */
 :root, [data-theme="light"] {
   --bg: #f5f4fa;
   --bg-2: #fcfbfe;
@@ -62,45 +64,51 @@
   /* Botones con texto blanco: 5.7:1 (hover 7.1:1) */
   --accent-strong: #7c3aed;
   --accent-strong-hover: #6d28d9;
-  /* Texto de acento (enlaces, insignias, iconos activos): 7.1:1 sobre blanco, 6.1:1 sobre --accent-soft */
-  --accent-2: #6d28d9;
+  /* Texto de acento (enlaces, insignias, iconos activos) */
+  --accent-2: #7c3aed;
   --accent-soft: rgba(124, 58, 237, 0.1);
-  --success: #04694c;
-  --success-soft: rgba(5, 150, 105, 0.12);
-  --danger: #b91c1c;
-  --danger-soft: rgba(220, 38, 38, 0.1);
-  /* Ámbar de los puntos: tono tostado para que el texto llegue a AA (el amarillo del rayo queda en logo e iconos) */
-  --warning: #9e4c08;
-  --warning-soft: rgba(245, 158, 11, 0.15);
-  --info: #0b6b84;
-  --info-soft: rgba(8, 145, 178, 0.12);
-  --minimum: #0b6a63;
-  --minimum-soft: rgba(13, 148, 136, 0.12);
-  --streak: #b13c0b;
-  --super: #7e22ce;
-  --freeze: #0369a1;
-  --yellow: #8a5a00;
-  --orange: #b13c0b;
-  --gold: #8a5a00;
-  --lime: #4d7c0f;
-  --emerald: #04694c;
-  --cyan: #0b6b84;
-  --red: #b91c1c;
-  --league-bronze: #8f5317;
-  --league-silver: #556070;
-  --league-gold: #8a5a00;
-  --league-platinum: #0369a1;
-  --league-diamond: #6d28d9;
-  --rarity-common: #5b6270;
-  --rarity-rare: #1d4ed8;
-  --rarity-epic: #6d28d9;
-  --rarity-legendary: #9e4c08;
-  --lilac: #6d28d9;
-  --orchid: #7e22ce;
-  --mint: #04694c;
-  --aqua: #0b6b84;
-  --aqua-2: #0b6b84;
+  --success: #059669;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --danger: #dc2626;
+  --danger-soft: rgba(239, 68, 68, 0.1);
+  --warning: #c76a05;
+  --warning-soft: rgba(251, 191, 36, 0.18);
+  --info: #0e87a8;
+  --info-soft: rgba(6, 182, 212, 0.12);
+  --minimum: #0d9488;
+  --minimum-soft: rgba(20, 184, 166, 0.12);
+  --streak: #e0500a;
+  --super: #9333ea;
+  --freeze: #0284c7;
+  --yellow: #b5780a;
+  --orange: #e0500a;
+  --gold: #b5780a;
+  --lime: #65a30d;
+  --emerald: #059669;
+  --cyan: #0e87a8;
+  --red: #dc2626;
+  --league-bronze: #b4691f;
+  --league-silver: #64748b;
+  --league-gold: #b5780a;
+  --league-platinum: #0284c7;
+  --league-diamond: #7c3aed;
+  --rarity-common: #64748b;
+  --rarity-rare: #2563eb;
+  --rarity-epic: #7c3aed;
+  --rarity-legendary: #c76a05;
+  --lilac: #7c3aed;
+  --orchid: #9333ea;
+  --mint: #059669;
+  --aqua: #0e87a8;
+  --aqua-2: #0e87a8;
   --on-status: #ffffff;
+  --success-fill: #10b981;
+  --minimum-fill: #14b8a6;
+  --warning-fill: #f59e0b;
+  --freeze-fill: #0ea5e9;
+  --orange-fill: #f97316;
+  --yellow-fill: #eab308;
+  --chart-green: #10b981;
   --ring: #7c3aed;
 
   --overlay: rgba(30, 20, 56, 0.42);
@@ -181,6 +189,13 @@
   --aqua: #67e8f9;
   --aqua-2: #a5f3fc;
   --on-status: #0c0c10;
+  --success-fill: var(--success);
+  --minimum-fill: var(--minimum);
+  --warning-fill: var(--warning);
+  --freeze-fill: var(--freeze);
+  --orange-fill: var(--orange);
+  --yellow-fill: var(--yellow);
+  --chart-green: var(--success);
   --ring: #c4b5fd;
 
   --overlay: rgba(6, 6, 12, 0.78);
@@ -477,6 +492,8 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .callout.neutral > svg { color: var(--accent-2); }
 .callout .title { font-weight: 600; }
 .callout .detail { color: var(--text-2); font-size: 13px; }
+.coach-local-notice { flex-shrink: 0; }
+.coach-local-notice .btn { margin-top: 8px; }
 
 /* ===== Modal ===== */
 .modal-backdrop {
@@ -1083,10 +1100,10 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
 /* Coach IA en móvil: barra de entrada compacta, burbujas más anchas y acciones fáciles de tocar */
 @media (max-width: 639.98px) {
   .coach-model-badges { gap: 6px; }
-  .coach-key-callout { padding: var(--space-3) 14px; gap: 10px; }
-  .coach-key-callout .title { font-size: 13.5px; }
-  .coach-key-callout .detail { font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
-  .coach-key-callout .btn { width: 100%; }
+  .coach-local-notice { padding: var(--space-3) 14px; gap: 10px; }
+  .coach-local-notice .title { font-size: 13.5px; }
+  .coach-local-notice .detail { font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
+  .coach-local-notice .btn { width: 100%; }
   .card.chat-container { padding: var(--space-3); gap: var(--space-2); min-height: 420px; }
   .chat-messages { padding-right: 0; gap: 10px; }
   .chat-message-wrapper > .chat-bubble { max-width: 90%; padding: var(--space-3) 14px; font-size: 14px; border-radius: 16px; }
@@ -1161,9 +1178,9 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .streak-flame .sf-orbit { transform-box: view-box; transform-origin: 24px 26px; }
 .streak-flame .sf-ring { stroke-dasharray: 4 3; }
 /* Tema claro: las capas exteriores de los niveles altos son blancas o casi blancas y sobre una tarjeta blanca
-   la silueta se perdía. Contorno fino con el tono oscuro de cada paleta (--sf-edge), pintado por debajo del relleno */
+   la silueta se perdía. Contorno fino y suave con el tono de cada paleta (--sf-edge), pintado por debajo del relleno */
 :where(:root:not([data-theme="dark"])) .streak-flame .sf-outer {
-  stroke: var(--sf-edge, transparent); stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke;
+  stroke: color-mix(in srgb, var(--sf-edge, transparent) 50%, #ffffff); stroke-width: 1.2; stroke-linejoin: round; paint-order: stroke;
 }
 /* Las celebraciones son siempre oscuras: allí la llama va sin contorno */
 .celebrate-overlay .streak-flame .sf-outer { stroke: none; }
@@ -1402,8 +1419,8 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
   box-shadow: 0 4px 18px rgba(139, 92, 246, 0.45);
 }
 .btn-habit-check.active-min {
-  background: var(--minimum) !important;
-  border: 1.5px solid var(--minimum) !important;
+  background: var(--minimum-fill) !important;
+  border: 1.5px solid var(--minimum-fill) !important;
   color: var(--on-status) !important;
   font-weight: 700;
   box-shadow: 0 4px 16px color-mix(in srgb, var(--minimum) 40%, transparent);
@@ -2081,6 +2098,10 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
   .dash-week { order: 4; }
   .dash-insights { order: 5; }
 }
+/* Métricas del inicio: el contenido va centrado en la tarjeta, igual que el de la racha (la más alta de la fila) */
+.dash-kpi-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 8px 0; min-width: 0; }
+.dash-kpi-body .stat-value { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text); margin-top: 0; }
+
 /* Móvil: métricas clave como tira deslizable horizontal */
 @media (max-width: 639.98px) {
   .dash-kpis {
@@ -2122,7 +2143,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-
 
 /* Celda de hábito en pausa (hoy): mismo formato que las demás celdas de la matriz */
 .matrix-cell-btn.resume-cell {
-  background: var(--warning); border: 1.5px solid var(--warning); color: #fff;
+  background: var(--warning-fill); border: 1.5px solid var(--warning-fill); color: #fff;
   position: relative; transition: background .15s, border-color .15s, transform .15s, color .15s;
 }
 .matrix-cell-btn.resume-cell .resume-cell-idle, .icon-filled { fill: currentColor; }
@@ -2660,6 +2681,31 @@ body:has(.modal-backdrop) .app-shell *::after {
    :where(:root:not([data-theme="dark"])) no suma especificidad: la regla pesa lo mismo que la original y gana
    por ir después, así los estados (:hover, .active, :disabled…) siguen funcionando y el tema oscuro no cambia.
    ===================================================================== */
+/* Menú lateral morado: dentro de él rigen colores para fondo oscuro (blanco ≥ 7:1 sobre todo el degradado) */
+:where(:root:not([data-theme="dark"])) .sidebar {
+  --text: #ffffff;
+  --text-strong: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.9);
+  --faint: rgba(255, 255, 255, 0.78);
+  --surface: rgba(255, 255, 255, 0.1);
+  --surface-2: rgba(255, 255, 255, 0.14);
+  --surface-3: rgba(255, 255, 255, 0.22);
+  --border: rgba(255, 255, 255, 0.16);
+  --border-2: rgba(255, 255, 255, 0.26);
+  --accent: #fde047;
+  --accent-2: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.2);
+  --bg-2: #5b21b6;
+  --scrollbar: rgba(255, 255, 255, 0.32);
+  color: var(--text);
+  background: linear-gradient(180deg, #6d28d9 0%, #5b21b6 48%, #4c1d95 100%);
+  border-right-color: transparent;
+}
+:where(:root:not([data-theme="dark"])) .sidebar .brand-bang { color: #fde047; }
+/* Fijo abajo del menú: opaco para que las secciones no se transparenten al pasar por detrás */
+:where(:root:not([data-theme="dark"])) .sidebar .profile-block { background: #4c1d95; }
+:where(:root:not([data-theme="dark"])) .sidebar .level-card { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.24); }
 /* Segmentos: pastilla blanca elevada sobre la pista lila */
 :where(:root:not([data-theme="dark"])) .segmented button.active { background: var(--surface); }
 /* Marca: el «¡» en el ámbar del rayo, oscurecido para llegar a 3:1 (texto grande) sobre el fondo claro */
@@ -2682,5 +2728,5 @@ body:has(.modal-backdrop) .app-shell *::after {
 :where(:root:not([data-theme="dark"])) .custom-switch-track { background: var(--surface-3); border-color: var(--input-border); }
 :where(:root:not([data-theme="dark"])) .custom-switch:hover .custom-switch-track { border-color: var(--accent); }
 :where(:root:not([data-theme="dark"])) .custom-switch-thumb { box-shadow: 0 1px 3px rgba(46, 16, 101, 0.35); }
-/* Botón «Probar sonido»: índigo oscuro en vez de #a5b4fc (2:1 sobre blanco) */
-:where(:root:not([data-theme="dark"])) .btn-sound-test { color: #4338ca; }
+/* Botón «Probar sonido»: el acento en vez de #a5b4fc (2:1 sobre blanco) */
+:where(:root:not([data-theme="dark"])) .btn-sound-test { color: var(--accent-2); }

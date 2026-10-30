@@ -45,8 +45,6 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `bienvenida.pagina` | ¡Hola! Soy Pilo, tu entrenador de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy? |
 | `bienvenida.flotante` | ¡Hola! Soy Pilo. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página. |
 | `ajustes.prueba_voz` | ¡Hola! Soy Pilo, tu entrenador. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy! |
-| `local.nota.1` | Te respondo con mi motor local. Con una clave de IA en Ajustes puedo darte respuestas todavía más personalizadas. |
-| `local.nota.2` | Esta respuesta sale de mi motor local, sin conexión. Si añades una clave de IA en Ajustes, puedo profundizar mucho más. |
 | `saludo.apertura.1` | ¡Hola! Qué bueno verte por aquí. |
 | `saludo.apertura.2` | ¡Hey! Aquí estoy, con ganas de ayudarte. |
 | `saludo.apertura.3` | ¡Buenas! Me alegra que pases a saludar. |
@@ -242,8 +240,6 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `bienvenida.pagina` | ¡Hola! Soy Pila, tu entrenadora de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy? |
 | `bienvenida.flotante` | ¡Hola! Soy Pila. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página. |
 | `ajustes.prueba_voz` | ¡Hola! Soy Pila, tu entrenadora. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy! |
-| `local.nota.1` | Te respondo con mi motor local. Con una clave de IA en Ajustes puedo darte respuestas todavía más personalizadas. |
-| `local.nota.2` | Esta respuesta sale de mi motor local, sin conexión. Si añades una clave de IA en Ajustes, puedo profundizar mucho más. |
 | `saludo.apertura.1` | ¡Hola! Qué bueno verte por aquí. |
 | `saludo.apertura.2` | ¡Hey! Aquí estoy, con ganas de ayudarte. |
 | `saludo.apertura.3` | ¡Buenas! Me alegra que pases a saludar. |
@@ -432,4 +428,4 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `general.cierre.2` | No se trata de hacerlo perfecto cada día, sino de no fallar dos días seguidos. |
 | `general.cierre.3` | Si me cuentas qué te preocupa, te respondo con más precisión: racha, tiempo, motivación, estudio o ejercicio. |
 
-Total: 192 frases por voz (4 cambian entre Pilo y Pila).
+Total: 190 frases por voz (4 cambian entre Pilo y Pila).

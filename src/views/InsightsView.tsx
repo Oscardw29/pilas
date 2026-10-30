@@ -197,7 +197,7 @@ export const InsightsView: React.FC = () => {
                   {failChartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={index === 0 ? 'var(--danger)' : index === 1 ? 'var(--warning)' : '#8b5cf6'}
+                      fill={index === 0 ? 'var(--danger)' : index === 1 ? 'var(--warning-fill)' : '#8b5cf6'}
                     />
                   ))}
                 </Bar>

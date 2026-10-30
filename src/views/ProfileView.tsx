@@ -337,7 +337,9 @@ export const ProfileView: React.FC = () => {
           )
         }
       >
-        {!editing && hasProfile && <p className="ph-hint">Así ven tu perfil los demás.</p>}
+        {!editing && hasProfile && (
+          <p className="ph-hint">{demo ? 'Los demás siguen viendo tus datos reales: la demostración solo la ves tú.' : 'Así ven tu perfil los demás.'}</p>
+        )}
         {editing && <p className="ph-hint">Vista previa: así se verá tu perfil al guardar.</p>}
       </ProfileHero>
 

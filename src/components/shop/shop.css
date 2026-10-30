@@ -5,6 +5,8 @@
    y los botones de siempre. Ámbar (--warning) como color de los puntos.
    ===================================================================== */
 .shop-page { --wood: #6b4a37; --wood-top: #84604a; --wood-dark: #4a3226; }
+/* Tema claro: madera clara; la oscura pesaba demasiado sobre el fondo lavanda */
+:where(:root:not([data-theme="dark"])) .shop-page { --wood: #c79a74; --wood-top: #dcb896; --wood-dark: #b08560; --shop-rod: #8b5cf6; }
 
 /* ---------- Fachada ---------- */
 .shop-front {
@@ -18,7 +20,7 @@
 
 /* Carpa */
 .shop-awning { position: relative; z-index: 3; height: 56px; pointer-events: none; }
-.shop-awning-rod { height: 8px; background: #5b21b6; }
+.shop-awning-rod { height: 8px; background: var(--shop-rod, #5b21b6); }
 .shop-awning-stripes {
   height: 28px;
   background:
@@ -159,7 +161,7 @@
 .shop-receipt-name { display: flex; flex-direction: column; min-width: 0; font-weight: 700; }
 .shop-receipt-name small { font-size: 11px; font-weight: 500; color: #6b7280; }
 .shop-receipt-dots { flex: 1; min-width: 12px; margin-bottom: 5px; border-bottom: 2px dotted #cbbfa9; }
-.shop-receipt-cost { font-weight: 800; color: #b91c1c; white-space: nowrap; }
+.shop-receipt-cost { font-weight: 800; color: #dc2626; white-space: nowrap; }
 .shop-receipt-total { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 10px; border-top: 2px dashed #cbbfa9; font-size: 14px; font-weight: 900; }
 
 /* ---------- Pantallas pequeñas ---------- */

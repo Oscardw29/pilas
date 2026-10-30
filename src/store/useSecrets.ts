@@ -8,8 +8,8 @@ import { generateDeviceKey, openJson, sealJson } from '@/crypto/keys';
  * - Pertenecen a este dispositivo: nunca se sincronizan ni viajan en los respaldos.
  * - Se guardan en IndexedDB (`pilas-device`) **siempre cifradas**: por defecto con una clave del
  *   dispositivo AES-GCM no extraíble (el código puede usarla, pero nadie puede copiarla).
- * - Cifrado adicional opcional con contraseña local: AES-GCM 256 con clave derivada por PBKDF2.
- *   En ese modo las claves solo existen descifradas en memoria tras desbloquear.
+ * - Versiones anteriores podían cifrarlas además con una contraseña (AES-GCM 256 + PBKDF2). Ya no se ofrece: quien las
+ *   tenga así las recupera una vez con su contraseña (components/settings/LockedKeysCard) y quedan como las demás.
  */
 
 /** Versiones anteriores guardaban las claves aquí (texto plano o cifradas con contraseña) */
@@ -40,10 +40,8 @@ interface SecretsState {
   locked: boolean;
   setKeys: (patch: Partial<Secrets>) => Promise<void>;
   forgetAll: () => void;
-  enableEncryption: (password: string) => Promise<void>;
   disableEncryption: () => void;
   unlock: (password: string) => Promise<boolean>;
-  lock: () => void;
   /** Mueve claves de versiones antiguas (guardadas dentro de settings) solo si aún no hay claves propias */
   importLegacy: (legacy: Partial<Secrets>) => void;
 }
@@ -130,16 +128,6 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
     set({ keys: emptySecrets(), mode: 'plain', locked: false });
   },
 
-  enableEncryption: async (password) => {
-    if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const key = await deriveKey(password, salt);
-    sessionKey = { key, salt };
-    const keys = get().keys;
-    await persist(() => encryptWithPassword(keys, key, salt));
-    set({ mode: 'enc', locked: false });
-  },
-
   disableEncryption: () => {
     if (get().locked) return;
     sessionKey = null;
@@ -161,12 +149,6 @@ export const useSecrets = create<SecretsState>()((set, get) => ({
     } catch {
       return false;
     }
-  },
-
-  lock: () => {
-    if (get().mode !== 'enc') return;
-    sessionKey = null;
-    set({ keys: emptySecrets(), locked: true });
   },
 
   importLegacy: (legacy) => {

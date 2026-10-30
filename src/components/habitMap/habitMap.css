@@ -45,7 +45,7 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
 .hm-node:focus-visible .hm-node-box { stroke: var(--accent-2); stroke-width: 3; }
 .hm-node.is-inactive .hm-node-box { stroke-dasharray: 5 4; }
 .hm-node.is-inactive .hm-node-label, .hm-node.is-inactive .hm-node-icon { opacity: .6; }
-.hm-node-paused circle { fill: var(--warning); stroke: var(--surface); stroke-width: 2; }
+.hm-node-paused circle { fill: var(--warning-fill); stroke: var(--surface); stroke-width: 2; }
 .hm-node-paused svg { color: #000; }
 .hm-canvas.is-connecting .hm-node.is-target .hm-node-box { stroke: var(--accent-2); stroke-width: 2; animation: hmPulse 1.4s ease-in-out infinite; }
 @keyframes hmPulse { 50% { stroke-opacity: .35; } }

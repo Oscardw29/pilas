@@ -52,7 +52,7 @@ export const ShopBackShelf: React.FC = () => (
 
     {/* Caja sorpresa */}
     <g className="shop-art-mystery">
-      <rect x={186} y={46} width={50} height={50} rx={9} fill="#0f766e" />
+      <rect x={186} y={46} width={50} height={50} rx={9} fill="#14b8a6" />
       <rect x={186} y={46} width={50} height={44} rx={9} fill="#14b8a6" />
       <text x={211} y={80} textAnchor="middle" fontSize={30} fontWeight={900} fill="#fff" fontFamily="Inter, system-ui, sans-serif">
         ?
@@ -66,7 +66,7 @@ export const ShopBackShelf: React.FC = () => (
     </g>
 
     {/* Balda */}
-    <rect x={0} y={96} width={280} height={14} rx={4} fill="#5b3a29" />
+    <rect x={0} y={96} width={280} height={14} rx={4} fill="var(--wood-dark, #5b3a29)" />
     <rect x={0} y={96} width={280} height={9} rx={4} fill="#8b5a3c" />
   </svg>
 );

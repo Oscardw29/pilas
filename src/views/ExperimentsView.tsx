@@ -25,8 +25,8 @@ import '../components/lab/lab.css';
 
 /** Colores de cada variante: A violeta, B ámbar (como sus etiquetas) */
 const SLOT = [
-  { name: 'A', color: '#a78bfa', shade: '#7c3aed' },
-  { name: 'B', color: '#fbbf24', shade: '#d97706' },
+  { name: 'A', color: '#a78bfa', shade: '#7c3aed', text: 'var(--accent-2)' },
+  { name: 'B', color: '#fbbf24', shade: '#d97706', text: 'var(--warning)' },
 ];
 
 const expCode = (exp: Experiment, all: Experiment[]) => {
@@ -216,7 +216,7 @@ export const ExperimentsView: React.FC = () => {
                       return (
                         <div className="lab-tooltip">
                           <div className="lab-tooltip-title">{item.expName}</div>
-                          <div style={{ color: SLOT[item.slot].color, fontWeight: 700 }}>
+                          <div style={{ color: SLOT[item.slot].text, fontWeight: 700 }}>
                             Variante {SLOT[item.slot].name}: {item.adherencia}%
                           </div>
                           <div className="lab-tooltip-sub">Duración media: {item.duracion} min</div>
@@ -433,7 +433,7 @@ export const ExperimentsView: React.FC = () => {
                   <span className="badge lab-code">{expCode(exp, experiments)}</span>
                   <div className="lab-report-name">{exp.name}</div>
                   {winner && (
-                    <div className="lab-report-winner" style={{ color: SLOT[slotIdx].color }}>
+                    <div className="lab-report-winner" style={{ color: SLOT[slotIdx].text }}>
                       <Trophy size={14} aria-hidden="true" /> Ganó la variante {SLOT[slotIdx].name}: {winner.label}
                     </div>
                   )}

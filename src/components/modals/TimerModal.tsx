@@ -234,7 +234,7 @@ export const TimerModal: React.FC = () => {
                     y1={tickY1}
                     x2={tickX2}
                     y2={tickY2}
-                    stroke="var(--orange)"
+                    stroke="var(--orange-fill)"
                     strokeWidth={4}
                     strokeLinecap="round"
                     style={{ filter: 'drop-shadow(0 0 4px var(--orange))' }}
