@@ -389,11 +389,12 @@ export const DashboardView: React.FC = () => {
 
     if (realTotal > 0) {
       const valid = items.filter((x) => x.value > 0);
-      return { donutData: valid.length > 0 ? valid : items, totalDonutMinutes: realTotal, isDonutEstimated: false };
+      return { donutData: valid, totalDonutMinutes: realTotal, isDonutEstimated: false };
     }
 
-    // Si aún no hay minutos invertidos, proyectar tiempos objetivo para visualizar todos los hábitos
-    const estimatedItems = items.map((x) => ({
+    // Si aún no hay minutos invertidos, proyectar el tiempo objetivo solo de los hábitos de tiempo
+    const timeIds = new Set(activeHabits.filter((h) => h.kind === 'time' || (!h.kind && h.targetMinutes)).map((h) => h.id));
+    const estimatedItems = items.filter((x) => timeIds.has(x.id)).map((x) => ({
       ...x,
       value: x.targetMinutes,
     }));
@@ -1208,7 +1209,7 @@ export const DashboardView: React.FC = () => {
           ) : donutData.length === 0 ? (
             <div className="empty" style={{ padding: '40px 16px', textAlign: 'center' }}>
               <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-                Aún no has acumulado minutos cronometrados ni registrados para estos hábitos.
+                Aún no tienes hábitos de tiempo ni minutos registrados. Crea un hábito de tiempo o usa el temporizador.
               </p>
             </div>
           ) : (
