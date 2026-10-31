@@ -1,7 +1,7 @@
 import { isSupabaseConfigured, supabase } from '@/sync/supabase';
 import { defaultAvatarSrc, parseDefaultAvatarPath } from '@/lib/defaultAvatars';
 import type {
-  AchievementDef, AdminAiService, AdminUserOverview, CatalogItem, DayRow, EconomyVersion, LeaderRow, LeaderboardKind, LeagueStandings,
+  AchievementDef, AdminAccount, AdminAiService, AdminUserOverview, CatalogItem, DayRow, EconomyVersion, LeaderRow, LeaderboardKind, LeagueStandings,
   LedgerEntry, ModerationAction, MyFriends, MyStatus, NotificationRow, Person, PodiumEntry, Post, ProfileRow,
   ProfileWeek, PublicProfile, ReactionEmoji, ReportRow, TemplateOption,
 } from './types';
@@ -458,6 +458,19 @@ export const adminRevertEconomy = (version: number) => rpc<number>('admin_revert
 export const adminSetMyAchievement = (achievementId: string, on: boolean) =>
   rpc<void>('admin_set_achievement', { p_achievement: achievementId, p_on: on });
 export const adminCloseWeek = (weekStart: string) => rpc<Record<string, unknown>>('admin_close_week', { p_week: weekStart });
+export const adminAccounts = () => rpc<AdminAccount[]>('admin_accounts');
+
+/** Elimina la cuenta de otra persona. Sus fotos van antes: Storage no las borra en cascada (si falla, se sigue igual) */
+export async function adminDeleteAccount(userId: string, reason: string) {
+  try {
+    const { data } = await sb().storage.from('avatars').list(userId, { limit: 100 });
+    if (data?.length) await removeAvatarFiles(data.map((f) => `${userId}/${f.name}`));
+  } catch {
+    /* sin conexión con Storage */
+  }
+  await rpc<void>('admin_delete_account', { p_user: userId, p_reason: reason });
+}
+
 export const adminUser = (alias: string) => rpc<AdminUserOverview | null>('admin_user', { p_alias: alias });
 export const adminClearAvatar = (userId: string, reason: string) => rpc<void>('admin_clear_avatar', { p_user: userId, p_reason: reason });
 export const adminClearBanner = (userId: string, reason: string) => rpc<void>('admin_clear_banner', { p_user: userId, p_reason: reason });

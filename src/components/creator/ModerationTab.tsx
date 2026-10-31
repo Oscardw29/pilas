@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Ban, Check, Coins, ExternalLink, ImageOff, RotateCcw, Search, ShieldCheck, Sparkles, UserX, X } from 'lucide-react';
+import { AlertTriangle, Ban, Check, Coins, ExternalLink, ImageOff, RotateCcw, ShieldCheck, Sparkles, UserX, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastContext';
 import { Avatar, PersonAvatar } from '@/components/profile/Avatar';
+import { AccountsPanel } from './AccountsPanel';
 import {
-  adminActions, adminAdjustCoins, adminAdjustXp, adminBan, adminClearAvatar, adminClearBanner, adminReports, adminResolveReport, adminUnban, adminUser,
-  adminWarn, assetUrl, removeAvatarFiles,
+  adminAccounts, adminActions, adminAdjustCoins, adminAdjustXp, adminBan, adminClearAvatar, adminClearBanner, adminReports, adminResolveReport, adminUnban, adminUser,
+  adminWarn, assetUrl, removeAvatarFiles, SocialError,
 } from '@/social/api';
 import { personName, profilePath, REPORT_REASONS, timeAgo } from '@/social/texts';
-import type { AdminUserOverview, ModerationAction, Person, ReportRow } from '@/social/types';
+import type { AdminAccount, AdminUserOverview, ModerationAction, Person, ReportRow } from '@/social/types';
+import { useSession } from '@/store/useSession';
 
 type ActionKind = 'avatar' | 'banner' | 'warn' | 'ban' | 'unban' | 'coins' | 'xp';
 
@@ -31,6 +33,7 @@ const ACTION_LABEL: Record<string, string> = {
   remove_banner: 'Banner quitado',
   adjust_coins: 'Ajuste de monedas',
   adjust_xp: 'Ajuste de XP',
+  delete_account: 'Cuenta eliminada',
   delete_post: 'Publicación borrada',
   resolve_report: 'Reporte revisado',
   publish_economy: 'Economía publicada',
@@ -217,13 +220,14 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
 
 type ReportItem = Awaited<ReturnType<typeof adminReports>>[number];
 
-/** Moderación: buscar a alguien por alias, actuar sobre su perfil, cola de reportes y registro de acciones */
+/** Moderación: todas las cuentas, acciones sobre cada persona, cola de reportes y registro de acciones */
 export const ModerationTab: React.FC = () => {
   const { showToast } = useToast();
-  const [query, setQuery] = useState('');
+  const myId = useSession((s) => s.user?.id);
+  const [accounts, setAccounts] = useState<AdminAccount[] | null>(null);
+  const [accountsMissing, setAccountsMissing] = useState(false);
   const [user, setUser] = useState<AdminUserOverview | null>(null);
   const [searched, setSearched] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
   const [action, setAction] = useState<ActionKind | null>(null);
   const [reportFilter, setReportFilter] = useState<'open' | 'all'>('open');
   const [reports, setReports] = useState<ReportItem[] | null>(null);
@@ -235,19 +239,28 @@ export const ModerationTab: React.FC = () => {
     async (handle: string) => {
       const a = handle.trim().replace(/^@+/, '').toLowerCase();
       if (!a) return;
-      setSearching(true);
       try {
         const u = await adminUser(a);
         setUser(u);
         setSearched(a);
       } catch (err) {
         showToast((err as Error).message, 'error');
-      } finally {
-        setSearching(false);
       }
     },
     [showToast],
   );
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      setAccounts(await adminAccounts());
+    } catch (err) {
+      if (err instanceof SocialError && err.code === 'PGRST202') setAccountsMissing(true);
+      else {
+        showToast((err as Error).message, 'error');
+        setAccounts((p) => p ?? []);
+      }
+    }
+  }, [showToast]);
 
   const loadReports = useCallback(async () => {
     try {
@@ -268,6 +281,9 @@ export const ModerationTab: React.FC = () => {
   }, [showToast]);
 
   useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+  useEffect(() => {
     void loadReports();
   }, [loadReports]);
   useEffect(() => {
@@ -287,13 +303,13 @@ export const ModerationTab: React.FC = () => {
     }
   };
 
-  const open = (handle: string) => {
-    setQuery(handle);
-    void lookup(handle);
-    document.getElementById('mod-user')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const open = async (handle: string) => {
+    await lookup(handle);
+    document.getElementById('mod-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const p = user?.profile;
+  const isMe = p?.user_id === myId;
   const stats = user?.stats ?? null;
   const statKeys = stats ? Object.keys(stats).filter((k) => k !== 'user_id') : [];
 
@@ -302,34 +318,28 @@ export const ModerationTab: React.FC = () => {
       <div className="card" id="mod-user">
         <div className="card-head">
           <div>
-            <h2 className="card-title">Buscar a una persona</h2>
-            <p className="card-sub">Por su alias (o su id si no tiene alias). Cada acción pide un motivo y queda en el registro.</p>
+            <h2 className="card-title">Personas registradas{accounts ? ` (${accounts.length})` : ''}</h2>
+            <p className="card-sub">Todas las cuentas, también la tuya. Gestionar abre sus datos y acciones; cada acción queda en el registro.</p>
           </div>
-        </div>
-        <form
-          className="search-row"
-          role="search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void lookup(query);
-          }}
-        >
-          <input
-            className="input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Alias o id"
-            aria-label="Alias o id de la persona"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          <button type="submit" className="btn btn-primary" disabled={searching || !query.trim()}>
-            <Search /> {searching ? 'Buscando…' : 'Buscar'}
+          <button type="button" className="btn btn-ghost sm" onClick={() => void loadAccounts()}>
+            <RotateCcw /> Actualizar
           </button>
-        </form>
+        </div>
 
-        {searched && !user && !searching && (
+        <AccountsPanel
+          accounts={accounts}
+          missing={accountsMissing}
+          onManage={(a) => void open(handleOf({ alias: a.alias, user_id: a.user_id }))}
+          onChanged={() => {
+            setUser(null);
+            setSearched(null);
+            void loadAccounts();
+            void loadLog();
+          }}
+        />
+
+        <div id="mod-detail" />
+        {searched && !user && (
           <p className="muted" style={{ marginTop: 14 }}>
             No hay ningún perfil con «{searched}».
           </p>
@@ -378,10 +388,12 @@ export const ModerationTab: React.FC = () => {
               <button type="button" className="btn btn-secondary sm" disabled={!p.banner_item} onClick={() => setAction('banner')}>
                 <X /> Quitar banner
               </button>
-              <button type="button" className="btn btn-secondary sm" onClick={() => setAction('warn')}>
-                <AlertTriangle /> Advertir
-              </button>
-              {user.banned ? (
+              {!isMe && (
+                <button type="button" className="btn btn-secondary sm" onClick={() => setAction('warn')}>
+                  <AlertTriangle /> Advertir
+                </button>
+              )}
+              {isMe ? null : user.banned ? (
                 <button type="button" className="btn btn-success sm" onClick={() => setAction('unban')}>
                   <ShieldCheck /> Levantar veto
                 </button>
@@ -500,7 +512,7 @@ export const ModerationTab: React.FC = () => {
                     <td>
                       <div className="row" style={{ gap: 4 }}>
                         {r.target && (
-                          <button type="button" className="btn btn-ghost sm" onClick={() => open(handleOf(r.target!))}>
+                          <button type="button" className="btn btn-ghost sm" onClick={() => void open(handleOf(r.target!))}>
                             <UserX /> Moderar
                           </button>
                         )}
@@ -581,6 +593,7 @@ export const ModerationTab: React.FC = () => {
           onClose={() => setAction(null)}
           onDone={() => {
             void lookup(handleOf(user.profile));
+            void loadAccounts();
             void loadLog();
           }}
         />

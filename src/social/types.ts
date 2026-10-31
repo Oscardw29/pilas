@@ -347,3 +347,18 @@ export interface AdminAiService {
   key_hint: string;
   used_today: number;
 }
+
+/** Una cuenta registrada, como la ve el creador (con perfil público o sin él) */
+export interface AdminAccount {
+  user_id: string;
+  email: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  has_profile: boolean;
+  alias: string | null;
+  display_name: string | null;
+  avatar_path: string | null;
+  banned: boolean;
+  is_admin: boolean;
+}

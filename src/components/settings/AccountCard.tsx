@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Cloud, KeyRound, LogOut, RefreshCw, Trash2 } from 'lucide-react';
+import { useIsCreator } from '@/lib/creator';
 import { useSession } from '@/store/useSession';
 import { supabase } from '@/sync/supabase';
 import { changePassword, deleteAccount, passwordProblem, regenerateRecoveryCode } from '@/account/account';
@@ -28,6 +29,8 @@ function relative(ts?: number) {
 export const AccountCard: React.FC = () => {
   const { user, lastSyncedAt, syncError } = useSession();
   const { showToast } = useToast();
+  // La cuenta del creador no se puede eliminar: sostiene el panel y la IA de la app
+  const isCreator = useIsCreator();
   const [panel, setPanel] = useState<Panel>(null);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -151,9 +154,11 @@ export const AccountCard: React.FC = () => {
         <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'signout'} onClick={() => open('signout')}>
           <LogOut aria-hidden /> Cerrar sesión
         </button>
-        <button type="button" className="btn btn-ghost sm" style={{ color: 'var(--danger)' }} aria-expanded={panel === 'delete'} onClick={() => open('delete')}>
-          <Trash2 aria-hidden /> Eliminar cuenta
-        </button>
+        {!isCreator && (
+          <button type="button" className="btn btn-ghost sm" style={{ color: 'var(--danger)' }} aria-expanded={panel === 'delete'} onClick={() => open('delete')}>
+            <Trash2 aria-hidden /> Eliminar cuenta
+          </button>
+        )}
       </div>
 
       {panel === 'password' && (

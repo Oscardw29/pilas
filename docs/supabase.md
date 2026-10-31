@@ -126,6 +126,12 @@ extremo a extremo en `records`.
 y 0003: topes de XP y monedas (enteros), fechas, compras, multiplicador, cierre semanal y zonas de las ligas, logros,
 ánimos, «me gusta», semanas del perfil, edición de publicaciones, reinicio del progreso, vetos y permisos.
 
+### Cuentas en el panel del creador
+Para ver todas las cuentas en **Panel del creador → Moderación** y poder eliminarlas: **SQL Editor** → **New query** → pega todo
+[`supabase/migrations/0005_cuentas_panel.sql`](../supabase/migrations/0005_cuentas_panel.sql) → **Run**. Se puede volver a ejecutar.
+
+La cuenta del creador no se puede eliminar, ni desde el panel ni desde Ajustes: el servidor lo rechaza.
+
 ### IA de la app: tus claves para todos
 Con esto quien no tenga clave propia usa la IA y la voz sin configurar nada. Tus claves se guardan en el servidor y nunca
 llegan a los dispositivos: la app le pide cada respuesta a una función de Supabase. Sin este paso la app funciona igual,

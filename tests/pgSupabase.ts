@@ -17,7 +17,7 @@ alter default privileges in schema public grant all on functions to anon, authen
 
 create schema auth;
 grant usage on schema auth to anon, authenticated;
-create table auth.users (id uuid primary key, email text, created_at timestamptz not null default now());
+create table auth.users (id uuid primary key, email text, created_at timestamptz not null default now(), last_sign_in_at timestamptz, email_confirmed_at timestamptz);
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
@@ -56,6 +56,7 @@ export async function createTestDb(): Promise<TestDb> {
   await pg.exec(migration('0002_social.sql'));
   await pg.exec(migration('0003_perfiles_ligas.sql'));
   await pg.exec(migration('0004_ia_de_la_app.sql'));
+  await pg.exec(migration('0005_cuentas_panel.sql'));
 
   const sql = async <T,>(query: string, params: unknown[] = []) => (await pg.query<T>(query, params)).rows;
   const as = async <T,>(uid: string | null, query: string, params: unknown[] = []) => {
