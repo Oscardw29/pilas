@@ -561,20 +561,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [isDirty]);
 
-  // Botón flotante de guardar mientras el botón normal no está en pantalla
-  const formRef = useRef<HTMLFormElement>(null);
-  const saveButtonRef = useRef<HTMLButtonElement>(null);
-  const [saveVisible, setSaveVisible] = useState(true);
-  useEffect(() => {
-    const el = saveButtonRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const obs = new IntersectionObserver(([entry]) => setSaveVisible(entry.isIntersecting), { threshold: 0.1 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  const showStickySave = isDirty && !saveVisible;
-
   /** Guarda todo el formulario. false si algo no se pudo guardar (nombre vacío, alias no válido o rechazado) */
   const handleSaveProfile = async (e?: React.FormEvent): Promise<boolean> => {
     e?.preventDefault();
@@ -755,7 +741,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   };
 
   return (
-    <div className={`stack fade-up${showStickySave ? ' has-sticky-save' : ''}`} style={{ maxWidth: 860 }}>
+    <div className="stack fade-up" style={{ maxWidth: 860 }}>
       {/* Cabecera */}
       <div className="page-head">
         <div>
@@ -791,7 +777,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       <LockedKeysCard />
 
       <form
-        ref={formRef}
         onSubmit={handleSaveProfile}
         className="form"
         autoComplete="off"
@@ -1963,7 +1948,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
         {/* Botón Guardar */}
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
-          <button ref={saveButtonRef} type="submit" className="btn btn-primary lg">
+          <button type="submit" className="btn btn-primary lg">
             <Save size={16} /> Guardar configuración
           </button>
         </div>
@@ -2078,18 +2063,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
         confirmVariant="danger"
         zIndex={1300}
       />
-      {/* Solo con cambios por guardar y con el botón normal fuera de la pantalla */}
-      {showStickySave && (
-        <button
-          type="button"
-          className="btn btn-primary lg sticky-save"
-          onClick={() => formRef.current?.requestSubmit()}
-          aria-label="Guardar configuración (hay cambios sin guardar)"
-        >
-          <span className="dot" aria-hidden="true" />
-          <Save size={16} /> Guardar configuración
-        </button>
-      )}
 
       {/* Intento de salir con cambios sin guardar */}
       <Modal isOpen={blocker.state === 'blocked'} onClose={() => blocker.reset?.()} title="Cambios sin guardar">

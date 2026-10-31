@@ -262,20 +262,6 @@
   .ph-ach-chip:hover, .ph-color:hover:not(:disabled) { transform: none; }
 }
 
-/* Guardado flotante de Ajustes: con él en pantalla la página deja sitio para no tapar lo último */
-.has-sticky-save { padding-bottom: 76px; }
-.sticky-save {
-  position: fixed; z-index: 900; right: max(20px, var(--safe-right, 0px)); bottom: calc(24px + var(--safe-bottom, 0px));
-  display: inline-flex; align-items: center; gap: 8px;
-  animation: profileMenuIn .16s ease-out;
-}
-.sticky-save .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
-@media (max-width: 639.98px) {
-  /* Encima de la barra inferior de navegación */
-  .sticky-save { right: 16px; bottom: calc(84px + var(--safe-bottom, 0px)); }
-}
-@media (prefers-reduced-motion: reduce) { .sticky-save { animation: none; } }
-
 /* Vista previa de cosméticos (selector del perfil y tienda) */
 .profile-banner.cos-prev-banner { width: 100%; height: 104px; border-radius: var(--radius-sm); }
 .profile-banner.cos-prev-banner.sm { height: 56px; }
