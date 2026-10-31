@@ -1,8 +1,9 @@
 /* ===== ¡Pilas! · sistema de diseño global ===== */
 
 /* =====================================================================
-   TEMAS: claro (por defecto) y oscuro
-   <html data-theme="light|dark"> lo pone el ajuste Settings.theme. Sin atributo se ve el tema claro.
+   TEMAS: oscuro (por defecto) y claro
+   <html data-theme="light|dark"> lo pone el ajuste Settings.theme (sin valor = oscuro, ver lib/theme.ts).
+   Sin atributo se vería el tema claro, pero public/theme-init.js lo pone siempre antes de pintar.
    Cualquier subárbol puede forzar un tema con data-theme="dark" / data-theme="light" (o la clase .theme-dark).
    Las celebraciones a pantalla completa (.celebrate-overlay) son siempre oscuras: el fuego, los halos con
    mix-blend-mode: screen y los títulos blanco → oro están pensados para un escenario a oscuras.
@@ -1456,6 +1457,7 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
   border: 1.5px dashed color-mix(in srgb, var(--success) 75%, transparent) !important;
   background: color-mix(in srgb, var(--success) 8%, transparent) !important;
   transform: scale(1.06);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.25);
 }
 .matrix-cell-btn.filled {
   animation: checkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

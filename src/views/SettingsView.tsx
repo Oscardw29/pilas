@@ -723,7 +723,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   };
 
   const setTheme = (theme: 'light' | 'dark') => {
-    if ((settings.theme ?? 'light') === theme) return;
+    if ((settings.theme ?? 'dark') === theme) return;
     updateSettings({ theme });
     playSound.pop();
   };
@@ -884,7 +884,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
                   key={value}
                   type="button"
                   role="radio"
-                  aria-checked={(settings.theme ?? 'light') === value}
+                  aria-checked={(settings.theme ?? 'dark') === value}
                   className="gender-option theme-option"
                   onClick={() => setTheme(value)}
                 >

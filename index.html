@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- La Content-Security-Policy se inyecta solo en el build de producción (ver vite.config.ts) -->
     <meta name="referrer" content="no-referrer" />
-    <!-- Tema claro por defecto; public/theme-init.js aplica el último elegido (data-theme) antes de pintar -->
-    <meta name="theme-color" content="#f5f4fa" />
+    <!-- Tema oscuro por defecto; public/theme-init.js aplica el último elegido (data-theme) antes de pintar -->
+    <meta name="theme-color" content="#0c0c10" />
     <meta name="color-scheme" content="light dark" />
     <script src="/theme-init.js"></script>
     <!-- Fondo mientras carga la hoja de estilos (sin especificidad: global.css manda en cuanto llega) -->
     <style>
-      :where(html) { background: #f5f4fa; }
-      :where(html[data-theme='dark']) { background: #0c0c10; }
+      :where(html) { background: #0c0c10; }
+      :where(html[data-theme='light']) { background: #f5f4fa; }
     </style>
     <meta name="description" content="¡Pilas!: ponte las pilas con tus hábitos, objetivos y rachas, con coach de IA." />
     <meta name="mobile-web-app-capable" content="yes" />
