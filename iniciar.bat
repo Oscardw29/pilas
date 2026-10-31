@@ -3,7 +3,7 @@ title ¡Pilas! - Servidor de Desarrollo
 cd /d "%~dp0"
 
 echo ===================================================
-echo   CONSTANCIA APP - INICIALIZADOR AUTOMATICO
+echo      PILAS APP - INICIALIZADOR AUTOMATICO
 echo ===================================================
 echo.
 
