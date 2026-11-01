@@ -249,10 +249,11 @@ export const RewardsView: React.FC = () => {
               <CoachAvatar
                 gender={persona.gender}
                 crop="bust"
-                size={176}
+                size={206}
                 outfit="shop"
                 expression={celebrating ? 'excited' : 'happy'}
-                gesture={cheerKey ? 'cheer' : 'wave'}
+                // Abre la tienda con su cartel y entrega el regalo en cada canje
+                gesture={cheerKey ? 'gift' : 'sign'}
                 gestureKey={cheerKey || 1}
               />
             </div>

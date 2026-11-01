@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { useCoachSpeaking } from '@/lib/coachVoice';
-import { CoachAvatar, type CoachExpression } from './CoachAvatar';
+import { CoachAvatar, type CoachExpression, type CoachGesture } from './CoachAvatar';
 import { useCoachPersona } from './coachPersona';
 import { useCoachMute } from './useCoachMute';
+
+const COMPACT = '(max-width: 899.98px)';
 
 interface CoachStageProps {
   /** Esperando la respuesta de la IA */
@@ -22,13 +24,30 @@ export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) =>
   const { muted, hasVoice, toggleMute } = useCoachMute();
   const speaking = useCoachSpeaking();
   const [cheering, setCheering] = useState(false);
+  // Saluda al entrar; después celebra cada acción aplicada y se lleva la mano al mentón al pensar
+  const [beat, setBeat] = useState<{ gesture: CoachGesture; key: number }>({ gesture: 'wave', key: 1 });
+  // En la tira compacta solo cabe de cintura para arriba
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.(COMPACT).matches));
+
+  useEffect(() => {
+    const mq = window.matchMedia?.(COMPACT);
+    if (!mq) return;
+    const sync = () => setCompact(mq.matches);
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   useEffect(() => {
     if (!cheerKey) return;
     setCheering(true);
+    setBeat((b) => ({ gesture: 'cheer', key: b.key + 1 }));
     const t = setTimeout(() => setCheering(false), 1400);
     return () => clearTimeout(t);
   }, [cheerKey]);
+
+  useEffect(() => {
+    if (thinking) setBeat((b) => ({ gesture: 'think', key: b.key + 1 }));
+  }, [thinking]);
 
   const expression: CoachExpression = cheering ? 'excited' : thinking ? 'thinking' : speaking ? 'neutral' : 'happy';
   const status = thinking ? 'Pensando…' : speaking ? 'Hablando…' : !hasVoice
@@ -56,13 +75,12 @@ export const CoachStage: React.FC<CoachStageProps> = ({ thinking, cheerKey }) =>
         <span className="coach-stage-halo" aria-hidden="true" />
         <CoachAvatar
           gender={persona.gender}
-          crop="bust"
-          size={164}
+          crop={compact ? 'bust' : 'full'}
+          size={compact ? 104 : 196}
           expression={expression}
           talk
-          // Saluda al entrar y, después, celebra cada acción aplicada
-          gesture={cheerKey ? 'cheer' : 'wave'}
-          gestureKey={cheerKey || 1}
+          gesture={beat.gesture}
+          gestureKey={beat.key}
         />
       </div>
 
