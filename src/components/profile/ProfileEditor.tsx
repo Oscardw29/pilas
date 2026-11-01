@@ -14,7 +14,6 @@ import { blobToDataUrl, imageDimensions, isAnimatedWebp, isWebp, readBytes } fro
 import { myUserId } from '@/social/runtime';
 import { BANNER_COLORS, KIND_LABEL, RARITY } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
-import { AliasInput, type AliasCheck } from '@/components/settings/AliasInput';
 import type { AchievementDef, BannerColor, CatalogItem, ProfileCard, ProfileRow } from '@/social/types';
 import type { Habit, Settings } from '@/types';
 import { CosmeticPreview } from './CosmeticPreview';
@@ -24,8 +23,9 @@ import './profile.css';
 /**
  * EDITAR EL PERFIL (modo edición de «Mi perfil»)
  * Todo perfil es público: aquí se elige cómo se ve. Foto (subida y encuadrada en el dispositivo o una de las 5 por
- * defecto), alias, biografía, banner (o el color del banner por defecto), marco, tarjeta de ranking, tarjetas visibles,
+ * defecto), biografía, banner (o el color del banner por defecto), marco, tarjeta de ranking, tarjetas visibles,
  * logros destacados y hábitos visibles. Nada se aplica hasta «Guardar»: la cabecera de arriba muestra el borrador.
+ * El alias también va en el borrador, pero se escribe en la cabecera, en el sitio del nombre (ProfileView).
  * El servidor vuelve a comprobarlo todo (profiles_guard): aquí solo se ofrece lo que la persona tiene.
  */
 
@@ -252,8 +252,6 @@ interface OwnedAchievement {
 export const ProfileEditor: React.FC<{
   draft: ProfileDraft;
   onChange: (patch: Partial<ProfileDraft>) => void;
-  /** Comprobación en vivo de `draft.alias` (la hace la página, que no deja guardar un alias que no se puede usar) */
-  aliasCheck: AliasCheck;
   /** `photo` = sin perfil público disponible (sin conexión, sin servidor o con veto): solo la foto */
   scope: 'full' | 'photo';
   /** Por qué solo se puede cambiar la foto */
@@ -261,7 +259,7 @@ export const ProfileEditor: React.FC<{
   disabled?: boolean;
   photoRef?: React.Ref<HTMLElement>;
   bannerRef?: React.Ref<HTMLElement>;
-}> = ({ draft, onChange, aliasCheck, scope, photoOnlyNote, disabled, photoRef, bannerRef }) => {
+}> = ({ draft, onChange, scope, photoOnlyNote, disabled, photoRef, bannerRef }) => {
   const { showToast } = useToast();
   const habits = useStore((s) => s.habits);
   const { catalog, inventory, profile } = useSocial(useShallow((s) => ({ catalog: s.catalog, inventory: s.inventory, profile: s.profile })));
@@ -472,10 +470,6 @@ export const ProfileEditor: React.FC<{
   return (
     <div className="ph-editor">
       {photoSection}
-
-      <EditCard title="Alias" sub="Se ve en lugar de tu nombre en toda la comunidad y forma el enlace de tu perfil.">
-        <AliasInput label="Tu alias" value={draft.alias} onChange={(alias) => onChange({ alias })} check={aliasCheck} disabled={disabled} />
-      </EditCard>
 
       <EditCard title="Biografía" sub="Unas palabras sobre ti. La ve cualquiera bajo tu nombre.">
         <div className="field">

@@ -1,4 +1,5 @@
 import React, { useId } from 'react';
+import { Pencil } from 'lucide-react';
 import { ALIAS_HINT, aliasUsable, useAliasStatus, type AliasStatus } from '@/components/profile/publicProfile';
 import { normalizeAlias } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
@@ -31,6 +32,44 @@ export function useAliasCheck(alias: string, current?: string | null): AliasChec
   };
 }
 
+const isBadAlias = (check: AliasCheck) => check.status === 'invalid' || check.status === 'reserved' || check.status === 'taken';
+
+/** El alias escrito en el mismo sitio y con la misma letra que el nombre del perfil. Vacío, se ve el nombre (`fallback`) */
+export const AliasNameInput: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  check: AliasCheck;
+  fallback: string;
+  disabled?: boolean;
+}> = ({ value, onChange, check, fallback, disabled }) => {
+  const id = useId();
+  const bad = isBadAlias(check);
+  return (
+    <div className="ph-name-edit">
+      <div className={`ph-name-field ${bad ? 'is-bad' : ''}`}>
+        <input
+          className="ph-name"
+          value={value}
+          onChange={(e) => onChange(normalizeAlias(e.target.value))}
+          maxLength={20}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder={fallback}
+          aria-label="Alias"
+          aria-invalid={bad}
+          aria-describedby={`${id}-hint`}
+          disabled={disabled}
+        />
+        <Pencil aria-hidden="true" />
+      </div>
+      <span id={`${id}-hint`} className={`hint alias-hint is-${check.status}`} aria-live="polite">
+        {check.hint}
+      </span>
+    </div>
+  );
+};
+
 export const AliasInput: React.FC<{
   value: string;
   onChange: (v: string) => void;
@@ -39,7 +78,7 @@ export const AliasInput: React.FC<{
   disabled?: boolean;
 }> = ({ value, onChange, check, label = 'Alias (opcional)', disabled }) => {
   const id = useId();
-  const bad = check.status === 'invalid' || check.status === 'reserved' || check.status === 'taken';
+  const bad = isBadAlias(check);
   return (
     <div className="field alias-field">
       <label className="label" htmlFor={id}>

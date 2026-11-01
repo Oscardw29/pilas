@@ -15,7 +15,7 @@ import {
 import {
   FeaturedAchievements, ProfileHero, ProfilePosts, ProfileStats, ProfileWeekSection, longDay, useServerWeek, useWeekNav,
 } from '@/components/profile/ProfileSections';
-import { useAliasCheck } from '@/components/settings/AliasInput';
+import { AliasNameInput, useAliasCheck } from '@/components/settings/AliasInput';
 import { BanScreen } from '@/components/social/BanScreen';
 import { PostModal } from '@/components/social/PostModal';
 import { cosmeticOf } from '@/components/social/Identity';
@@ -326,6 +326,17 @@ export const ProfileView: React.FC = () => {
       <ProfileHero
         label="Tu perfil"
         name={name}
+        nameEditor={
+          d && scope === 'full' ? (
+            <AliasNameInput
+              value={d.alias}
+              onChange={(alias) => setDraft((cur) => (cur ? { ...cur, alias } : cur))}
+              check={aliasCheck}
+              fallback={name}
+              disabled={saving}
+            />
+          ) : undefined
+        }
         bio={d ? d.bio : profile?.bio}
         // Fuera de edición, con perfil público, la foto que ven los demás (la del servidor), no la del dispositivo
         avatarSrc={d ? draftAvatarSrc(d) : profile ? assetUrl('avatars', profile.avatar_path) : myAvatar}
@@ -363,7 +374,6 @@ export const ProfileView: React.FC = () => {
           <ProfileEditor
             draft={draft}
             onChange={(patch) => setDraft((cur) => (cur ? { ...cur, ...patch } : cur))}
-            aliasCheck={aliasCheck}
             scope={scope}
             photoOnlyNote={photoOnlyNote}
             disabled={saving}

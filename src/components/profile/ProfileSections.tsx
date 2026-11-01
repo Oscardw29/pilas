@@ -85,6 +85,8 @@ export const ProfileHero: React.FC<{
   label: string;
   /** Lo que se ve como nombre: el alias (sin «@») o, sin alias, el nombre (personName) */
   name: string;
+  /** Sustituye al nombre (modo edición: el alias se escribe en su sitio) */
+  nameEditor?: React.ReactNode;
   bio?: string | null;
   avatarSrc?: string;
   avatarSize?: number;
@@ -101,7 +103,7 @@ export const ProfileHero: React.FC<{
   /** Avisos bajo la cabecera */
   children?: React.ReactNode;
   className?: string;
-}> = ({ label, name, bio, avatarSrc, avatarSize = 96, frame, banner, bannerColor, likes, meta, actions, onEditAvatar, onEditBanner, children, className = '' }) => (
+}> = ({ label, name, nameEditor, bio, avatarSrc, avatarSize = 96, frame, banner, bannerColor, likes, meta, actions, onEditAvatar, onEditBanner, children, className = '' }) => (
   <section className={`profile-hero ${className}`} aria-label={label} style={{ '--ph-avatar': `${avatarSize}px` } as React.CSSProperties}>
     <ProfileBanner banner={banner} color={bannerColor}>
       {onEditBanner && <EditOverlay label="Editar banner" onClick={onEditBanner} />}
@@ -114,7 +116,7 @@ export const ProfileHero: React.FC<{
       </div>
       {actions && <div className="ph-actions">{actions}</div>}
       <div className="ph-info">
-        <h1 className="ph-name">{name}</h1>
+        {nameEditor ?? <h1 className="ph-name">{name}</h1>}
         {bio?.trim() && <p className="ph-bio">{bio.trim()}</p>}
         {meta && <div className="ph-meta">{meta}</div>}
       </div>
