@@ -5,7 +5,7 @@ import { useSocial } from '@/social/useSocial';
 import './settings.css';
 
 /**
- * ALIAS OPCIONAL (bienvenida y Ajustes › Datos personales)
+ * ALIAS OPCIONAL (bienvenida, Ajustes › Datos personales y modo edición del perfil)
  * Se escribe ya normalizado (minúsculas, números y «_») y, con el servidor disponible, se comprueba en vivo si está
  * libre. Sin alias se muestra el nombre. Nunca se dibuja «@» delante.
  */

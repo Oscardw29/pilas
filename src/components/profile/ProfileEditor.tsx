@@ -14,6 +14,7 @@ import { blobToDataUrl, imageDimensions, isAnimatedWebp, isWebp, readBytes } fro
 import { myUserId } from '@/social/runtime';
 import { BANNER_COLORS, KIND_LABEL, RARITY } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
+import { AliasInput, type AliasCheck } from '@/components/settings/AliasInput';
 import type { AchievementDef, BannerColor, CatalogItem, ProfileCard, ProfileRow } from '@/social/types';
 import type { Habit, Settings } from '@/types';
 import { CosmeticPreview } from './CosmeticPreview';
@@ -23,7 +24,7 @@ import './profile.css';
 /**
  * EDITAR EL PERFIL (modo edición de «Mi perfil»)
  * Todo perfil es público: aquí se elige cómo se ve. Foto (subida y encuadrada en el dispositivo o una de las 5 por
- * defecto), biografía, banner (o el color del banner por defecto), marco, tarjeta de ranking, tarjetas visibles,
+ * defecto), alias, biografía, banner (o el color del banner por defecto), marco, tarjeta de ranking, tarjetas visibles,
  * logros destacados y hábitos visibles. Nada se aplica hasta «Guardar»: la cabecera de arriba muestra el borrador.
  * El servidor vuelve a comprobarlo todo (profiles_guard): aquí solo se ofrece lo que la persona tiene.
  */
@@ -48,6 +49,8 @@ export interface ProfileDraft {
   /** La foto activa es la subida (si no, la por defecto `preset`) */
   useUpload: boolean;
   preset: DefaultAvatarId | null;
+  /** Vacío = sin alias (se muestra el nombre) */
+  alias: string;
   bio: string;
   bannerColor: BannerColor | null;
   banner: string | null;
@@ -70,6 +73,7 @@ export function draftFrom(settings: Settings, profile: ProfileRow | null, habits
     upload: settings.avatarDataUrl ?? null,
     useUpload: Boolean(settings.avatarDataUrl),
     preset: presetOf(settings.avatarPreset),
+    alias: profile?.alias ?? '',
     bio: profile?.bio ?? '',
     bannerColor: profile?.banner_color ?? null,
     banner: profile?.banner_item ?? null,
@@ -91,6 +95,7 @@ export function draftChanges(draft: ProfileDraft, settings: Settings, profile: P
   const patch: ProfilePatch = {};
   const habitChanges: { id: string; on: boolean }[] = [];
   if (profile) {
+    if (draft.alias !== (profile.alias ?? '')) patch.alias = draft.alias || null;
     const bio = draft.bio.trim();
     if (bio !== (profile.bio ?? '')) patch.bio = bio;
     if (draft.bannerColor !== (profile.banner_color ?? null)) patch.banner_color = draft.bannerColor;
@@ -112,7 +117,7 @@ export function draftChanges(draft: ProfileDraft, settings: Settings, profile: P
 export const draftAvatarSrc = (d: ProfileDraft) => (d.useUpload && d.upload ? d.upload : defaultAvatarSrc(d.preset));
 
 /**
- * Guarda el borrador: primero el perfil público (cosméticos, biografía, tarjetas), después los hábitos visibles (se
+ * Guarda el borrador: primero el perfil público (alias, cosméticos, biografía, tarjetas), después los hábitos visibles (se
  * publican solos con el resto de datos) y por último la foto, que se guarda en el dispositivo y se publica.
  * Devuelve `false` si no se pudo guardar el perfil (el borrador sigue abierto para reintentar).
  */
@@ -129,7 +134,7 @@ export async function applyProfileDraft(
   if (profile && uid && Object.keys(ch.patch).length) {
     try {
       const row = await updateProfile(uid, ch.patch);
-      useSocial.getState().set({ profile: row });
+      useSocial.getState().set({ profile: row, ...(ch.patch.alias !== undefined ? { aliasConflict: null } : {}) });
     } catch (err) {
       reportSocialError(err, showToast, 'No se pudo guardar tu perfil');
       return false;
@@ -247,6 +252,8 @@ interface OwnedAchievement {
 export const ProfileEditor: React.FC<{
   draft: ProfileDraft;
   onChange: (patch: Partial<ProfileDraft>) => void;
+  /** Comprobación en vivo de `draft.alias` (la hace la página, que no deja guardar un alias que no se puede usar) */
+  aliasCheck: AliasCheck;
   /** `photo` = sin perfil público disponible (sin conexión, sin servidor o con veto): solo la foto */
   scope: 'full' | 'photo';
   /** Por qué solo se puede cambiar la foto */
@@ -254,7 +261,7 @@ export const ProfileEditor: React.FC<{
   disabled?: boolean;
   photoRef?: React.Ref<HTMLElement>;
   bannerRef?: React.Ref<HTMLElement>;
-}> = ({ draft, onChange, scope, photoOnlyNote, disabled, photoRef, bannerRef }) => {
+}> = ({ draft, onChange, aliasCheck, scope, photoOnlyNote, disabled, photoRef, bannerRef }) => {
   const { showToast } = useToast();
   const habits = useStore((s) => s.habits);
   const { catalog, inventory, profile } = useSocial(useShallow((s) => ({ catalog: s.catalog, inventory: s.inventory, profile: s.profile })));
@@ -465,6 +472,10 @@ export const ProfileEditor: React.FC<{
   return (
     <div className="ph-editor">
       {photoSection}
+
+      <EditCard title="Alias" sub="Se ve en lugar de tu nombre en toda la comunidad y forma el enlace de tu perfil.">
+        <AliasInput label="Tu alias" value={draft.alias} onChange={(alias) => onChange({ alias })} check={aliasCheck} disabled={disabled} />
+      </EditCard>
 
       <EditCard title="Biografía" sub="Unas palabras sobre ti. La ve cualquiera bajo tu nombre.">
         <div className="field">

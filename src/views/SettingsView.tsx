@@ -165,7 +165,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   );
   const { showToast } = useToast();
 
-  // Datos personales (se editan aquí, no en el perfil): nombre, género del coach y alias opcional.
+  // Datos personales: nombre y género del coach (solo aquí) y alias opcional (también en el modo edición del perfil).
   // El alias vive en el perfil público; sin perfil todavía (sin servidor) queda en `pendingAlias` hasta crearlo.
   const profile = useSocial((s) => s.profile);
   const aliasConflict = useSocial((s) => s.aliasConflict);

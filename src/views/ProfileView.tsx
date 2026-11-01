@@ -15,6 +15,7 @@ import {
 import {
   FeaturedAchievements, ProfileHero, ProfilePosts, ProfileStats, ProfileWeekSection, longDay, useServerWeek, useWeekNav,
 } from '@/components/profile/ProfileSections';
+import { useAliasCheck } from '@/components/settings/AliasInput';
 import { BanScreen } from '@/components/social/BanScreen';
 import { PostModal } from '@/components/social/PostModal';
 import { cosmeticOf } from '@/components/social/Identity';
@@ -36,7 +37,7 @@ const ALL_CARDS: ProfileCard[] = CARD_OPTIONS.map((o) => o.id);
 /**
  * MI PERFIL (página propia)
  * Sin modo edición se ve exactamente como lo ven los demás (misma presentación que /u/:alias). «Editar perfil» (o
- * pasar el ratón por la foto o el banner y pulsar «Editar») abre el modo edición: foto, biografía, banner, marco,
+ * pasar el ratón por la foto o el banner y pulsar «Editar») abre el modo edición: foto, alias, biografía, banner, marco,
  * tarjeta de ranking, tarjetas visibles, logros destacados y hábitos visibles, con Guardar / Cancelar.
  * Todo perfil es público: lo crea solo la capa social al entrar (social/runtime.ts). Sin servidor o sin perfil todavía
  * (sin conexión, migración no aplicada) se muestra igualmente con los datos del dispositivo y solo se edita la foto.
@@ -149,6 +150,7 @@ export const ProfileView: React.FC = () => {
   const [focus, setFocus] = useState<Focus>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmRemoveAlias, setConfirmRemoveAlias] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postsKey, setPostsKey] = useState(0);
   const photoRef = useRef<HTMLElement>(null);
@@ -156,6 +158,8 @@ export const ProfileView: React.FC = () => {
 
   const changes = draft ? draftChanges(draft, settings, scope === 'full' ? profile : null, habits) : null;
   const dirty = Boolean(editing && changes?.dirty);
+  const aliasCheck = useAliasCheck(draft?.alias ?? '', profile?.alias);
+  const aliasChanged = changes?.patch.alias !== undefined;
 
   // Con qué alcance se hizo el borrador (si llega el perfil mientras se edita solo la foto, se rehace)
   const draftScope = useRef(scope);
@@ -217,11 +221,20 @@ export const ProfileView: React.FC = () => {
     else exitEdit();
   };
 
-  const save = async (): Promise<boolean> => {
+  const save = async (aliasRemovalConfirmed = false): Promise<boolean> => {
     if (!draft || saving) return false;
     if (!dirty) {
       exitEdit();
       return true;
+    }
+    if (aliasChanged && !aliasCheck.ok) {
+      showToast(aliasCheck.hint, 'warning', 'El alias no se guardó: corrígelo o déjalo vacío.');
+      return false;
+    }
+    // Quitar el alias libera el nombre para otra persona: se confirma antes
+    if (changes?.patch.alias === null && !aliasRemovalConfirmed) {
+      setConfirmRemoveAlias(true);
+      return false;
     }
     setSaving(true);
     try {
@@ -230,7 +243,8 @@ export const ProfileView: React.FC = () => {
       playSound.pop();
       showToast('Perfil guardado', 'success');
       exitEdit();
-      if (scope === 'full') void loadPub(true);
+      // Con otro alias el perfil cambia de dirección: lo vuelve a pedir el efecto de `handle` (el antiguo ya no existe)
+      if (scope === 'full' && !aliasChanged) void loadPub(true);
       return true;
     } finally {
       setSaving(false);
@@ -248,8 +262,9 @@ export const ProfileView: React.FC = () => {
 
   /* ---------- Lo que se dibuja ---------- */
 
-  const name = personName({ alias: profile?.alias ?? settings.pendingAlias, display_name: profile?.display_name || settings.userName });
   const d = editing ? draft : null;
+  const shownAlias = d && scope === 'full' ? d.alias : (profile?.alias ?? settings.pendingAlias);
+  const name = personName({ alias: shownAlias, display_name: profile?.display_name || settings.userName });
   const frameItem = useCatalogItem(d ? d.frame : profile?.frame_item);
   const bannerItem = useCatalogItem(d ? d.banner : profile?.banner_item);
   const cards = hasProfile && profile ? profile.cards ?? [] : ALL_CARDS;
@@ -348,6 +363,7 @@ export const ProfileView: React.FC = () => {
           <ProfileEditor
             draft={draft}
             onChange={(patch) => setDraft((cur) => (cur ? { ...cur, ...patch } : cur))}
+            aliasCheck={aliasCheck}
             scope={scope}
             photoOnlyNote={photoOnlyNote}
             disabled={saving}
@@ -431,6 +447,19 @@ export const ProfileView: React.FC = () => {
         title="¿Descartar los cambios?"
         message="Tu perfil se queda como estaba. Los cambios que hiciste en el modo edición se perderán."
         confirmLabel="Descartar cambios"
+        danger
+      />
+
+      <ConfirmModal
+        isOpen={confirmRemoveAlias}
+        onClose={() => setConfirmRemoveAlias(false)}
+        onConfirm={() => {
+          setConfirmRemoveAlias(false);
+          void save(true);
+        }}
+        title="¿Quitar tu alias?"
+        message={`En la comunidad se mostrará tu nombre en lugar de «${profile?.alias ?? ''}», y otra persona podrá usar ese alias.`}
+        confirmLabel="Quitar alias"
         danger
       />
 
