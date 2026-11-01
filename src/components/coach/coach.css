@@ -1,130 +1,45 @@
 /* =====================================================================
-   PERSONAJE DEL COACH (Pilo / Pila): animaciones del SVG
-   Todas las piezas se mueven con transform (barato en móviles).
+   PERSONAJE DEL COACH (Pilo / Pila)
+   El cuerpo lo mueve el esqueleto de coachRig.ts; aquí solo lo que cambia con la cara y los efectos.
    ===================================================================== */
-.coach-avatar { display: block; flex-shrink: 0; }
+.coach-avatar { display: block; flex-shrink: 0; color: #1f1a2e; }
+/* Cuerpo entero: los gestos pueden salir del encuadre. De cintura arriba solo se recorta por abajo */
+.coach-avatar.ca-full { overflow: visible; }
+.coach-avatar.ca-bust { overflow: visible; clip-path: inset(-60% -60% 0 -60%); }
 .coach-avatar .ca-eye { transform-box: fill-box; transform-origin: center; transition: transform .06s ease-out; }
 .coach-avatar.ca-blink .ca-eye { transform: scaleY(.08); }
-.coach-avatar .ca-pupil { transition: transform .17s cubic-bezier(.3, .7, .4, 1); }
 .coach-avatar .ca-brow { transition: transform .28s cubic-bezier(.34, 1.56, .64, 1); }
-
-/* Respiración y cabeceo en reposo */
-.coach-avatar .ca-body { animation: caBreathe 4.2s ease-in-out infinite; }
-.ca-idle-calm .ca-head { animation: caHeadIdle 7s ease-in-out infinite; }
-.ca-female .ca-ponytail { animation: caPony 3.8s ease-in-out infinite; }
-@keyframes caBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.014) translateY(-.6px); } }
-@keyframes caHeadIdle {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-1.6deg) translateY(.4px); }
-  60% { transform: rotate(1.4deg); }
-}
-@keyframes caPony { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(5deg); } }
-
-
-/* Brazos articulados: hombro (.ca-up) y codo (.ca-fore). La postura va en `transform`
-   (con transición, así sube y baja sin saltos) y los vaivenes en `rotate`, que se suma encima. */
-.coach-avatar .ca-up, .coach-avatar .ca-fore { transition: transform .55s cubic-bezier(.34, 1.25, .64, 1); }
-.coach-avatar .ca-hand { transition: transform .3s ease; }
-.coach-avatar .ca-up-r { transform: rotate(-3deg); }
-.coach-avatar .ca-up-l { transform: rotate(3deg); }
-.coach-avatar .ca-fore-r { transform: rotate(-4deg); }
-.coach-avatar .ca-fore-l { transform: rotate(4deg); }
-
-/* Saludo: brazo hacia arriba y la mano se agita desde la muñeca */
-.coach-avatar.ca-g-wave .ca-up-r { transform: rotate(-128deg); }
-.coach-avatar.ca-g-wave .ca-fore-r { transform: rotate(-50deg); animation: caWaveFore .42s ease-in-out .45s 4 alternate; }
-.coach-avatar.ca-g-wave .ca-hand-r { animation: caWaveHand .42s ease-in-out .45s 4 alternate; }
-@keyframes caWaveFore { from { rotate: -10deg; } to { rotate: 12deg; } }
-@keyframes caWaveHand { from { rotate: -12deg; } to { rotate: 10deg; } }
-
-/* Celebración: puño arriba con un par de golpes y un saltito */
-.coach-avatar.ca-g-cheer .ca-up-r { transform: rotate(-138deg); animation: caPump .26s ease-in-out .4s 4 alternate; }
-.coach-avatar.ca-g-cheer .ca-fore-r { transform: rotate(-25deg); }
-.coach-avatar.ca-g-cheer .ca-rig,
-.coach-avatar.ca-g-bounce .ca-rig { animation: caBounce .75s cubic-bezier(.34, 1.56, .64, 1) both; }
-@keyframes caPump { from { rotate: 0deg; } to { rotate: 12deg; } }
-
-/* Hablando: una mano acompaña la explicación (la izquierda; en el laboratorio, la derecha) */
-.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-up-l { transform: rotate(40deg); }
-.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-fore-l { transform: rotate(176deg); animation: caExplainL .5s ease-in-out .5s 4 alternate; }
-.coach-avatar.ca-g-explain.ca-outfit-lab .ca-up-r { transform: rotate(-40deg); }
-.coach-avatar.ca-g-explain.ca-outfit-lab .ca-fore-r { transform: rotate(-176deg); animation: caExplainR .5s ease-in-out .5s 4 alternate; }
-@keyframes caExplainL { from { rotate: 0deg; } to { rotate: 10deg; } }
-@keyframes caExplainR { from { rotate: 0deg; } to { rotate: -10deg; } }
-
-/* Con la mano en alto la palma mira al frente: se refleja para que el pulgar quede hacia la cabeza */
-.coach-avatar.ca-g-wave .ca-hand-r,
-.coach-avatar.ca-g-cheer .ca-hand-r,
-.coach-avatar.ca-g-coin .ca-hand-r,
-.coach-avatar.ca-g-explain:not(.ca-outfit-lab) .ca-hand-l,
-.coach-avatar.ca-g-explain.ca-outfit-lab .ca-hand-r,
-.coach-avatar.ca-outfit-lab .ca-hand-l { transform: scaleX(-1); }
-
-/* Tienda: se balancea y de vez en cuando lanza una moneda al aire y la atrapa con la misma mano.
-   Los giros del brazo deben coincidir con COIN_UP / COIN_FORE de CoachAvatar.tsx */
-.ca-idle-shop .ca-rig { animation: caSway 3.6s ease-in-out infinite; }
-.coach-avatar.ca-g-coin .ca-up-r { transform: rotate(-112deg); }
-.coach-avatar.ca-g-coin .ca-fore-r { transform: rotate(-64deg); }
-@keyframes caSway { 0%, 100% { transform: translateX(0) rotate(0deg); } 30% { transform: translateX(-2px) rotate(-1.2deg); } 70% { transform: translateX(2px) rotate(1.2deg); } }
-/* La moneda de la mano solo se ve al lanzarla; mientras vuela se oculta y la sustituye la del aire,
-   que sube y baja en vertical justo sobre la mano */
-.coach-avatar .ca-coin-hand { opacity: 0; transition: opacity .2s; }
-.coach-avatar.ca-g-coin .ca-coin-hand { opacity: 1; animation: caCoinHandHide 1.5s linear .7s forwards; }
-.coach-avatar .ca-coin-fly { opacity: 0; }
-.coach-avatar.ca-g-coin .ca-coin-fly { animation: caCoinFly 1.5s .7s forwards; }
-.coach-avatar .ca-coin-spin { transform-box: fill-box; transform-origin: center; }
-.coach-avatar.ca-g-coin .ca-coin-spin { animation: caCoinSpin .3s linear .7s 4; }
-.coach-avatar.ca-g-coin .ca-hand-r { animation: caCoinFlick 1.5s ease-in-out .7s; }
-@keyframes caCoinHandHide { 0%, 89.9% { opacity: 0; } 90%, 100% { opacity: 1; } }
-@keyframes caCoinFly {
-  0% { opacity: 1; transform: translateY(0); animation-timing-function: cubic-bezier(.25, .7, .45, 1); }
-  45% { opacity: 1; transform: translateY(-46px); animation-timing-function: cubic-bezier(.55, 0, .75, .3); }
-  89.9% { opacity: 1; transform: translateY(0); }
-  90%, 100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes caCoinSpin { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
-/* Impulso de la mano al lanzar y pequeño amortiguado al atraparla (el brazo apunta arriba: en su marco «arriba» es +Y) */
-@keyframes caCoinFlick {
-  0%, 14%, 86%, 100% { translate: 0 0; }
-  6% { translate: 0 3px; }
-  92% { translate: 0 -2.5px; }
-}
-
-/* Laboratorio: sujeta el matraz frente al pecho, lo agita y lo examina */
-.coach-avatar.ca-outfit-lab .ca-up-l { transform: rotate(30deg); }
-.coach-avatar.ca-outfit-lab .ca-fore-l { transform: rotate(200deg); }
-.ca-outfit-lab .ca-flask { animation: caSwirl 5s ease-in-out infinite; }
-.ca-idle-lab .ca-head { animation: caHeadLab 7s ease-in-out infinite; }
-.ca-outfit-lab .ca-bubble { transform-box: fill-box; transform-origin: center; animation: caBubble 1.9s ease-in infinite; }
-.ca-outfit-lab .ca-bubble.b2 { animation-delay: .6s; }
-.ca-outfit-lab .ca-bubble.b3 { animation-delay: 1.2s; }
-@keyframes caSwirl { 0%, 60%, 100% { transform: rotate(0deg); } 68% { transform: rotate(-7deg); } 76% { transform: rotate(5deg); } 84% { transform: rotate(-3deg); } }
-@keyframes caHeadLab { 0%, 100% { transform: rotate(0deg); } 40%, 62% { transform: rotate(-4.5deg) translateX(-1px); } }
-@keyframes caBubble { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-16px) scale(1.1); opacity: 0; } }
-
-/* Hablando: la cabeza acompaña las frases */
-.coach-avatar.is-talking .ca-head { animation: caTalkHead 1.9s ease-in-out infinite; }
-.coach-avatar.is-talking.ca-female .ca-ponytail { animation-duration: 1.5s; }
-@keyframes caTalkHead {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  20% { transform: rotate(-2.4deg) translateY(-1px); }
-  45% { transform: rotate(1.2deg) translateY(.5px); }
-  70% { transform: rotate(2.2deg) translateY(-.8px); }
-}
-
-/* Asentir y saltar */
-.coach-avatar.ca-g-nod .ca-head { animation: caNod .9s ease-in-out both; }
-@keyframes caBounce {
-  0% { transform: translateY(0) scaleY(1); }
-  25% { transform: translateY(2px) scaleY(.96); }
-  50% { transform: translateY(-9px) scaleY(1.03); }
-  75% { transform: translateY(1px) scaleY(.98); }
-  100% { transform: translateY(0) scaleY(1); }
-}
-@keyframes caNod { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(4deg) translateY(2px); } 60% { transform: rotate(-1deg); } }
-
-/* Mejillas que se encienden al sonreír */
 .coach-avatar .ca-cheek { transition: opacity .3s; }
+.coach-avatar .ca-cheeks { transform-box: fill-box; transform-origin: center; transform: scale(calc(1 + var(--puff, 0) * .14)); }
+
+/* Burbujas de los matraces. Los efectos solo se animan con .on (lo pone el motor): las piezas ocultas
+   siguen en el SVG y sus animaciones infinitas costarían aunque no se vean */
+.coach-avatar .ca-bubble { transform-box: fill-box; transform-origin: center; }
+.coach-avatar .on .ca-bubble { animation: caBubble 1.9s ease-in infinite; }
+.coach-avatar .on .ca-bubble.b2 { animation-delay: .6s; }
+.coach-avatar .on .ca-bubble.b3 { animation-delay: 1.2s; }
+@keyframes caBubble { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-26px) scale(1.1); opacity: 0; } }
+
+/* Notas del silbato y destellos del laboratorio */
+.coach-avatar .on .ca-note { animation: caNote 1.5s ease-out infinite; }
+.coach-avatar .ca-note { transform: translate(var(--nx), var(--ny)); }
+.coach-avatar .ca-note.n1 { --nx: 152px; --ny: -440px; }
+.coach-avatar .ca-note.n2 { --nx: 128px; --ny: -404px; animation-delay: .5s; }
+@keyframes caNote {
+  0% { opacity: 0; transform: translate(var(--nx), var(--ny)) scale(.5) rotate(-10deg); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--nx) + 34px), calc(var(--ny) - 70px)) scale(1) rotate(12deg); }
+}
+.coach-avatar .on .ca-toot { animation: caToot .46s ease-out infinite alternate; }
+@keyframes caToot { from { opacity: .3; } to { opacity: 1; } }
+.coach-avatar .on .ca-spark { animation: caSpark 1.3s ease-in-out infinite; }
+.coach-avatar .on .ca-spark.s2 { animation-delay: .4s; }
+.coach-avatar .on .ca-spark.s3 { animation-delay: .8s; }
+@keyframes caSpark { 0%, 100% { transform: scale(.35) rotate(0deg); opacity: .2; } 50% { transform: scale(1) rotate(40deg); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-avatar .on .ca-bubble, .coach-avatar .on .ca-note, .coach-avatar .on .ca-toot, .coach-avatar .on .ca-spark { animation: none; }
+}
 
 /* =====================================================================
    CARAS DEL COACH EN BOTONES Y AVATARES
@@ -290,8 +205,8 @@
   .coach-left { gap: 10px; }
   .card.coach-stage { flex-direction: row; align-items: stretch; min-height: 0; }
   .coach-mute-btn { position: static; align-self: center; margin: 0 0 0 10px; flex-shrink: 0; }
-  .coach-stage-figure { padding: 6px 0 0; width: 92px; flex-shrink: 0; }
-  .coach-stage-figure .coach-avatar { width: 88px; height: auto; }
+  .coach-stage-figure { padding: 6px 0 0; width: 108px; flex-shrink: 0; }
+  .coach-stage-figure .coach-avatar { width: 104px; height: auto; }
   .coach-stage-halo { left: 50%; width: 84px; height: 84px; bottom: 4px; }
   .coach-stage-plate {
     flex: 1; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;

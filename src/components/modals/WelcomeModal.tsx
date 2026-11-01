@@ -216,7 +216,7 @@ export const WelcomeModal: React.FC = () => {
           <div className="welcome-coach">
             <CoachAvatar
               gender={persona.gender}
-              size={96}
+              size={120}
               expression={gender ? 'happy' : 'neutral'}
               gesture={gender ? 'bounce' : null}
               gestureKey={gender ? GENDERS.findIndex((g) => g.value === gender) + 1 : 0}

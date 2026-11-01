@@ -58,7 +58,7 @@
 
 .shop-keeper { position: relative; z-index: 1; margin: 0 6% 40px auto; }
 .shop-bubble {
-  position: absolute; z-index: 3; left: 0; right: calc(176px + 6% - 14px); bottom: 64px; max-width: 220px; margin-left: auto; padding: 10px 13px;
+  position: absolute; z-index: 3; left: 0; right: calc(206px + 6% - 22px); bottom: 64px; max-width: 220px; margin-left: auto; padding: 10px 13px;
   font-size: 13px; font-weight: 600; line-height: 1.4; color: #221a33;
   background: #fff; border-radius: 14px; box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--shadow-color) 70%, transparent);
   animation: bubblePop .45s cubic-bezier(.34, 1.4, .64, 1) .3s both;
@@ -174,8 +174,8 @@
 @media (max-width: 639.98px) {
   .shop-stats { grid-template-columns: minmax(0, 1fr); }
   .shop-keeper { margin-right: 2%; }
-  .shop-keeper .coach-avatar { width: 150px; height: auto; }
-  .shop-bubble { right: calc(150px + 2% - 12px); bottom: 58px; font-size: 12.5px; }
+  .shop-keeper .coach-avatar { width: 176px; height: auto; }
+  .shop-bubble { right: calc(176px + 2% - 20px); bottom: 58px; font-size: 12.5px; }
   .shop-register { right: 1%; width: 56px; }
   .shop-back-shelf { width: min(62%, 240px); top: 4px; }
   .shop-shelves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 12px; padding: 0 2px 12px; }
