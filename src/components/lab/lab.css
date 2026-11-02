@@ -4,7 +4,9 @@
    de 18/12 px) con detalles de laboratorio: cuadrícula suave, estante con
    matraces, vasos graduados y hoja de hipótesis. A violeta y B ámbar.
    ===================================================================== */
-.lab-page { --lab: #2dd4bf; }
+.lab-page { --lab: #2dd4bf; --bench: #1e3a5f; --bench-top: #2b5280; --bench-dark: #16304f; }
+/* Tema claro: mesa viva y clara, como la repisa */
+:where(:root:not([data-theme="dark"])) .lab-page { --bench: #a78bfa; --bench-top: #c4b5fd; --bench-dark: #8b5cf6; }
 
 /* ---------- Cabecera ---------- */
 .lab-hero {
@@ -27,8 +29,18 @@
 .lab-stat { flex: 1 1 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border-2); }
 .lab-stat-value { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
-.lab-hero-scene { position: relative; display: flex; align-items: flex-end; justify-content: flex-end; min-height: 150px; }
-.lab-shelf-art { width: min(100%, 340px); height: auto; margin-bottom: 14px; }
+/* Escena: repisa del fondo, científico y mesa de trabajo */
+.lab-hero-scene { position: relative; display: flex; align-items: flex-end; min-height: 280px; }
+.lab-shelf-art { position: absolute; z-index: 0; top: 0; left: 0; width: min(100%, 290px); height: auto; opacity: .9; }
+.lab-keeper { position: relative; z-index: 1; margin: 0 6% 40px auto; }
+.lab-bubble { position: absolute; z-index: 3; left: 0; right: calc(206px + 6% - 22px); bottom: 64px; }
+/* Mesa: tapa al científico de cintura para abajo */
+.lab-bench {
+  position: absolute; z-index: 2; left: -22px; right: -22px; bottom: 0; height: 48px;
+  background: linear-gradient(180deg, var(--bench-top) 0 8px, var(--bench) 8px 11px, var(--bench-dark) 11px 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.lab-bench .lab-beaker { position: absolute; right: calc(22px + 2%); bottom: 44px; }
 
 /* Animaciones de la escena */
 .lab-art-vapor { transform-box: fill-box; transform-origin: center; animation: labVapor 3.2s ease-out infinite; }
@@ -152,10 +164,17 @@
 @media (max-width: 899.98px) {
   .lab-hero { grid-template-columns: minmax(0, 1fr); padding: 18px 18px 0; gap: 0; }
   .lab-hero-copy { padding-bottom: 8px; }
-  .lab-hero-scene { min-height: 0; justify-content: center; }
-  .lab-shelf-art { width: min(90%, 320px); }
+  .lab-hero-scene { min-height: 290px; }
+  .lab-bench { left: -18px; right: -18px; }
+  .lab-bench .lab-beaker { right: calc(18px + 2%); }
+  .lab-shelf-art { width: min(70%, 320px); }
 }
 @media (max-width: 639.98px) {
+  .lab-keeper { margin-right: 2%; }
+  .lab-keeper .coach-avatar { width: 176px; height: auto; }
+  .lab-bubble { right: calc(176px + 2% - 20px); bottom: 58px; }
+  .lab-bench .lab-beaker { width: 40px; height: auto; }
+  .lab-shelf-art { width: min(62%, 240px); top: 4px; }
   .lab-variants { grid-template-columns: minmax(0, 1fr); }
   .lab-vs { justify-self: center; margin: -4px 0; }
   .lab-timeline { grid-template-columns: auto minmax(0, 1fr); }

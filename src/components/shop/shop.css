@@ -57,15 +57,7 @@
 @keyframes sparkle { 0%, 100% { transform: scale(.4) rotate(0deg); opacity: .2; } 50% { transform: scale(1.1) rotate(45deg); opacity: 1; } }
 
 .shop-keeper { position: relative; z-index: 1; margin: 0 6% 40px auto; }
-.shop-bubble {
-  position: absolute; z-index: 3; left: 0; right: calc(206px + 6% - 22px); bottom: 64px; max-width: 220px; margin-left: auto; padding: 10px 13px;
-  font-size: 13px; font-weight: 600; line-height: 1.4; color: #221a33;
-  background: #fff; border-radius: 14px; box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--shadow-color) 70%, transparent);
-  animation: bubblePop .45s cubic-bezier(.34, 1.4, .64, 1) .3s both;
-}
-.shop-bubble::after { content: ''; position: absolute; right: -6px; top: 22px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-radius: 0 3px 0 0; }
-.shop-bubble-ghost { color: transparent; }
-@keyframes bubblePop { from { opacity: 0; transform: scale(.7) translateY(6px); } to { opacity: 1; transform: none; } }
+.shop-bubble { position: absolute; z-index: 3; left: 0; right: calc(206px + 6% - 22px); bottom: 64px; }
 
 /* Mostrador: tapa al tendero de cintura para abajo */
 .shop-counter {
@@ -175,7 +167,7 @@
   .shop-stats { grid-template-columns: minmax(0, 1fr); }
   .shop-keeper { margin-right: 2%; }
   .shop-keeper .coach-avatar { width: 176px; height: auto; }
-  .shop-bubble { right: calc(176px + 2% - 20px); bottom: 58px; font-size: 12.5px; }
+  .shop-bubble { right: calc(176px + 2% - 20px); bottom: 58px; }
   .shop-register { right: 1%; width: 56px; }
   .shop-back-shelf { width: min(62%, 240px); top: 4px; }
   .shop-shelves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 12px; padding: 0 2px 12px; }
