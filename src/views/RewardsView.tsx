@@ -13,6 +13,7 @@ import { useToast } from '../components/ui/ToastContext';
 import { playSound } from '../lib/sound';
 import { triggerRewardCelebration } from '../components/ui/RewardCelebrationOverlay';
 import { CoachAvatar } from '../components/coach/CoachAvatar';
+import { CoachSpeech } from '../components/coach/CoachSpeech';
 import { useCoachPersona } from '../components/coach/coachPersona';
 import { CashRegister, ShopAwning, ShopBackShelf } from '../components/shop/ShopArt';
 import { CosmeticsShop } from '../components/shop/CosmeticsShop';
@@ -89,16 +90,6 @@ export const RewardsView: React.FC = () => {
     if (next) return `Te faltan ${Math.ceil(next.cost - pts.balance)} pts para «${next.name}». ¡Tú puedes!`;
     return '¡Hola! Añade premios a la estantería y ve por ellos.';
   }, [celebrating, rewards, pts.balance, freeze.blocked, freeze.price]);
-
-  // El bocadillo se escribe letra a letra cada vez que cambia la frase
-  const [typed, setTyped] = useState(0);
-  const lineChars = Array.from(shopkeeperLine);
-  useEffect(() => setTyped(0), [shopkeeperLine]);
-  useEffect(() => {
-    if (typed >= lineChars.length) return;
-    const t = setTimeout(() => setTyped((n) => n + 1), typed === 0 ? 450 : 30);
-    return () => clearTimeout(t);
-  }, [typed, lineChars.length]);
 
   const socialBoost = useSocial((s) => Boolean(s.profile && s.available && !s.ban));
   const serverBalance = useSocial((s) => s.serverBalance);
@@ -241,10 +232,7 @@ export const RewardsView: React.FC = () => {
           <div className="shop-front-scene" aria-hidden="true">
             <ShopBackShelf />
             {/* El bocadillo ocupa solo el hueco libre a la izquierda del tendero (no invade el texto) */}
-            <div className="shop-bubble">
-              {lineChars.slice(0, typed).join('')}
-              <span className="shop-bubble-ghost">{lineChars.slice(typed).join('')}</span>
-            </div>
+            <CoachSpeech line={shopkeeperLine} className="shop-bubble" />
             <div className="shop-keeper">
               <CoachAvatar
                 gender={persona.gender}

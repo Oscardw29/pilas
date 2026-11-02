@@ -42,6 +42,26 @@
 }
 
 /* =====================================================================
+   BOCADILLO DEL COACH EN SU ESCENA (cada página lo coloca a la izquierda del personaje)
+   ===================================================================== */
+.coach-speech {
+  max-width: 220px; margin-left: auto; padding: 10px 13px;
+  font-size: 13px; font-weight: 600; line-height: 1.4; color: #221a33;
+  background: #fff; border: 1px solid rgba(139, 92, 246, 0.22); border-radius: 14px;
+  box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--shadow-color) 70%, transparent);
+  animation: bubblePop .45s cubic-bezier(.34, 1.4, .64, 1) .3s both;
+}
+.coach-speech::after {
+  content: ''; position: absolute; right: -7px; top: 22px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-radius: 0 3px 0 0;
+  border-top: 1px solid rgba(139, 92, 246, 0.22); border-right: 1px solid rgba(139, 92, 246, 0.22);
+}
+.coach-speech-ghost { color: transparent; }
+@keyframes bubblePop { from { opacity: 0; transform: scale(.7) translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 639.98px) {
+  .coach-speech { font-size: 12.5px; }
+}
+
+/* =====================================================================
    CARAS DEL COACH EN BOTONES Y AVATARES
    ===================================================================== */
 .coach-fab-face {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { Experiment, ExperimentVariant } from '../types';
@@ -21,6 +21,10 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useToast } from '../components/ui/ToastContext';
 import { PausedBadge } from '../components/ui/icons';
 import { Beaker, LabShelfArt, TubeProgress } from '../components/lab/LabArt';
+import { leaderIndex, scientistLine, type LabBrief } from '../components/lab/labLine';
+import { CoachAvatar } from '../components/coach/CoachAvatar';
+import { CoachSpeech } from '../components/coach/CoachSpeech';
+import { useCoachPersona } from '../components/coach/coachPersona';
 import '../components/lab/lab.css';
 
 /** Colores de cada variante: A violeta, B ámbar (como sus etiquetas) */
@@ -37,6 +41,16 @@ const expCode = (exp: Experiment, all: Experiment[]) => {
 export const ExperimentsView: React.FC = () => {
   const { experiments, habits, sessions, updateExperiment, deleteExperiment, addPointEvent, setHabitStatus } = useStore(useShallow((s) => ({ experiments: s.experiments, habits: s.habits, sessions: s.sessions, updateExperiment: s.updateExperiment, deleteExperiment: s.deleteExperiment, addPointEvent: s.addPointEvent, setHabitStatus: s.setHabitStatus })));
   const { showToast } = useToast();
+  const persona = useCoachPersona();
+
+  /** El científico celebra cada variante adoptada */
+  const [cheerKey, setCheerKey] = useState(0);
+  const [adopted, setAdopted] = useState<string | null>(null);
+  useEffect(() => {
+    if (!cheerKey) return;
+    const t = setTimeout(() => setAdopted(null), 6000);
+    return () => clearTimeout(t);
+  }, [cheerKey]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExp, setEditingExp] = useState<Experiment | null>(null);
@@ -58,6 +72,8 @@ export const ExperimentsView: React.FC = () => {
       source: 'experiment',
     });
     showToast(`¡Variante «${variant.label}» adoptada con éxito! +100 pts.`, 'reward');
+    setAdopted(variant.label);
+    setCheerKey((k) => k + 1);
   };
 
   const openNew = () => {
@@ -129,6 +145,27 @@ export const ExperimentsView: React.FC = () => {
 
   const today = todayKey();
 
+  // Lo que dice el científico según cómo van los experimentos
+  const scientistSays = useMemo(() => {
+    const briefs = activeExperiments.map((exp): LabBrief => {
+      const variants = exp.variants.slice(0, 2);
+      const pcts = variants.map((v) => getVariantStats(exp, v).completionPct);
+      const lead = leaderIndex(pcts);
+      const day = Math.max(0, Math.min(exp.durationDays, diffDays(exp.startDate, today) + 1));
+      return {
+        name: exp.name,
+        day,
+        durationDays: exp.durationDays,
+        startsIn: Math.max(0, diffDays(today, exp.startDate)),
+        planned: exp.status === 'planned' || day === 0,
+        paused: habits.find((h) => h.id === exp.habitId)?.status === 'paused',
+        leader: lead >= 0 ? { label: variants[lead].label, pct: pcts[lead] } : null,
+        topPct: Math.max(0, ...pcts),
+      };
+    });
+    return scientistLine(briefs, finishedExperiments.length, adopted);
+  }, [experiments, sessions, habits, today, adopted]);
+
   return (
     <div className="stack fade-up lab-page">
       {/* CABECERA: el laboratorio con el coach en bata detrás de la mesa */}
@@ -164,6 +201,23 @@ export const ExperimentsView: React.FC = () => {
 
         <div className="lab-hero-scene" aria-hidden="true">
           <LabShelfArt />
+          {/* El bocadillo ocupa solo el hueco libre a la izquierda del científico (no invade el texto) */}
+          <CoachSpeech line={scientistSays} className="lab-bubble" />
+          <div className="lab-keeper">
+            <CoachAvatar
+              gender={persona.gender}
+              crop="bust"
+              size={206}
+              outfit="lab"
+              expression={adopted ? 'excited' : 'happy'}
+              // Entra enseñando su matraz y celebra cada variante adoptada
+              gesture={cheerKey ? 'cheer' : 'flask'}
+              gestureKey={cheerKey || 1}
+            />
+          </div>
+          <div className="lab-bench">
+            <Beaker level={avgAdherence ?? 35} color="#2dd4bf" shade="#0f766e" size={52} />
+          </div>
         </div>
       </section>
 
@@ -265,12 +319,7 @@ export const ExperimentsView: React.FC = () => {
               const habit = habits.find((h) => h.id === exp.habitId);
               const variants = exp.variants.slice(0, 2);
               const stats = variants.map((v) => getVariantStats(exp, v));
-              const leader =
-                stats.length === 2 && stats[0].completionPct !== stats[1].completionPct
-                  ? stats[0].completionPct > stats[1].completionPct
-                    ? 0
-                    : 1
-                  : -1;
+              const leader = leaderIndex(stats.map((st) => st.completionPct));
               const isPausedHabit = habit?.status === 'paused';
               const isHovered = hoveredExpId === exp.id;
               const day = Math.max(0, Math.min(exp.durationDays, diffDays(exp.startDate, today) + 1));
