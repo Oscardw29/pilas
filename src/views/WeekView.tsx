@@ -50,6 +50,8 @@ import { playSound } from '@/lib/sound';
 import { StatusIcon, StatusLabel } from '@/components/ui/icons';
 import type { Habit, HabitLog } from '@/types';
 import { habitCoinValue } from '@/lib/economyRules';
+import { HabitWeekCard } from '@/components/habits/HabitWeekCard';
+import { MOBILE_QUERY, useMediaQuery } from '@/lib/useMediaQuery';
 
 /** Fase de la animación al cambiar de semana: sale la semana mostrada y luego entra la nueva. */
 type WeekSlide = { phase: 'idle' | 'out' | 'in'; dir: 'next' | 'prev' };
@@ -81,6 +83,8 @@ export const WeekView: React.FC = () => {
   const [failModalInfo, setFailModalInfo] = useState<{ habit: Habit; date: string } | null>(null);
   const [progressModalInfo, setProgressModalInfo] = useState<{ habit: Habit; date: string } | null>(null);
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
+  // En el móvil cada hábito es una tarjeta con su semana; en pantallas anchas, la tabla matriz
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const days = weekDays(currentWeekStart);
   const isCurrentWeek = toKey(targetWeekStart) === toKey(startOfWeek(new Date()));
@@ -174,13 +178,55 @@ export const WeekView: React.FC = () => {
     setHabitToDelete(h);
   };
 
+  const handleResume = (h: Habit, dateKey: string) => {
+    clearLog(h.id, dateKey);
+    setHabitStatus(h.id, 'active');
+    toast(`Hábito «${h.name}» reactivado`, 'success');
+  };
+
+  const handleTogglePause = (h: Habit) => {
+    if (h.status === 'paused') {
+      setHabitStatus(h.id, 'active');
+      toast(`Hábito «${h.name}» reactivado`, 'success');
+    } else {
+      setHabitStatus(h.id, 'paused');
+      toast(`Hábito «${h.name}» en pausa`, 'info');
+    }
+  };
+
+  const openEdit = (h: Habit) => {
+    setEditingHabit(h);
+    setShowHabitModal(true);
+  };
+
+  const emptyState = (
+    <div className="card empty" style={{ padding: '60px 24px', textAlign: 'center' }}>
+      <div className="empty-icon" style={{ margin: '0 auto 16px' }}>
+        <CheckCircle2 size={38} style={{ color: 'var(--accent-2)' }} />
+      </div>
+      <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No hay hábitos activos todavía</h3>
+      <p style={{ color: 'var(--text-2)', maxWidth: 460, margin: '0 auto 20px', fontSize: 14 }}>
+        Establece tu primer hábito para comenzar tu semana y organizar tus días con consistencia.
+      </p>
+      <button
+        className="btn btn-primary"
+        onClick={() => {
+          setEditingHabit(undefined);
+          setShowHabitModal(true);
+        }}
+      >
+        <Plus size={16} /> Establecer mi primer hábito
+      </button>
+    </div>
+  );
+
   return (
     <div className="stack fade-up">
       {/* Cabecera */}
       <div className="page-head">
         <div>
-          <p className="eyebrow">Matriz semanal interactiva</p>
-          <h1>Mi semana</h1>
+          <p className="eyebrow">Tu semana, día a día</p>
+          <h1>Hábitos</h1>
         </div>
         <div className="actions">
           <button
@@ -237,7 +283,7 @@ export const WeekView: React.FC = () => {
 
           <div className="week-tip">
             <span className="icon-label" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <strong>Tip:</strong> clic en la celda alterna
+              <strong>Tip:</strong> {isMobile ? 'toca un día para alternar' : 'clic en la celda alterna'}
               <StatusLabel status="full">Completo</StatusLabel>→
               <StatusLabel status="minimum">Mínimo</StatusLabel>→
               <StatusLabel status="missed">No hecho</StatusLabel>
@@ -246,7 +292,7 @@ export const WeekView: React.FC = () => {
         </div>
 
         {/* Tabla matriz de hábitos o Estado Vacío */}
-        {visibleHabits.length > 0 ? (
+        {!isMobile && (visibleHabits.length > 0 ? (
           <>
             <div
               className={`table-wrap week-slide${slide.phase === 'idle' ? '' : ` is-${slide.phase}-${slide.dir}`}`}
@@ -344,11 +390,7 @@ export const WeekView: React.FC = () => {
                               >
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    clearLog(h.id, dk);
-                                    setHabitStatus(h.id, 'active');
-                                    toast(`Hábito «${h.name}» reactivado`, 'success');
-                                  }}
+                                  onClick={() => handleResume(h, dk)}
                                   className="matrix-cell-btn resume-cell"
                                   title="Hábito en pausa. Haz clic para reanudarlo hoy"
                                   aria-label="Hábito en pausa. Haz clic para reanudarlo hoy"
@@ -492,10 +534,7 @@ export const WeekView: React.FC = () => {
                       <div style={{ display: 'inline-flex', gap: 4 }}>
                         <button
                           className="icon-btn sm"
-                          onClick={() => {
-                            setEditingHabit(h);
-                            setShowHabitModal(true);
-                          }}
+                          onClick={() => openEdit(h)}
                           title="Editar hábito"
                           aria-label="Editar hábito"
                         >
@@ -541,26 +580,35 @@ export const WeekView: React.FC = () => {
         </div>
         </>
       ) : (
-        <div className="card empty" style={{ padding: '60px 24px', textAlign: 'center' }}>
-          <div className="empty-icon" style={{ margin: '0 auto 16px' }}>
-            <CheckCircle2 size={38} style={{ color: 'var(--accent-2)' }} />
-          </div>
-          <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No hay hábitos activos todavía</h3>
-          <p style={{ color: 'var(--text-2)', maxWidth: 460, margin: '0 auto 20px', fontSize: 14 }}>
-            Establece tu primer hábito para comenzar tu semana y organizar tus días con consistencia.
-          </p>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setEditingHabit(undefined);
-              setShowHabitModal(true);
-            }}
-          >
-            <Plus size={16} /> Establecer mi primer hábito
-          </button>
-        </div>
-      )}
+        emptyState
+      ))}
       </div>
+
+      {/* Móvil: una tarjeta por hábito */}
+      {isMobile &&
+        (visibleHabits.length > 0 ? (
+          <div
+            className={`habit-card-list week-slide${slide.phase === 'idle' ? '' : ` is-${slide.phase}-${slide.dir}`}`}
+            onAnimationEnd={handleSlideEnd}
+          >
+            {visibleHabits.map((h) => (
+              <HabitWeekCard
+                key={h.id}
+                habit={h}
+                data={data}
+                days={days}
+                today={T}
+                onCellClick={handleCellClick}
+                onResume={handleResume}
+                onEdit={openEdit}
+                onTogglePause={handleTogglePause}
+                onDelete={handleDeleteHabit}
+              />
+            ))}
+          </div>
+        ) : (
+          emptyState
+        ))}
 
       {showHabitModal && (
         <HabitModal

@@ -13,6 +13,20 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Fondo y barras del sistema con el color de la app (tema oscuro por defecto, como la web).
+             En cuanto carga la web, PilasSystemBarsPlugin los cambia al tema elegido. -->
+        <item name="android:windowBackground">@color/pilas_bg_dark</item>
+        <item name="android:statusBarColor">@color/pilas_bg_dark</item>
+        <item name="android:navigationBarColor">@color/pilas_bg_dark</item>
+    </style>
+
+    <!-- Capas que PilasSystemBarsPlugin aplica al tema según el de la app -->
+    <style name="PilasBarsDark">
+        <item name="android:windowBackground">@color/pilas_bg_dark</item>
+    </style>
+
+    <style name="PilasBarsLight">
+        <item name="android:windowBackground">@color/pilas_bg_light</item>
     </style>
 
 

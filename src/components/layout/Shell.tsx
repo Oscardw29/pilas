@@ -60,7 +60,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: '/', label: 'Inicio', icon: Home },
       { to: '/objetivos', label: 'Objetivos', icon: Target },
-      { to: '/semana', label: 'Mi semana', short: 'Semana', icon: Calendar },
+      { to: '/semana', label: 'Hábitos', icon: Calendar },
       { to: '/temporizador', label: 'Temporizador', icon: Timer },
       // El nombre real (Pilo o Pila) se pone al renderizar según el género elegido
       { to: '/coach', label: 'Coach', icon: CoachIcon },

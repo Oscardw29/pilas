@@ -11,7 +11,7 @@ const WEEKS = 5;
 const STATUS_LABEL = { full: 'Objetivo completo', minimum: 'Versión mínima', missed: 'No realizado', partial: 'Avance parcial' } as const;
 
 /**
- * Hábitos visibles de una persona, semana a semana, al estilo de «Mi semana» (solo lectura).
+ * Hábitos visibles de una persona, semana a semana, al estilo de «Hábitos» (solo lectura).
  * Solo recibe lo que manda el servidor: los hábitos ocultos nunca llegan, así que nunca se pueden mostrar.
  * Con `weekStart` la semana la decide quien lo usa (el perfil la mueve junto con la XP de la semana) y no se
  * dibujan flechas propias; sin él, se recorren la semana actual y las 4 anteriores.

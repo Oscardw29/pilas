@@ -782,7 +782,7 @@ function replyCrearHabito(ctx: Ctx, habit: Record<string, unknown>): Out {
   ];
   return [
     pickPhrase('accion.propuesta', g),
-    `Hábito: **${habit.icon} ${habit.name}**, ${details.join(', ')}. Luego puedes ajustarlo en Mi semana.`,
+    `Hábito: **${habit.icon} ${habit.name}**, ${details.join(', ')}. Luego puedes ajustarlo en Hábitos.`,
     actionBlock('create_habit', habit),
   ];
 }

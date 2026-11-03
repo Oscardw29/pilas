@@ -674,7 +674,7 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .fade-up { animation: fadeUp .35s ease both; }
 .pop { animation: pop .35s ease; }
 
-/* Mi semana: al cambiar de semana sale la actual y entra la nueva (≈310 ms en total).
+/* Hábitos: al cambiar de semana sale la actual y entra la nueva (≈310 ms en total).
    «next» = semana posterior (sale a la izquierda, entra por la derecha); «prev» al revés. */
 @keyframes weekOutNext { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-28px); } }
 @keyframes weekOutPrev { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(28px); } }
@@ -700,7 +700,7 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
   .week-nav-today .long { display: none; }
   .week-nav-today .short { display: inline; }
 }
-/* Mi semana: barra superior, matriz y leyenda */
+/* Hábitos: barra superior, matriz y leyenda */
 .week-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
 .week-tip { display: flex; align-items: center; gap: var(--space-4); font-size: 13px; color: var(--muted); }
 .week-matrix th.week-matrix-habit { min-width: 220px; }

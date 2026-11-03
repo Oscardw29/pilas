@@ -223,7 +223,7 @@ Nueva migración `supabase/migrations/0002_social.sql`:
 - **Perfil público (`/u/:alias`)**, que se abre al tocar a alguien en el ranking. Muestra:
   - Banner, marco, foto y alias.
   - Las tarjetas que la persona eligió: racha, XP de la semana en barras día a día con el total debajo, y miembro desde.
-  - La tabla semana a semana de hábitos visibles, al estilo «Mi semana».
+  - La tabla semana a semana de hábitos visibles, al estilo «Hábitos».
   - Sus publicaciones.
 - **`/clasificaciones`:**
   - Pestañas **Racha** (permanente) y **XP**: semana actual y total, con el % de cumplimiento como desempate.
