@@ -9,7 +9,23 @@ La app **no funciona sin esto**: la cuenta es obligatoria. Son unos 15 minutos.
 ## 2. Crear las tablas y la seguridad
 1. **SQL Editor** → **New query**.
 2. Pega todo el contenido de [`supabase/migrations/0001_init.sql`](../supabase/migrations/0001_init.sql) → **Run**.
-3. Comprueba en **Table Editor** que existen `records` y `user_keys` con **RLS enabled**.
+3. En otra **New query**, pega [`supabase/migrations/0006_sin_cifrado_dispositivos.sql`](../supabase/migrations/0006_sin_cifrado_dispositivos.sql) → **Run**.
+   Si el proyecto ya existía, basta con este paso (se puede volver a ejecutar). Ver «Datos y dispositivos» abajo.
+4. Comprueba en **Table Editor** que existen `records`, `user_keys` y `trusted_devices` con **RLS enabled**.
+
+### Datos y dispositivos (desde 0006)
+- **Los datos se guardan legibles** en `records.body` (JSON). Los protegen RLS y las funciones `push_records` /
+  `pull_records`: cada persona solo accede a lo suyo. Quien administra el proyecto de Supabase puede verlos.
+  Así, quien olvida la contraseña la cambia con un código del correo y **conserva sus datos**: ya no hay código de recuperación.
+- **Cuentas creadas antes de 0006** (datos cifrados de extremo a extremo): la app los convierte sola la próxima vez que
+  se entra con la contraseña o se abre un dispositivo que ya tenía la sesión iniciada, y borra lo cifrado y su fila de
+  `user_keys`. Si alguien recupera la contraseña antes de esa conversión y desde un dispositivo sin sesión, sus datos
+  cifrados antiguos no se pueden abrir y se borran.
+- **Dispositivos nuevos**: la contraseña sola no basta. La primera vez que se entra desde un móvil, PC o navegador, la
+  app envía un código al correo (plantilla **Magic Link**). Los datos (`records`) solo se leen o escriben desde un
+  dispositivo verificado (`trusted_devices`, que guarda solo el SHA-256 de su identificador). Crear la cuenta o
+  recuperar la contraseña también verifica el dispositivo; recuperar la contraseña olvida los demás dispositivos.
+  Borrar los datos del navegador o reinstalar la app cuenta como dispositivo nuevo.
 
 ## 3. Autenticación por correo
 **Authentication → Sign In / Providers → Email**:
@@ -35,11 +51,21 @@ En **Authentication → Emails → Templates**:
 <h2>Recupera tu cuenta de ¡Pilas!</h2>
 <p>Tu código es:</p>
 <p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
-<p>Para conservar tus datos necesitarás también tu código de recuperación.</p>
+<p>Escríbelo en la app para crear una contraseña nueva. Tus datos se conservan.</p>
+```
+
+**Magic Link** (código para verificar un dispositivo nuevo)
+```html
+<h2>Verifica tu dispositivo en ¡Pilas!</h2>
+<p>Alguien (seguramente tú) entró en tu cuenta desde un dispositivo nuevo. Tu código es:</p>
+<p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
+<p>Si no fuiste tú, cambia tu contraseña: sin este código no pueden ver tus datos.</p>
 ```
 
 ## 5. Correo real (SMTP gratis)
 El correo incluido en Supabase solo envía unos pocos mensajes por hora: sirve para probar, no para usuarios reales.
+Con la verificación de dispositivos nuevos se envían más códigos, así que en cuanto haya más de una persona usando la app
+hace falta un SMTP propio.
 Crea una cuenta gratis en [Resend](https://resend.com) (3 000 correos/mes) o [Brevo](https://brevo.com) (300/día) y configúrala en
 **Authentication → Emails → SMTP Settings**.
 
@@ -115,8 +141,8 @@ Sin este paso la app funciona igual, pero sin la sección **Comunidad** ni el pa
    (se suben como borradores) y publicarlas.
 
 Qué se publica: el perfil público que la app crea al entrar (nombre, alias si lo elige, foto, biografía, cosméticos,
-racha, XP por día, % de cumplimiento y los hábitos que la persona marque como visibles). Lo demás sigue cifrado de
-extremo a extremo en `records`.
+racha, XP por día, % de cumplimiento y los hábitos que la persona marque como visibles). Lo demás sigue siendo privado
+en `records` (solo su dueño lo ve desde la app).
 
 > ⚠️ Si la app la usan personas en Colombia aplica la Ley 1581 de 2012 de datos personales: confírmalo con asesoría legal
 > antes de abrirla al público.
@@ -158,8 +184,8 @@ Pruebas: `tests/appAi.sql.test.ts` (la clave no se puede leer desde la app y el 
 
 ## 8. Comprobar que nadie ve datos ajenos
 1. Crea dos cuentas de prueba (A y B) y añade un hábito en cada una.
-2. En **Table Editor → records** verás filas con `ciphertext` ilegible: no aparece ningún nombre de hábito.
-3. Inicia sesión con B en otro navegador: solo aparecen los datos de B.
+2. Inicia sesión con B en otro navegador: pide un código del correo (dispositivo nuevo) y luego solo aparecen los datos de B.
+3. En **Table Editor → records** cada fila tiene el `user_id` de su dueño; desde la app, A nunca recibe las de B.
 
 ## Límites del plan gratuito
 - 500 MB de base de datos y 50 000 usuarios activos al mes.

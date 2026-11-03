@@ -1,15 +1,16 @@
 import type { AccountKeys } from '@/crypto/keys';
-import { deleteUserDb, deviceGet, metaGet, metaSet, openUserDb, requestPersistentStorage, type UserDb } from '@/db/localDb';
+import { deleteUserDb, deviceGet, openUserDb, requestPersistentStorage, type UserDb } from '@/db/localDb';
 import { applyRemoteKeys, attachPersistence, detachPersistence, flushNow, hydrateFromDb, onLocalChange } from '@/db/persistence';
 import { importLegacyData, type LegacyMode } from '@/db/legacyImport';
 import { createEmptyData } from '@/data/seed';
 import { clearLegacyLocalData, readLegacyLocalData, useStore } from '@/store/useStore';
 import { initSecrets, useSecrets } from '@/store/useSecrets';
 import { useSession, type SessionUser } from '@/store/useSession';
-import { syncOnce } from '@/sync/engine';
-import { supabaseRemote, type Remote } from '@/sync/remote';
+import { migrateLegacy, syncOnce, type SyncResult } from '@/sync/engine';
+import { supabaseRemote, UntrustedDeviceError, type Remote } from '@/sync/remote';
 import { clearLocalSession, isSupabaseConfigured, supabase } from '@/sync/supabase';
-import { currentKeyId, forgetAccountKeys, loadAccountKeys, storeAccountKeys, type SignedIn } from './account';
+import { forgetAccountState, loadAccountState, storeAccountState, type SignedIn } from './account';
+import { deviceToken } from './device';
 
 /**
  * CICLO DE VIDA DE LA CUENTA EN ESTE DISPOSITIVO
@@ -23,12 +24,12 @@ const SYNC_DEBOUNCE_MS = 3_000;
 const SYNC_INTERVAL_MS = 120_000;
 const SIGN_OUT_SYNC_TIMEOUT_MS = 5_000;
 const GET_SESSION_TIMEOUT_MS = 3_000;
-const KEY_ID_META = 'account:keyId';
+const UNTRUSTED_NOTICE = 'Por seguridad, verifica este dispositivo: inicia sesión y te enviaremos un código al correo.';
 
 interface Active {
   user: SessionUser;
-  keys: AccountKeys;
-  keyId: string;
+  /** Claves de la cuenta de antes: hasta convertir sus datos cifrados a legibles */
+  legacy?: AccountKeys;
   db: UserDb;
   remote: Remote;
   stop: () => void;
@@ -72,15 +73,15 @@ async function doBoot(): Promise<void> {
   });
 
   const user = await storedUser();
-  const keys = user ? await loadAccountKeys(user.id) : undefined;
-  if (!user || !keys) {
+  const state = user ? await loadAccountState(user.id) : undefined;
+  if (!user || !state) {
     session().set({ status: 'signedOut' });
     return;
   }
 
   const db = openUserDb(user.id);
   await hydrateFromDb(db);
-  start({ user, keys, keyId: keys.keyId, db });
+  start({ user, legacy: state.legacy, db });
   session().set({ status: 'ready', user, firstRun: false });
   void syncNow();
 }
@@ -122,18 +123,20 @@ export async function enterAccount(signed: SignedIn): Promise<void> {
   session().set({ notice: undefined });
   const db = openUserDb(signed.user.id);
 
-  // Este dispositivo tenía datos cifrados con otra clave (la cuenta se restableció): se vuelven a subir
-  const previousKeyId = await metaGet<string>(db, KEY_ID_META);
-  if (previousKeyId && previousKeyId !== signed.keyId) await markAllDirty(db);
-
   // Sin una primera descarga correcta no se entra: subir los valores por defecto de un dispositivo
   // vacío pisaría los datos reales de la cuenta
-  const remote = supabaseRemote(supabase());
+  const remote = supabaseRemote(supabase(), deviceToken);
+  const firstSync = async () => {
+    if (signed.legacyKeys) await convertLegacy(db, remote, signed.legacyKeys);
+    else await syncOnce(db, remote);
+    // Datos cifrados de antes que ya no se pueden abrir (recuperación sin la contraseña anterior)
+    if (signed.discardLegacy) await finishLegacy();
+  };
   try {
-    await syncOnce(db, signed.keys, remote);
+    await firstSync();
   } catch {
     try {
-      await syncOnce(db, signed.keys, remote);
+      await firstSync();
     } catch (err) {
       console.warn('[Sync] Primera descarga fallida:', err);
       throw new Error('No se pudieron descargar tus datos. Revisa la conexión e inténtalo de nuevo.');
@@ -162,19 +165,18 @@ export async function resolveLegacy(choice: LegacyMode | 'discard'): Promise<voi
 }
 
 async function finishEnter(signed: SignedIn, db: UserDb, firstRun: boolean) {
-  // Las claves se guardan solo ahora: si la app se cerró antes (código de recuperación, elección de
-  // datos), al volver se pide iniciar sesión otra vez y se repite el paso
-  await storeAccountKeys(signed.user.id, { ...signed.keys, keyId: signed.keyId });
-  await metaSet(db, KEY_ID_META, signed.keyId);
+  // Se guarda solo ahora: si la app se cerró antes (elección de datos), al volver se pide iniciar sesión otra vez.
+  // Las claves antiguas ya no hacen falta: la conversión terminó en la primera descarga.
+  await storeAccountState(signed.user.id, {});
   await hydrateFromDb(db);
-  start({ user: signed.user, keys: signed.keys, keyId: signed.keyId, db });
+  start({ user: signed.user, db });
   session().set({ status: 'ready', user: signed.user, firstRun, legacyAccountHasData: undefined });
   void syncNow();
 }
 
 /* ---------------- Sincronización ---------------- */
 
-function start({ user, keys, keyId, db }: Pick<Active, 'user' | 'keys' | 'keyId' | 'db'>) {
+function start({ user, legacy, db }: Pick<Active, 'user' | 'legacy' | 'db'>) {
   stopActive();
   attachPersistence(db);
   let debounce: ReturnType<typeof setTimeout> | null = null;
@@ -193,10 +195,9 @@ function start({ user, keys, keyId, db }: Pick<Active, 'user' | 'keys' | 'keyId'
 
   active = {
     user,
-    keys,
-    keyId,
+    legacy,
     db,
-    remote: supabaseRemote(supabase()),
+    remote: supabaseRemote(supabase(), deviceToken),
     stop: () => {
       offChange();
       if (debounce) clearTimeout(debounce);
@@ -241,23 +242,29 @@ async function syncPass() {
   }
   session().set({ sync: 'syncing', syncError: undefined });
   try {
-    // Si otro dispositivo restableció la cuenta (nueva clave), no se sube nada con la clave vieja
-    const keyId = await currentKeyId(supabase(), a.user.id);
-    if (active !== a) return;
-    if (keyId !== a.keyId) {
-      await lockOut('Tu cuenta se restableció desde otro dispositivo. Vuelve a iniciar sesión para seguir sincronizando.');
-      return;
-    }
     await flushNow();
-    const result = await syncOnce(a.db, a.keys, a.remote);
+    let result: SyncResult;
+    if (a.legacy) {
+      // Este dispositivo guardaba las claves de antes: convierte los datos cifrados que queden en la nube
+      result = await convertLegacy(a.db, a.remote, a.legacy);
+      a.legacy = undefined;
+      await storeAccountState(a.user.id, {});
+    } else {
+      result = await syncOnce(a.db, a.remote);
+    }
     if (active !== a) return;
     await applyRemoteKeys(result.appliedKeys);
     session().set({
       sync: 'idle',
       lastSyncedAt: Date.now(),
-      syncError: result.undecryptable ? `${result.undecryptable} registros de la nube no se pudieron descifrar` : undefined,
+      syncError: result.unreadable ? `${result.unreadable} registros antiguos de la nube no se pudieron leer` : undefined,
     });
   } catch (err) {
+    if (err instanceof UntrustedDeviceError) {
+      // El dispositivo dejó de estar verificado (p. ej. la cuenta se recuperó desde otro): hay que volver a entrar
+      if (active === a) await lockOut(UNTRUSTED_NOTICE);
+      return;
+    }
     const raw = err instanceof Error ? err.message : String(err);
     const message = /failed to fetch|network|load failed/i.test(raw) ? 'No se pudo conectar con el servidor. Se reintentará solo.' : raw;
     session().set({ sync: navigator.onLine ? 'error' : 'offline', syncError: message });
@@ -269,9 +276,21 @@ export async function pendingChanges(): Promise<number> {
   return active ? active.db.records.where('dirty').equals(1).count() : 0;
 }
 
+/** Convierte los datos cifrados de una cuenta de antes y borra lo cifrado en el servidor */
+async function convertLegacy(db: UserDb, remote: Remote, legacy: AccountKeys): Promise<SyncResult> {
+  const result = await migrateLegacy(db, remote, legacy);
+  await finishLegacy();
+  return result;
+}
+
+async function finishLegacy() {
+  const { error } = await supabase().rpc('finish_plaintext_migration', { device: await deviceToken() });
+  if (error) throw new Error(error.message);
+}
+
 /**
  * La sesión dejó de ser válida sin que el usuario la cerrara: se vuelve a la pantalla de acceso.
- * Se olvidan las claves de cifrado y la sesión. La base local solo se borra si no tiene cambios
+ * Se olvida la sesión. La base local solo se borra si no tiene cambios
  * sin subir (si los tiene, se subirán al volver a entrar con esta cuenta).
  */
 async function lockOut(notice: string) {
@@ -281,7 +300,7 @@ async function lockOut(notice: string) {
     stopActive();
     await clearLocalSession();
     if (a) {
-      await forgetAccountKeys(a.user.id);
+      await forgetAccountState(a.user.id);
       const pending = await a.db.records.where('dirty').equals(1).count().catch(() => 0);
       if (pending === 0) await deleteUserDb(a.user.id);
     }
@@ -295,7 +314,7 @@ async function lockOut(notice: string) {
 /* ---------------- Cerrar sesión ---------------- */
 
 /**
- * Cierra la sesión en este dispositivo y borra sus datos locales (siguen en la nube, cifrados).
+ * Cierra la sesión en este dispositivo y borra sus datos locales (siguen en la nube).
  * - `forgetApiKeys`: borrar también las claves API de este dispositivo (recomendado en equipos compartidos).
  * - Si tras intentar subirlos quedan cambios pendientes, no se cierra sin `force` y se devuelve cuántos son.
  */
@@ -315,7 +334,7 @@ export async function signOut({ forgetApiKeys, force = false }: { forgetApiKeys:
     pendingLegacy = null;
     await clearLocalSession();
     if (a) {
-      await forgetAccountKeys(a.user.id);
+      await forgetAccountState(a.user.id);
       await deleteUserDb(a.user.id);
     }
     if (forgetApiKeys) useSecrets.getState().forgetAll();
@@ -335,7 +354,7 @@ export async function afterAccountDeleted(): Promise<void> {
     stopActive();
     await clearLocalSession();
     if (a) {
-      await forgetAccountKeys(a.user.id);
+      await forgetAccountState(a.user.id);
       await deleteUserDb(a.user.id);
     }
     useSecrets.getState().forgetAll();
@@ -344,22 +363,6 @@ export async function afterAccountDeleted(): Promise<void> {
   } finally {
     signingOut = false;
   }
-}
-
-/**
- * Tras recuperar la cuenta sin código (datos de la nube restablecidos): la base local sigue con los
- * datos de este dispositivo; se marcan todos como pendientes para volver a subirlos con la clave nueva.
- */
-export async function markAllDirty(db: UserDb): Promise<void> {
-  const all = await db.records.toArray();
-  await db.records.bulkPut(all.map((r) => ({ ...r, dirty: 1 as const })));
-  await db.meta.delete('sync:cursor');
-}
-
-/** Entrar tras «recuperar sin código»: lo que quede en este dispositivo se vuelve a subir con la clave nueva */
-export async function enterAfterCloudReset(signed: SignedIn): Promise<void> {
-  await markAllDirty(openUserDb(signed.user.id));
-  await enterAccount(signed);
 }
 
 export const activeUser = () => active?.user ?? null;

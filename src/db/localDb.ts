@@ -102,6 +102,6 @@ export async function requestPersistentStorage(): Promise<void> {
       await navigator.storage.persist?.();
     }
   } catch {
-    /* no disponible: la copia cifrada en la nube cubre un posible borrado */
+    /* no disponible: la copia en la nube cubre un posible borrado */
   }
 }

@@ -1,8 +1,9 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { deriveAccountKeys, generateRootKey } from '@/crypto/keys';
+import { deriveAccountKeys, generateRootKey, opaqueId, sealJson } from '@/crypto/keys';
 import { UserDb, type LocalRecord } from '@/db/localDb';
-import { syncOnce } from '@/sync/engine';
+import { migrateLegacy, syncOnce } from '@/sync/engine';
+import type { RecordBody } from '@/sync/remote';
 import { memoryRemote } from './memoryRemote';
 
 let n = 0;
@@ -14,87 +15,105 @@ const rec = (key: string, value: unknown, updatedAt: number, extra: Partial<Loca
 });
 
 describe('sincronización', () => {
-  it('lo que sube un dispositivo llega al otro, cifrado en el servidor', async () => {
-    const keys = await deriveAccountKeys(generateRootKey());
+  it('lo que sube un dispositivo llega al otro', async () => {
     const remote = memoryRemote();
     const a = newDb();
     const b = newDb();
     await a.records.bulkPut([rec('habits:h1', { id: 'h1', name: 'Leer' }, T + 1000), rec('single:settings', { userName: 'Ana' }, T + 1000)]);
-    expect((await syncOnce(a, keys, remote)).pushed).toBe(2);
-    const onServer = JSON.stringify([...remote.rows.values()]);
-    expect(onServer).not.toContain('Leer');
-    expect(onServer).not.toContain('habits');
-    expect((await syncOnce(b, keys, remote)).applied).toBe(2);
+    expect((await syncOnce(a, remote)).pushed).toBe(2);
+    expect(remote.rows.get('habits:h1')?.body?.v).toEqual({ id: 'h1', name: 'Leer' });
+    expect((await syncOnce(b, remote)).applied).toBe(2);
     expect((await b.records.get('habits:h1'))?.value).toEqual({ id: 'h1', name: 'Leer' });
     expect((await a.records.get('habits:h1'))?.dirty).toBe(0);
   });
 
   it('conflicto: gana el cambio más reciente, en ambos sentidos', async () => {
-    const keys = await deriveAccountKeys(generateRootKey());
     const remote = memoryRemote();
     const a = newDb();
     const b = newDb();
     await a.records.put(rec('habits:h1', { name: 'A viejo' }, T + 1000));
     await b.records.put(rec('habits:h1', { name: 'B nuevo' }, T + 2000));
-    await syncOnce(a, keys, remote);
-    await syncOnce(b, keys, remote);
-    await syncOnce(a, keys, remote);
+    await syncOnce(a, remote);
+    await syncOnce(b, remote);
+    await syncOnce(a, remote);
     expect((await a.records.get('habits:h1'))?.value).toEqual({ name: 'B nuevo' });
     expect((await b.records.get('habits:h1'))?.value).toEqual({ name: 'B nuevo' });
   });
 
   it('los borrados viajan como lápidas', async () => {
-    const keys = await deriveAccountKeys(generateRootKey());
     const remote = memoryRemote();
     const a = newDb();
     const b = newDb();
     await a.records.put(rec('goals:g1', { id: 'g1' }, T + 1000));
-    await syncOnce(a, keys, remote);
-    await syncOnce(b, keys, remote);
+    await syncOnce(a, remote);
+    await syncOnce(b, remote);
     await a.records.put(rec('goals:g1', null, T + 3000, { deleted: 1 }));
-    await syncOnce(a, keys, remote);
-    await syncOnce(b, keys, remote);
+    await syncOnce(a, remote);
+    await syncOnce(b, remote);
     expect((await b.records.get('goals:g1'))?.deleted).toBe(1);
   });
 
   it('pagina más de un lote con marcas de tiempo iguales sin perder registros', async () => {
-    const keys = await deriveAccountKeys(generateRootKey());
     const remote = memoryRemote();
     const a = newDb();
     const b = newDb();
     await a.records.bulkPut(Array.from({ length: 1234 }, (_, i) => rec(`logs:${i}`, { i }, T + 1000)));
-    await syncOnce(a, keys, remote);
-    await syncOnce(b, keys, remote);
+    await syncOnce(a, remote);
+    await syncOnce(b, remote);
     expect(await b.records.count()).toBe(1234);
-    // Cifra y descifra más de mil registros: junto a las pruebas de PGlite, en paralelo, supera los 5 s por defecto
   }, 30_000);
+});
 
-  it('con otra clave de cuenta los registros no se pueden leer', async () => {
-    const remote = memoryRemote();
-    const a = newDb();
-    await a.records.put(rec('habits:h1', { name: 'secreto' }, T + 1000));
-    await syncOnce(a, await deriveAccountKeys(generateRootKey()), remote);
-    const intruder = newDb();
-    const res = await syncOnce(intruder, await deriveAccountKeys(generateRootKey()), remote);
-    expect(res.undecryptable).toBe(1);
-    expect(await intruder.records.count()).toBe(0);
-  });
+describe('cuentas de antes (datos cifrados)', () => {
+  /** Sube filas en el formato antiguo: id opaco y contenido cifrado */
+  async function seedLegacy(remote: ReturnType<typeof memoryRemote>, keys: Awaited<ReturnType<typeof deriveAccountKeys>>, items: RecordBody[]) {
+    for (const p of items) {
+      const rid = await opaqueId(keys.ridKey, p.k);
+      remote.rows.set(rid, {
+        rid,
+        body: null,
+        ciphertext: await sealJson(keys.encKey, p, rid),
+        client_updated_at: new Date(p.t).toISOString(),
+        deleted: p.d,
+        server_updated_at: '2026-01-01T00:00:00.000Z',
+      });
+    }
+  }
 
-  it('un servidor manipulado no puede borrar ni mover registros', async () => {
+  it('con las claves antiguas se convierten a legibles; sin ellas no se pueden leer', async () => {
     const keys = await deriveAccountKeys(generateRootKey());
     const remote = memoryRemote();
+    await seedLegacy(remote, keys, [
+      { k: 'habits:h1', v: { name: 'Leer' }, o: 0, t: T + 1000, d: false },
+      { k: 'goals:g1', v: null, t: T + 1000, d: true },
+    ]);
+
+    const stranger = newDb();
+    expect((await syncOnce(stranger, remote)).unreadable).toBe(2);
+    expect(await stranger.records.count()).toBe(0);
+
     const a = newDb();
-    await a.records.bulkPut([rec('habits:h1', { name: 'Leer' }, T + 1000), rec('habits:h2', { name: 'Correr' }, T + 1000)]);
-    await syncOnce(a, keys, remote);
-    const [r1, r2] = [...remote.rows.values()];
-    // Marca «borrado» y una fecha futura sin poder tocar el contenido cifrado
-    remote.rows.set(r1.rid, { ...r1, deleted: true, client_updated_at: new Date(T + 99_000).toISOString(), server_updated_at: '2030-01-01T00:00:00.000Z' });
-    // Copia el texto cifrado de un registro en otro
-    remote.rows.set(r2.rid, { ...r2, ciphertext: r1.ciphertext, server_updated_at: '2030-01-01T00:00:00.000Z' });
+    const res = await migrateLegacy(a, remote, keys);
+    expect(res.applied).toBe(2);
+    expect((await a.records.get('habits:h1'))?.value).toEqual({ name: 'Leer' });
+    // Ya están legibles en el servidor con su clave real
+    expect(remote.rows.get('habits:h1')?.body?.v).toEqual({ name: 'Leer' });
+    expect(remote.rows.get('goals:g1')?.body?.d).toBe(true);
+
+    // Otro dispositivo sin las claves antiguas ya recibe los datos convertidos
     const b = newDb();
-    const res = await syncOnce(b, keys, remote);
-    expect(res.undecryptable).toBe(1);
-    expect((await b.records.get('habits:h1'))?.deleted).toBe(0);
+    await syncOnce(b, remote);
     expect((await b.records.get('habits:h1'))?.value).toEqual({ name: 'Leer' });
+  });
+
+  it('convertir no pisa un cambio local más reciente', async () => {
+    const keys = await deriveAccountKeys(generateRootKey());
+    const remote = memoryRemote();
+    await seedLegacy(remote, keys, [{ k: 'habits:h1', v: { name: 'viejo' }, t: T + 1000, d: false }]);
+    const a = newDb();
+    await a.records.put(rec('habits:h1', { name: 'nuevo' }, T + 5000));
+    await migrateLegacy(a, remote, keys);
+    expect((await a.records.get('habits:h1'))?.value).toEqual({ name: 'nuevo' });
+    expect(remote.rows.get('habits:h1')?.body?.v).toEqual({ name: 'nuevo' });
   });
 });

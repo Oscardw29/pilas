@@ -1,15 +1,16 @@
 import type { AccountKeys } from '@/crypto/keys';
-import { opaqueId, openJson, sealJson } from '@/crypto/keys';
+import { openJson } from '@/crypto/keys';
 import { metaGet, metaSet, type LocalRecord, type UserDb } from '@/db/localDb';
-import type { PullCursor, Remote, RemoteRow } from './remote';
+import type { PullCursor, RecordBody, Remote, RemoteRow } from './remote';
 
 /**
  * MOTOR DE SINCRONIZACIÓN
- * - Subida: los registros locales marcados `dirty` se cifran y se envían en lotes.
- * - Bajada: se piden los registros que el servidor recibió después del último cursor, se descifran
- *   y se aplican. Si el mismo registro cambió en dos sitios gana el cambio más reciente
- *   (last-write-wins por registro).
- * Es independiente de Supabase y de React: recibe la base local, las claves y el transporte.
+ * - Subida: los registros locales marcados `dirty` se envían en lotes.
+ * - Bajada: se piden los registros que el servidor recibió después del último cursor y se aplican.
+ *   Si el mismo registro cambió en dos sitios gana el cambio más reciente (last-write-wins por registro).
+ * - Cuentas de antes: sus filas llegaron cifradas de extremo a extremo; con las claves antiguas (`legacy`)
+ *   se descifran al bajarlas y `migrateLegacy` las vuelve a subir legibles.
+ * Es independiente de Supabase y de React: recibe la base local y el transporte.
  */
 
 const PUSH_BATCH = 200;
@@ -23,49 +24,29 @@ const CURSOR_KEY = 'sync:cursor';
 /** Lápidas ya subidas que se pueden olvidar en local */
 const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-/**
- * Contenido cifrado de cada registro. La marca de tiempo y el borrado van DENTRO (autenticados):
- * el servidor no puede borrar un registro ni hacer pasar una versión vieja por nueva.
- * El id opaco (rid) va como datos asociados: un texto cifrado no se puede mover a otro registro.
- */
-interface Payload {
-  k: string;
-  v: unknown;
-  o?: number;
-  /** updatedAt (ms) */
-  t: number;
-  /** borrado */
-  d: boolean;
-}
-
 export interface SyncResult {
   pushed: number;
   /** Registros de otros dispositivos aplicados en local */
   applied: number;
   /** Claves (`colección:id`) de esos registros */
   appliedKeys: string[];
-  /** Registros que no se pudieron descifrar (otra clave de cuenta) */
-  undecryptable: number;
+  /** Filas cifradas de antes que no se pudieron leer (sin las claves antiguas de la cuenta) */
+  unreadable: number;
 }
 
-export async function pushDirty(db: UserDb, keys: AccountKeys, remote: Remote): Promise<number> {
+export async function pushDirty(db: UserDb, remote: Remote): Promise<number> {
   const dirty = await db.records.where('dirty').equals(1).toArray();
   let pushed = 0;
   for (let i = 0; i < dirty.length; i += PUSH_BATCH) {
     const batch = dirty.slice(i, i + PUSH_BATCH);
-    const rows = await Promise.all(
-      batch.map(async (r) => {
-        const rid = await opaqueId(keys.ridKey, r.key);
-        const payload: Payload = { k: r.key, v: r.deleted ? null : r.value, o: r.order, t: r.updatedAt, d: r.deleted === 1 };
-        return {
-          rid,
-          ciphertext: await sealJson(keys.encKey, payload, rid),
-          client_updated_at: new Date(r.updatedAt).toISOString(),
-          deleted: r.deleted === 1,
-        };
-      }),
+    await remote.push(
+      batch.map((r) => ({
+        rid: r.key,
+        body: { k: r.key, v: r.deleted ? null : r.value, o: r.order, t: r.updatedAt, d: r.deleted === 1 } satisfies RecordBody,
+        client_updated_at: new Date(r.updatedAt).toISOString(),
+        deleted: r.deleted === 1,
+      })),
     );
-    await remote.push(rows);
     // Solo se limpia la marca si el registro no volvió a cambiar mientras se subía
     await db.transaction('rw', db.records, async () => {
       for (const r of batch) {
@@ -80,22 +61,22 @@ export async function pushDirty(db: UserDb, keys: AccountKeys, remote: Remote): 
 
 export async function pullRemote(
   db: UserDb,
-  keys: AccountKeys,
   remote: Remote,
-): Promise<{ applied: number; appliedKeys: string[]; undecryptable: number }> {
+  legacy?: AccountKeys,
+): Promise<{ applied: number; appliedKeys: string[]; unreadable: number }> {
   let cursor: PullCursor = (await metaGet<PullCursor>(db, CURSOR_KEY)) ?? { ts: null, rid: '' };
   const appliedKeys: string[] = [];
   let applied = 0;
-  let undecryptable = 0;
+  let unreadable = 0;
   let newest: string | null = null;
 
   for (;;) {
     const rows = await remote.pull(cursor, PULL_PAGE);
     if (!rows.length) break;
-    const result = await applyRows(db, keys, rows);
+    const result = await applyRows(db, rows, legacy);
     applied += result.applied.length;
     appliedKeys.push(...result.applied);
-    undecryptable += result.undecryptable;
+    unreadable += result.unreadable;
     const last = rows[rows.length - 1];
     cursor = { ts: last.server_updated_at, rid: last.rid };
     newest = last.server_updated_at;
@@ -106,21 +87,32 @@ export async function pullRemote(
     const safe = new Date(Date.parse(newest) - CURSOR_OVERLAP_MS).toISOString();
     await metaSet(db, CURSOR_KEY, { ts: safe, rid: '' } satisfies PullCursor);
   }
-  return { applied, appliedKeys, undecryptable };
+  return { applied, appliedKeys, unreadable };
 }
 
-async function applyRows(db: UserDb, keys: AccountKeys, rows: RemoteRow[]) {
+const isBody = (b: unknown): b is RecordBody =>
+  Boolean(b) && typeof (b as RecordBody).k === 'string' && typeof (b as RecordBody).t === 'number';
+
+async function decode(row: RemoteRow, legacy?: AccountKeys): Promise<RecordBody | null> {
+  if (row.body) return isBody(row.body) ? row.body : null;
+  if (!row.ciphertext || !legacy) return null;
+  try {
+    // Formato antiguo: el rid opaco iba como datos asociados del cifrado
+    const payload = await openJson<RecordBody>(legacy.encKey, row.ciphertext, row.rid);
+    return isBody(payload) ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+async function applyRows(db: UserDb, rows: RemoteRow[], legacy?: AccountKeys) {
   const applied: string[] = [];
-  let undecryptable = 0;
-  const decoded: Payload[] = [];
+  let unreadable = 0;
+  const decoded: RecordBody[] = [];
   for (const row of rows) {
-    try {
-      const payload = await openJson<Payload>(keys.encKey, row.ciphertext, row.rid);
-      if (typeof payload.k !== 'string' || typeof payload.t !== 'number') throw new Error('Registro mal formado');
-      decoded.push(payload);
-    } catch {
-      undecryptable++;
-    }
+    const body = await decode(row, legacy);
+    if (body) decoded.push(body);
+    else unreadable++;
   }
 
   await db.transaction('rw', db.records, async () => {
@@ -132,15 +124,29 @@ async function applyRows(db: UserDb, keys: AccountKeys, rows: RemoteRow[]) {
       applied.push(p.k);
     }
   });
-  return { applied, undecryptable };
+  return { applied, unreadable };
 }
 
 /** Sincronización completa: subir lo pendiente y bajar lo nuevo */
-export async function syncOnce(db: UserDb, keys: AccountKeys, remote: Remote): Promise<SyncResult> {
-  const pushed = await pushDirty(db, keys, remote);
-  const { applied, appliedKeys, undecryptable } = await pullRemote(db, keys, remote);
+export async function syncOnce(db: UserDb, remote: Remote, legacy?: AccountKeys): Promise<SyncResult> {
+  const pushed = await pushDirty(db, remote);
+  const { applied, appliedKeys, unreadable } = await pullRemote(db, remote, legacy);
   await purgeTombstones(db);
-  return { pushed, applied, appliedKeys, undecryptable };
+  return { pushed, applied, appliedKeys, unreadable };
+}
+
+/**
+ * Convierte una cuenta de antes: baja todo (descifrando lo cifrado con las claves antiguas) y vuelve a
+ * subirlo legible. Quien llama borra después las filas cifradas en el servidor. Se puede repetir sin riesgo:
+ * el servidor ignora un registro si ya tiene una versión igual o más nueva.
+ */
+export async function migrateLegacy(db: UserDb, remote: Remote, legacy: AccountKeys): Promise<SyncResult> {
+  await resetCursor(db);
+  const { applied, appliedKeys, unreadable } = await pullRemote(db, remote, legacy);
+  await markAllDirty(db);
+  const pushed = await pushDirty(db, remote);
+  await purgeTombstones(db);
+  return { pushed, applied, appliedKeys, unreadable };
 }
 
 async function purgeTombstones(db: UserDb) {
@@ -149,5 +155,11 @@ async function purgeTombstones(db: UserDb) {
   if (old.length) await db.records.bulkDelete(old);
 }
 
-/** Olvida el cursor (tras restablecer los datos de la nube hay que volver a bajar todo) */
+/** Olvida el cursor (para volver a bajar todo) */
 export const resetCursor = (db: UserDb) => metaSet(db, CURSOR_KEY, null);
+
+/** Marca todo lo local como pendiente de subir */
+export async function markAllDirty(db: UserDb): Promise<void> {
+  const all = await db.records.toArray();
+  await db.records.bulkPut(all.map((r) => ({ ...r, dirty: 1 as const })));
+}

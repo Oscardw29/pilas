@@ -3,14 +3,13 @@ import { Cloud, KeyRound, LogOut, RefreshCw, Trash2 } from 'lucide-react';
 import { useIsCreator } from '@/lib/creator';
 import { useSession } from '@/store/useSession';
 import { supabase } from '@/sync/supabase';
-import { changePassword, deleteAccount, passwordProblem, regenerateRecoveryCode } from '@/account/account';
+import { changePassword, deleteAccount, passwordProblem } from '@/account/account';
 import { afterAccountDeleted, pendingChanges, signOut, syncNow } from '@/account/runtime';
-import { RecoveryCodeStep } from '@/components/auth/AuthGate';
 import { useToast } from '@/components/ui/ToastContext';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SyncPill } from '@/components/auth/SyncPill';
 
-type Panel = null | 'password' | 'recovery' | 'signout' | 'delete';
+type Panel = null | 'password' | 'signout' | 'delete';
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Algo salió mal.');
 
@@ -23,8 +22,7 @@ function relative(ts?: number) {
 }
 
 /**
- * Cuenta y sincronización: estado, cambiar contraseña, nuevo código de recuperación,
- * cerrar sesión y eliminar la cuenta.
+ * Cuenta y sincronización: estado, cambiar contraseña, cerrar sesión y eliminar la cuenta.
  */
 export const AccountCard: React.FC = () => {
   const { user, lastSyncedAt, syncError } = useSession();
@@ -37,7 +35,6 @@ export const AccountCard: React.FC = () => {
   const [next2, setNext2] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newCode, setNewCode] = useState<string | null>(null);
   const [forgetKeys, setForgetKeys] = useState(true);
   const [pending, setPending] = useState(0);
   /** Tras intentar subirlos, quedaron cambios sin subir: hay que confirmar que se pierden */
@@ -63,7 +60,6 @@ export const AccountCard: React.FC = () => {
     setNext('');
     setNext2('');
     setError(null);
-    setNewCode(null);
     setUnsynced(0);
   };
 
@@ -92,14 +88,9 @@ export const AccountCard: React.FC = () => {
     if (problem) return setError(problem);
     void run(async () => {
       await changePassword(supabase(), user.id, user.email, current, next);
-      showToast('Contraseña cambiada', 'success', 'Tus datos siguen cifrados con la misma clave de cuenta.');
+      showToast('Contraseña cambiada', 'success', 'Úsala la próxima vez que entres en un dispositivo.');
       setPanel(null);
     });
-  };
-
-  const onRegenerate = (e: React.FormEvent) => {
-    e.preventDefault();
-    void run(async () => setNewCode(await regenerateRecoveryCode(supabase(), user.id, user.email, current)));
   };
 
   const onDelete = (e: React.FormEvent) => {
@@ -135,9 +126,9 @@ export const AccountCard: React.FC = () => {
       </div>
 
       <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 14, lineHeight: 1.55 }}>
-        Tus datos se guardan en este dispositivo y se sincronizan <strong>cifrados de extremo a extremo</strong> con tus otros
-        dispositivos: en la nube solo hay datos ilegibles sin tu contraseña. Las claves API no se sincronizan. Última
-        sincronización: {relative(lastSyncedAt)}.
+        Tus datos se guardan en este dispositivo y se sincronizan con tus otros dispositivos a través de tu cuenta. Si
+        olvidas la contraseña, los recuperas con un código que llega a tu correo. Cada dispositivo nuevo se verifica también
+        con un código del correo. Las claves API no se sincronizan. Última sincronización: {relative(lastSyncedAt)}.
       </p>
       {syncError && <p className="form-error" style={{ marginBottom: 12 }}>{syncError}</p>}
 
@@ -147,9 +138,6 @@ export const AccountCard: React.FC = () => {
         </button>
         <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'password'} onClick={() => open('password')}>
           <KeyRound aria-hidden /> Cambiar contraseña
-        </button>
-        <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'recovery'} onClick={() => open('recovery')}>
-          Nuevo código de recuperación
         </button>
         <button type="button" className="btn btn-secondary sm" aria-expanded={panel === 'signout'} onClick={() => open('signout')}>
           <LogOut aria-hidden /> Cerrar sesión
@@ -171,22 +159,6 @@ export const AccountCard: React.FC = () => {
             {busy ? 'Guardando…' : 'Cambiar contraseña'}
           </button>
         </form>
-      )}
-
-      {panel === 'recovery' && !newCode && (
-        <form className="form mt" onSubmit={onRegenerate}>
-          <p className="small muted">El código anterior dejará de servir.</p>
-          {field('Contraseña', current, setCurrent, 'current-password')}
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Generando…' : 'Generar código nuevo'}
-          </button>
-        </form>
-      )}
-      {panel === 'recovery' && newCode && (
-        <div className="mt">
-          <RecoveryCodeStep code={newCode} doneLabel="Listo" onDone={() => setPanel(null)} />
-        </div>
       )}
 
       {panel === 'signout' && (

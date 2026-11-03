@@ -22,6 +22,10 @@ create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 grant execute on function auth.uid() to anon, authenticated;
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$$;
+grant execute on function auth.jwt() to anon, authenticated;
 
 create schema storage;
 grant usage on schema storage to anon, authenticated;
@@ -57,6 +61,7 @@ export async function createTestDb(): Promise<TestDb> {
   await pg.exec(migration('0003_perfiles_ligas.sql'));
   await pg.exec(migration('0004_ia_de_la_app.sql'));
   await pg.exec(migration('0005_cuentas_panel.sql'));
+  await pg.exec(migration('0006_sin_cifrado_dispositivos.sql'));
 
   const sql = async <T,>(query: string, params: unknown[] = []) => (await pg.query<T>(query, params)).rows;
   const as = async <T,>(uid: string | null, query: string, params: unknown[] = []) => {
