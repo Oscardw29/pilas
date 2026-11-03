@@ -23,20 +23,27 @@ Decisiones de implementación:
 - Al cerrar sesión, la casilla «olvidar también las claves API» viene **marcada** por defecto (equipos compartidos).
 
 
-## Estado de implementación (2026-10-21)
+## Estado de implementación (revisado el 2026-11-01)
 
 | Fase | Estado | Dónde |
 |---|---|---|
 | F0 · Limpieza | ✅ Hecho | sin pruebas de notificaciones, Inter local, sin `HTTP-Referer` |
 | F1 · Base local + plataforma | ✅ Hecho | `src/db/`, `src/platform/`, `src/store/useSecrets.ts` |
-| F2 · Cuentas E2E | ✅ Hecho (falta probar con tu Supabase) | `src/crypto/`, `src/account/`, `src/components/auth/`, `supabase/migrations/0001_init.sql` |
+| F2 · Cuentas E2E | ✅ Hecho; Supabase creado con las migraciones 0001–0005 | `src/crypto/`, `src/account/`, `src/components/auth/`, `supabase/migrations/` |
 | F3 · Sincronización | ✅ Hecho (probado con un servidor en memoria) | `src/sync/`, `tests/` |
-| F4 · Android | ✅ Proyecto listo, **sin compilar** (falta Android Studio / JDK 21) | `android/`, `capacitor.config.ts`, [android.md](android.md) |
-| F5 · Windows / Linux | ✅ Proyecto listo, **sin compilar** (falta Rust + C++ Build Tools) | `src-tauri/`, [desktop.md](desktop.md) |
-| F6 · PWA y distribución | ✅ Hecho | `/descargar`, `.github/workflows/release.yml` |
-| F7 · Verificación | 🟡 15 pruebas automáticas, revisión en navegador y revisión de seguridad hechas; faltan la prueba real con Supabase y entre dispositivos | `tests/` |
+| F4 · Android | 🟡 Proyecto listo, **sin compilar**: falta instalar un JDK 21 (el `jbr` de Android Studio es Java 25) | `android/`, `capacitor.config.ts`, [android.md](android.md) |
+| F5 · Windows / Linux | ✅ El `.exe` compila en Windows; Linux solo se compila en GitHub Actions | `src-tauri/`, [desktop.md](desktop.md) |
+| F6 · PWA y distribución | 🟡 Hecho, pero `release.yml` nunca se ha ejecutado (no hay repositorio en GitHub ni proyecto en Vercel) | `/descargar`, `.github/workflows/release.yml` |
+| F7 · Verificación | 🟡 189 pruebas automáticas, revisión en navegador y revisión de seguridad hechas; falta la prueba real entre dispositivos | `tests/` |
 
-Lo que tienes que hacer tú: [supabase.md](supabase.md) (crear el proyecto y pegar el SQL), y para generar `.apk` / `.exe`, instalar las herramientas de [android.md](android.md) y [desktop.md](desktop.md).
+Lo que tienes que hacer tú: los pasos de [guia-instaladores.md](guia-instaladores.md) desde el 6.2 (JDK 21, clave de firma,
+GitHub y Vercel) y desplegar la función `pilas-ai` ([supabase.md](supabase.md), «IA de la app»).
+
+Cambios respecto a lo planeado abajo (el plan original se conserva como referencia):
+- Escritorio: los paquetes son `.exe` (NSIS), `.AppImage` y `.deb`; no se genera `.msi`.
+- No se activa `CapacitorHttp` global: el fetch nativo solo se usa para `api.fish.audio` (`src/platform/capacitor.ts`).
+- El relay de voz es `api/fish-tts.ts`; `api/relay.ts` y el dictado ya no existen.
+- Las claves de IA del creador viven en el servidor (función `pilas-ai`, migración 0004) y nunca llegan a los dispositivos.
 
 ## Decisiones tomadas
 
@@ -70,7 +77,7 @@ Lo que tienes que hacer tú: [supabase.md](supabase.md) (crear el proyecto y peg
                                      │ Supabase (free) │  auth.users · user_keys · records (RLS)
                                      └─────────────────┘
    Proveedores de IA / voz ◄── directo desde el dispositivo con las claves locales
-   (en PWA, la voz sigue pasando por api/relay.ts por CORS)
+   (en PWA, Fish Audio pasa por api/fish-tts.ts por CORS; las claves del creador, por la función pilas-ai)
 ```
 
 **Principio:** la base de datos local es la fuente de verdad y la app funciona sin conexión.

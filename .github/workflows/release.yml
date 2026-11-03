@@ -1,5 +1,5 @@
 # Publica una versión: al subir una etiqueta v* (p. ej. `git tag v2.0.0 && git push --tags`)
-# compila Windows (.exe/.msi), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
+# compila Windows (.exe), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
 # borrador de GitHub Release. Gratis en repos públicos (2000 min/mes en privados).
 #
 # Secretos del repositorio (Settings → Secrets and variables → Actions):

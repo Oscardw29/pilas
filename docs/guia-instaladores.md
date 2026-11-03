@@ -4,8 +4,12 @@ Esta guía cubre los pasos 5 a 8: el `.exe` de Windows, el `.apk` de Android, pu
 Está pensada para hacerla en orden y sin experiencia previa. Los textos **en negrita** son los botones y menús tal como aparecen
 en pantalla (si tu programa está en inglés, va entre paréntesis).
 
-> **Estado de tu equipo (comprobado el 27-10-2026):** Windows 11 25H2, Visual Studio Community 2026 instalado **sin** C++,
-> WebView2 ✅, Rust ❌, Android Studio ❌, GitHub CLI con sesión iniciada como `Oscardw29` ✅. El trabajo ya está en `main`.
+> **Estado de tu equipo (comprobado el 01-11-2026):** C++ de Visual Studio ✅, Rust ✅ (el `.exe` ya compila), Android Studio
+> y SDK ✅, `JAVA_HOME` y `ANDROID_HOME` definidos ✅, **JDK 21 ❌** (paso 6.2), clave de firma ❌ (paso 6.4),
+> GitHub CLI con sesión iniciada como `Oscardw29` ✅, repositorio en GitHub ❌, proyecto en Vercel ❌.
+> Supabase: tablas 0001–0005 aplicadas ✅, función `pilas-ai` sin desplegar ❌ ([supabase.md](supabase.md), «IA de la app»).
+>
+> Ya tienes hechos los pasos 5.1, 5.2 y 6.1. Empieza por el 6.2.
 
 ---
 
@@ -108,19 +112,35 @@ Ese `.exe` (~5–10 MB) es el que repartes.
    - **Finish**. Empieza la descarga de componentes (*Downloading Components*). Espera a que termine y pulsa **Finish**.
 6. Aparece **Welcome to Android Studio** con **New Project** y **Open**. Ya puedes cerrarlo.
 
-### 6.2 Decirle a Gradle qué Java usar (una sola vez)
-Tu PC tiene Java 25, pero el compilador de Android (Gradle 8.14) aún no lo admite. Android Studio trae su propio Java 21 (`jbr`),
-y hay que indicarlo:
-1. Pulsa **Windows**, escribe `variables de entorno` y abre **Editar las variables de entorno de esta cuenta**.
-2. En la parte de arriba (**Variables de usuario para oscar**) pulsa **Nueva…**.
-   - **Nombre de la variable:** `JAVA_HOME`
-   - **Valor de la variable:** `C:\Program Files\Android\Android Studio\jbr`
-   - **Aceptar**.
-3. Pulsa **Nueva…** otra vez:
-   - **Nombre de la variable:** `ANDROID_HOME`
-   - **Valor de la variable:** `C:\Users\oscar\AppData\Local\Android\Sdk`
-   - **Aceptar** y luego **Aceptar** para cerrar la ventana.
-4. **Cierra y vuelve a abrir la terminal.**
+### 6.2 Instalar Java 21 y decirle a Gradle que lo use (una sola vez)
+El compilador de Android (Gradle 8.14) no funciona con Java 25, y el plugin de notificaciones exige Java 21. Tu PC tiene Java 25
+y el Java que trae Android Studio (`jbr`) **también es el 25**, así que hay que instalar un Java 21 aparte (gratis):
+1. En la terminal:
+   ```powershell
+   winget install EclipseAdoptium.Temurin.21.JDK
+   ```
+   Si pregunta por los términos, escribe `Y` y pulsa **Enter**. Si Windows pide permiso para hacer cambios, pulsa **Sí**.
+   <details><summary>Sin comandos</summary>
+
+   Entra en [adoptium.net](https://adoptium.net/temurin/releases/?version=21&os=windows), descarga el `.msi` de **JDK 21**
+   para Windows x64 y ejecútalo con **Next → Install → Finish**.
+   </details>
+2. Abre el **Explorador de archivos** en `C:\Program Files\Eclipse Adoptium`. Verás una carpeta del tipo
+   `jdk-21.0.x.y-hotspot`. Entra en ella y copia su ruta desde la barra de direcciones.
+3. Pulsa **Windows**, escribe `variables de entorno` y abre **Editar las variables de entorno de esta cuenta**.
+4. En la parte de arriba (**Variables de usuario para oscar**) selecciona `JAVA_HOME` → **Editar…** → en **Valor de la variable**
+   pega la ruta del paso 2 (por ejemplo `C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot`) → **Aceptar**.
+   Si `JAVA_HOME` no existe, créala con **Nueva…**.
+5. Comprueba que existe `ANDROID_HOME` con el valor `C:\Users\oscar\AppData\Local\Android\Sdk` (ya la tienes). Si no, créala
+   con **Nueva…**. **Aceptar** para cerrar la ventana.
+6. **Cierra y vuelve a abrir la terminal** y comprueba:
+   ```powershell
+   & "$env:JAVA_HOME\bin\java.exe" -version
+   ```
+   Debe decir `openjdk version "21...`. Si dice 25, revisa el paso 4.
+
+> `npm run android:apk` comprueba que `JAVA_HOME` sea Java 21 antes de empezar y busca solo `apksigner` en el SDK:
+> no hace falta tocar el `PATH`.
 
 ### 6.3 Abrir el proyecto de Android una vez (para que se configure)
 ```powershell
@@ -132,6 +152,9 @@ npm run android:open
 1. Se abre Android Studio con el proyecto `android`. Si pregunta **Trust and Open Project?**, pulsa **Trust Project**.
 2. Abajo a la derecha verás una barra de progreso *Gradle sync* o *Importing…*. La primera vez descarga cosas (5–10 min).
    **Espera a que desaparezca.** Si arriba sale una barra amarilla o azul ofreciendo actualizar Gradle o AGP, **ignórala**.
+   Si falla con `Unsupported class file major version 69`, Android Studio está usando su Java 25: **File → Settings →
+   Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** → elige **JAVA_HOME** (el 21 del paso 6.2) → **OK**
+   y pulsa el icono del elefante (**Sync Project with Gradle Files**).
 3. Opcional, para probar sin firmar:
    - **Con tu móvil:** activa la *Depuración USB* en el móvil (en *Opciones de desarrollador*), conéctalo por cable, elígelo en el
      desplegable de dispositivos de arriba y pulsa el triángulo verde **▶ Run 'app'**.
@@ -195,7 +218,9 @@ Ambos son gratis.
 
 ### 7.2 Crear el repositorio y subir el código
 Tu terminal ya tiene sesión de GitHub (`Oscardw29`). En la carpeta del proyecto:
-1. Primero guarda o descarta tus cambios sin confirmar (ahora mismo `iniciar.bat` y `src/styles/global.css`).
+1. Primero guarda o descarta tus cambios sin confirmar (`git status` los muestra). Solo se sube lo confirmado.
+   > Si el repo es público, cualquiera verá tu correo `oscarwis2009@gmail.com`: está en `src/lib/creator.ts`,
+   > en `supabase/migrations/0002_social.sql`, en las pruebas y como autor de los commits.
 2. Crea el repo y súbelo. Cambia `--public` por `--private` si así lo decidiste:
    ```powershell
    gh repo create pilas --public --source . --remote origin --push
@@ -288,7 +313,8 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
 |---|---|
 | `rustc no se reconoce como nombre de un cmdlet` | La terminal es anterior a la instalación: ciérrala y ábrela de nuevo. Si sigue, reinicia el PC. |
 | `linker 'link.exe' not found` | Falta el C++ de Visual Studio: repite el paso 5.1. |
-| `Unsupported class file major version 69` | Gradle está usando Java 25: revisa `JAVA_HOME` (paso 6.2) y abre una terminal nueva. |
+| `Unsupported class file major version 69` o `Hace falta un JDK 21` | Gradle está usando Java 25: `JAVA_HOME` debe apuntar al JDK 21 de Adoptium, no al `jbr` de Android Studio (paso 6.2). Abre una terminal nueva. |
+| `No encuentro el SDK de Android` o `No hay build-tools` | Revisa `ANDROID_HOME` (paso 6.2) o instala las *SDK Build-Tools* en Android Studio → **SDK Manager**. |
 | `SDK location not found` | Falta `ANDROID_HOME` (paso 6.2), o no se abrió el proyecto una vez en Android Studio (paso 6.3). |
 | «La app no está instalada» / «el paquete no es válido» en el móvil | Ya había otra versión firmada con una clave distinta: desinstálala primero. |
 | La app abre en «Falta conectar la cuenta» | Compilaste sin `.env.local` (local) o sin los secretos `VITE_SUPABASE_*` (GitHub o Vercel). |

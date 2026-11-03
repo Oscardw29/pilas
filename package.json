@@ -15,6 +15,7 @@
     "android:apk": "node scripts/build-apk.mjs",
     "android:icons": "capacitor-assets generate --android --iconBackgroundColor \"#f5f4fa\" --splashBackgroundColor \"#f5f4fa\"",
     "build:tauri-web": "tsc --noEmit && vite build --mode tauri",
+    "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
   },
