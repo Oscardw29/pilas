@@ -12,6 +12,7 @@ import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import '@fontsource/inter/latin-800.css';
 import './styles/global.css';
+import './styles/motion.css';
 
 /**
  * Router «de datos» (createBrowserRouter): hace falta para `useBlocker` (aviso de cambios sin guardar en Ajustes).

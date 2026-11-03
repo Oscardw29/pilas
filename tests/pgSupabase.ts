@@ -62,6 +62,7 @@ export async function createTestDb(): Promise<TestDb> {
   await pg.exec(migration('0004_ia_de_la_app.sql'));
   await pg.exec(migration('0005_cuentas_panel.sql'));
   await pg.exec(migration('0006_sin_cifrado_dispositivos.sql'));
+  await pg.exec(migration('0007_plantillas_libres.sql'));
 
   const sql = async <T,>(query: string, params: unknown[] = []) => (await pg.query<T>(query, params)).rows;
   const as = async <T,>(uid: string | null, query: string, params: unknown[] = []) => {

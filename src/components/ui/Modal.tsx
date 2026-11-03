@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { playSound } from '@/lib/sound';
 import { useToast } from './ToastContext';
 import { useModalBehavior } from './useModalBehavior';
+import { useSheetDismiss } from './useSheetDismiss';
 
 interface ModalProps {
   isOpen: boolean;
@@ -16,7 +17,9 @@ interface ModalProps {
 }
 
 /**
- * Diálogo base. En pantallas pequeñas se muestra como hoja inferior (bottom sheet, ver .modal en global.css).
+ * Diálogo base. En pantallas pequeñas se muestra como hoja inferior (bottom sheet, ver .modal en global.css)
+ * que se cierra deslizándola hacia abajo o tocando fuera (también con `preventBackdropClose`, que solo aplica en
+ * pantallas anchas).
  */
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
@@ -74,6 +77,8 @@ export const Modal: React.FC<ModalProps> = ({
   const requestClose = () => (preventBackdropClose ? triggerShake() : handleClose());
 
   useModalBehavior(isOpen, dialogRef, requestClose);
+  const { dismiss } = useSheetDismiss(dialogRef, isOpen, dismissFromBackdrop);
+  const isMobile = () => window.matchMedia('(max-width: 639.98px)').matches;
 
   if (!isOpen) return null;
 
@@ -83,8 +88,8 @@ export const Modal: React.FC<ModalProps> = ({
       style={{ zIndex: zIndex ?? 1000 }}
       onClick={(e) => {
         if (e.target !== e.currentTarget) return;
-        if (preventBackdropClose) triggerShake();
-        else dismissFromBackdrop();
+        if (preventBackdropClose && !isMobile()) triggerShake();
+        else dismiss();
       }}
     >
       <div

@@ -1,0 +1,75 @@
+/* =====================================================================
+   MOVIMIENTO (animaciones generales de la app)
+   - Las páginas entran por bloques, uno tras otro (cada vista usa .stack.fade-up).
+   - Tarjetas de cuadrícula, listas y barras de progreso aparecen con un pequeño impulso.
+   - Respuesta al tocar: botones, iconos y pestañas se hunden un poco y rebotan.
+   Las reglas de entrada van con :where() (especificidad 0): si un componente tiene su propia animación, gana la suya.
+   Con «reducir movimiento» la regla global de global.css las deja en nada.
+   ===================================================================== */
+
+@keyframes riseIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes tabPop { 0% { transform: scale(.8); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes tabDot { from { opacity: 0; transform: translateX(-50%) scaleX(0); } to { opacity: 1; transform: translateX(-50%) scaleX(1); } }
+
+/* ---------- Entrada de las páginas: bloque a bloque ---------- */
+.stack.fade-up { animation: fadeIn .2s ease both; }
+:where(.stack.fade-up) > :where(*) { animation: riseIn .55s cubic-bezier(.16, 1, .3, 1) both; }
+:where(.stack.fade-up) > :where(:nth-child(2)) { animation-delay: 60ms; }
+:where(.stack.fade-up) > :where(:nth-child(3)) { animation-delay: 120ms; }
+:where(.stack.fade-up) > :where(:nth-child(4)) { animation-delay: 170ms; }
+:where(.stack.fade-up) > :where(:nth-child(5)) { animation-delay: 220ms; }
+:where(.stack.fade-up) > :where(:nth-child(6)) { animation-delay: 260ms; }
+:where(.stack.fade-up) > :where(:nth-child(n + 7)) { animation-delay: 300ms; }
+
+/* Tarjetas dentro de cuadrículas: una tras otra */
+:where(.grid-2, .grid-3, .grid-4) > :where(.card) { animation: popIn .5s cubic-bezier(.16, 1, .3, 1) both; }
+:where(.grid-2, .grid-3, .grid-4) > :where(.card:nth-child(2)) { animation-delay: 70ms; }
+:where(.grid-2, .grid-3, .grid-4) > :where(.card:nth-child(3)) { animation-delay: 140ms; }
+:where(.grid-2, .grid-3, .grid-4) > :where(.card:nth-child(n + 4)) { animation-delay: 200ms; }
+
+/* Listas y tarjetas de hábitos */
+:where(.habit-card-list) > :where(.habit-card) { animation: riseIn .5s cubic-bezier(.16, 1, .3, 1) both; }
+:where(.habit-card-list) > :where(.habit-card:nth-child(2)) { animation-delay: 60ms; }
+:where(.habit-card-list) > :where(.habit-card:nth-child(3)) { animation-delay: 110ms; }
+:where(.habit-card-list) > :where(.habit-card:nth-child(4)) { animation-delay: 150ms; }
+:where(.habit-card-list) > :where(.habit-card:nth-child(n + 5)) { animation-delay: 190ms; }
+:where(.list-item) { animation: slideInLeft .4s cubic-bezier(.16, 1, .3, 1) both; }
+:where(.list-item:nth-child(2)) { animation-delay: 40ms; }
+:where(.list-item:nth-child(3)) { animation-delay: 80ms; }
+:where(.list-item:nth-child(n + 4)) { animation-delay: 110ms; }
+
+/* Barras de progreso: se llenan al aparecer */
+:where(.progress) > :where(div) { transform-origin: left center; animation: growX .9s cubic-bezier(.16, 1, .3, 1) .15s both; }
+
+/* ---------- Respuesta al tocar ---------- */
+.icon-btn { transition: background .15s, color .15s, transform .18s cubic-bezier(.34, 1.56, .64, 1); }
+.icon-btn:active:not(:disabled) { transform: scale(.88); }
+.chip:active { transform: scale(.95); }
+.btn-primary:not(:disabled) { transition: transform .12s, background .15s, box-shadow .2s, opacity .15s, border-color .15s; }
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 8px 22px -8px color-mix(in srgb, var(--accent) 70%, transparent); transform: translateY(-1px); }
+  .btn-primary:active:not(:disabled) { transform: translateY(0) scale(.97); }
+  /* Tarjetas de métricas: se levantan un poco al pasar el ratón */
+  .card.stat, .habit-card { transition: transform .25s cubic-bezier(.16, 1, .3, 1), box-shadow .25s ease; }
+  .card.stat:hover, .habit-card:hover { transform: translateY(-3px); }
+}
+
+/* Barra inferior: la pestaña activa rebota y la marca un punto */
+.bottom-tab { position: relative; transition: color .2s ease, transform .15s ease; }
+.bottom-tab:active { transform: scale(.92); }
+.bottom-tab.active svg { animation: tabPop .42s cubic-bezier(.34, 1.56, .64, 1); }
+.bottom-tab.active::after {
+  content: ''; position: absolute; left: 50%; bottom: 2px; width: 16px; height: 3px; border-radius: 99px;
+  background: var(--accent-2); animation: tabDot .3s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+/* Casillas de la semana: rebote al marcar (además del pop del registro) */
+.habit-day-btn svg { animation: popIn .3s cubic-bezier(.34, 1.56, .64, 1) both; }
+
+/* Números que cuentan (components/ui/CountUp.tsx): solo para lectores de pantalla */
+.sr-only-count {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

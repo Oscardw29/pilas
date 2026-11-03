@@ -25,6 +25,7 @@ import {
 } from '@/lib/metrics';
 import { DAY_LONG, DAY_SHORT, toKey, weekdayIndex } from '@/lib/dates';
 import { habitCoinValue } from '@/lib/economyRules';
+import { StatusIcon } from '@/components/ui/icons';
 import './habitCard.css';
 
 /** Días del hábito en palabras: «Todos los días», «Lunes a viernes» o «Lun · Mié · Vie» */
@@ -36,6 +37,14 @@ export function scheduleLabel(days: number[]): string {
   if (sorted.join() === '5,6') return 'Fines de semana';
   return sorted.map((d) => DAY_SHORT[d]).join(' · ');
 }
+
+/** Icono blanco u oscuro según el color del hábito (como en la tabla de escritorio) */
+const readableOn = (hex: string) => {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return '#fff';
+  const [r, g, b] = m.slice(1).map((c) => parseInt(c, 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 170 ? '#1b1730' : '#fff';
+};
 
 const STATUS_TEXT: Record<HabitLog['status'], string> = {
   full: 'completo',
@@ -104,7 +113,7 @@ export const HabitWeekCard: React.FC<Props> = ({ habit: h, data, days, today, on
   return (
     <article
       className={`habit-card${isPaused ? ' is-paused' : ''}`}
-      style={{ '--habit': h.color } as React.CSSProperties}
+      style={{ '--habit': h.color, '--habit-on': readableOn(h.color) } as React.CSSProperties}
       aria-label={h.name}
     >
       <header className="habit-card-head">
@@ -136,6 +145,7 @@ export const HabitWeekCard: React.FC<Props> = ({ habit: h, data, days, today, on
           const label = (
             <span className={`habit-day-label${isToday ? ' today' : ''}`} aria-hidden="true">
               {DAY_SHORT[wd]}
+              <small>{d.getDate()}</small>
             </span>
           );
           const dayName = `${DAY_LONG[wd]} ${d.getDate()}`;
@@ -157,7 +167,7 @@ export const HabitWeekCard: React.FC<Props> = ({ habit: h, data, days, today, on
                   </button>
                 ) : (
                   <span className="habit-day-btn is-paused" aria-label={`${dayName}: en pausa`} role="img">
-                    {d.getDate()}
+                    <span aria-hidden="true">—</span>
                   </span>
                 )}
               </div>
@@ -169,7 +179,7 @@ export const HabitWeekCard: React.FC<Props> = ({ habit: h, data, days, today, on
               <div key={dk} className="habit-day">
                 {label}
                 <span className={`habit-day-btn is-off${isToday ? ' is-today' : ''}`} aria-label={`${dayName}: no programado`} role="img">
-                  {d.getDate()}
+                  <span aria-hidden="true">—</span>
                 </span>
               </div>
             );
@@ -187,7 +197,7 @@ export const HabitWeekCard: React.FC<Props> = ({ habit: h, data, days, today, on
                 onClick={(e) => onCellClick(h, dk, e)}
                 aria-label={`${dayName}: ${status ? STATUS_TEXT[status] : isFuture ? 'día futuro' : 'sin registrar'}`}
               >
-                {d.getDate()}
+                {status && <StatusIcon status={status} size={17} strokeWidth={status === 'full' ? 3 : 2.6} />}
               </button>
             </div>
           );

@@ -158,6 +158,13 @@ Para ver todas las cuentas en **Panel del creador → Moderación** y poder elim
 
 La cuenta del creador no se puede eliminar, ni desde el panel ni desde Ajustes: el servidor lo rechaza.
 
+### Frases libres para publicar
+Para que cualquiera pueda publicar sin cumplir ninguna condición (frases de ánimo fijas, «Cuando quieras» en **Publicar**):
+**SQL Editor** → **New query** → pega todo
+[`supabase/migrations/0007_plantillas_libres.sql`](../supabase/migrations/0007_plantillas_libres.sql) → **Run** (después de 0002).
+Se puede volver a ejecutar. El servidor solo guarda el id de la frase; los textos están en `src/social/texts.ts`
+(`MESSAGE_TEMPLATES`): si añades una frase, añade su id también en `message_template_ids()`.
+
 ### IA de la app: tus claves para todos
 Con esto quien no tenga clave propia usa la IA y la voz sin configurar nada. Tus claves se guardan en el servidor y nunca
 llegan a los dispositivos: la app le pide cada respuesta a una función de Supabase. Sin este paso la app funciona igual,

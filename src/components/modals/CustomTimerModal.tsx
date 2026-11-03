@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalBehavior } from '@/components/ui/useModalBehavior';
+import { useSheetDismiss } from '@/components/ui/useSheetDismiss';
+import { MOBILE_QUERY } from '@/lib/useMediaQuery';
 import { X, Clock, Play, Sparkles, Zap } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
@@ -62,6 +64,10 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
 
   // Escape agita el diálogo (hay que salir con la X); foco atrapado y scroll bloqueado
   useModalBehavior(isOpen, dialogRef, triggerShake);
+  const { dismiss } = useSheetDismiss(dialogRef, isOpen, () => {
+    playSound.dismiss();
+    onClose();
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -115,7 +121,9 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
         padding: '20px 16px',
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) triggerShake();
+        if (e.target !== e.currentTarget) return;
+        if (window.matchMedia(MOBILE_QUERY).matches) dismiss();
+        else triggerShake();
       }}
     >
       <div

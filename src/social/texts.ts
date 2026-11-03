@@ -68,8 +68,29 @@ export const METRIC_LABEL: Record<AchievementMetric, string> = {
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0));
 
 /** Texto de una publicación hecha desde plantilla (los datos los puso el servidor) */
+/**
+ * Frases libres: se pueden publicar siempre, sin cumplir ninguna condición. El servidor solo guarda el id
+ * (supabase/migrations/0007_plantillas_libres.sql: message_template_ids, mismo orden y mismos ids).
+ */
+export const MESSAGE_TEMPLATES: { id: string; icon: string; text: string }[] = [
+  { id: 'hoy_empiezo', icon: '💪', text: 'Hoy empiezo con todo' },
+  { id: 'no_rompo', icon: '🔗', text: 'Hoy no rompo la cadena' },
+  { id: 'nueva_semana', icon: '🌱', text: 'Nueva semana, nuevos hábitos' },
+  { id: 'pasos', icon: '👣', text: 'Pasos pequeños, todos los días' },
+  { id: 'volvi', icon: '🔄', text: 'Volví a mis hábitos: ¡aquí vamos otra vez!' },
+  { id: 'minimo', icon: '🌤️', text: 'Día difícil, pero cumplí la versión mínima' },
+  { id: 'quien_se_une', icon: '🙌', text: '¿Quién se une a mi reto de hábitos?' },
+  { id: 'gracias', icon: '💜', text: 'Gracias por los ánimos, ¡seguimos!' },
+  { id: 'enfoque', icon: '🎯', text: 'Hoy toca enfocarse en lo importante' },
+  { id: 'cada_dia', icon: '✨', text: 'Cada día cuenta y lo estoy notando' },
+];
+
 export function postText(template: PostTemplate, data: Record<string, unknown>): { icon: string; text: string } {
   switch (template) {
+    case 'message': {
+      const m = MESSAGE_TEMPLATES.find((x) => x.id === data.id);
+      return m ? { icon: m.icon, text: m.text } : { icon: '💬', text: '¡Sigo con mis hábitos!' };
+    }
     case 'streak':
       return { icon: '🔥', text: `Llegué a ${num(data.n)} días de racha` };
     case 'habit_streak':

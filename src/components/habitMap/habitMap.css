@@ -26,7 +26,12 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
 .hm-canvas.is-dragging { cursor: grabbing; }
 .hm-svg { display: block; position: absolute; inset: 0; }
 .hm-bg { fill: var(--bg-2); }
-.hm-dot { fill: var(--border-2); }
+/* Malla (se mueve con el mapa) */
+.hm-grid-minor { fill: none; stroke: var(--border); stroke-width: 1; }
+.hm-grid-major { fill: none; stroke: var(--border-2); stroke-width: 1.2; }
+.hm-grid-minor-layer { transition: opacity .25s ease; }
+/* Muy alejado, la malla fina sería ruido: solo quedan las líneas fuertes */
+.hm-grid.is-far .hm-grid-minor-layer { opacity: 0; }
 
 /* Nodos */
 .hm-node { cursor: pointer; outline: none; transition: opacity .2s; }
@@ -200,7 +205,8 @@ body:has(.hm-card.is-full) .coach-fab { display: none; }
 /* ===== Tema claro (ver «AJUSTES DEL TEMA CLARO» en global.css: mismo prefijo sin especificidad) =====
    Lienzo lavanda con nodos blancos de borde marcado: con los tokens tal cual, nodo y fondo casi se fundían */
 :where(:root:not([data-theme="dark"])) .hm-bg { fill: var(--bg); }
-:where(:root:not([data-theme="dark"])) .hm-dot { fill: #cfc9df; }
+:where(:root:not([data-theme="dark"])) .hm-grid-minor { stroke: #e3deef; }
+:where(:root:not([data-theme="dark"])) .hm-grid-major { stroke: #cfc9df; }
 :where(:root:not([data-theme="dark"])) .hm-node-base { fill: var(--surface); }
 :where(:root:not([data-theme="dark"])) .hm-node.is-habit .hm-node-box { fill: var(--surface); }
 :where(:root:not([data-theme="dark"])) .hm-canvas { --hm-node-stroke: #bdb6d1; }

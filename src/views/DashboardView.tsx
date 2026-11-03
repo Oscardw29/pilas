@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AutoCarousel } from '@/components/ui/AutoCarousel';
+import { CountUp } from '@/components/ui/CountUp';
 import {
   Sparkles,
   Zap,
@@ -595,7 +597,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Cuadrícula de estadísticas clave con diseño visual premium (tira deslizable en móvil) */}
-      <div className="grid-4 dash-kpis">
+      <AutoCarousel className="grid-4 dash-kpis" label="Resumen de tu progreso">
         {/* Puntos disponibles */}
         <div
           className="card stat"
@@ -637,7 +639,7 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
           <div className="dash-kpi-body">
-            <div className="stat-value">{pts.balance}</div>
+            <div className="stat-value"><CountUp value={pts.balance} /></div>
             <span
               style={{
                 display: 'inline-flex',
@@ -698,7 +700,7 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
           <div className="dash-kpi-body">
-            <div className="stat-value">{thisWeek.consistency != null ? `${Math.round(thisWeek.consistency * 100)}%` : '—'}</div>
+            <div className="stat-value">{thisWeek.consistency != null ? <CountUp value={Math.round(thisWeek.consistency * 100)} suffix="%" /> : '—'}</div>
             <div style={{ width: '100%', height: 4, background: 'color-mix(in srgb, var(--text) 8%, transparent)', borderRadius: 99, overflow: 'hidden' }}>
               <div
                 style={{
@@ -806,7 +808,7 @@ export const DashboardView: React.FC = () => {
                 textShadow: streakCardTheme.glow !== 'none' ? `0 0 18px color-mix(in srgb, ${streakCardTheme.accent} 40%, transparent)` : 'none',
               }}
             >
-              {globalStreak.streak}
+              <CountUp value={globalStreak.streak} />
             </div>
             <span style={{ fontSize: 12.5, fontWeight: 700, color: streakCardTheme.accent, letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 3 }}>
               {globalStreak.streak === 1 ? 'día' : 'días'}
@@ -889,7 +891,7 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
           <div className="dash-kpi-body">
-            <div className="stat-value">{data.goals.filter((g) => g.status === 'active').length}</div>
+            <div className="stat-value"><CountUp value={data.goals.filter((g) => g.status === 'active').length} /></div>
             <span
               style={{
                 display: 'inline-flex',
@@ -913,7 +915,7 @@ export const DashboardView: React.FC = () => {
             </span>
           </div>
         </div>
-      </div>
+      </AutoCarousel>
 
       {/* "¿QUÉ PUEDO HACER AHORA?" */}
       <div className="card dash-reco" style={{ background: 'linear-gradient(145deg, var(--surface-2), var(--surface))', border: '1px solid var(--accent)' }}>

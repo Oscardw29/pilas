@@ -47,7 +47,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { fireHabitPop } from '@/lib/confetti';
 import { celebrateStreakChange, streakSnapshot } from '@/lib/streakCelebration';
 import { playSound } from '@/lib/sound';
-import { StatusIcon, StatusLabel } from '@/components/ui/icons';
+import { StatusIcon } from '@/components/ui/icons';
 import type { Habit, HabitLog } from '@/types';
 import { habitCoinValue } from '@/lib/economyRules';
 import { HabitWeekCard } from '@/components/habits/HabitWeekCard';
@@ -279,15 +279,6 @@ export const WeekView: React.FC = () => {
               <span className="long">Esta semana</span>
               <span className="short">Hoy</span>
             </button>
-          </div>
-
-          <div className="week-tip">
-            <span className="icon-label" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <strong>Tip:</strong> {isMobile ? 'toca un día para alternar' : 'clic en la celda alterna'}
-              <StatusLabel status="full">Completo</StatusLabel>→
-              <StatusLabel status="minimum">Mínimo</StatusLabel>→
-              <StatusLabel status="missed">No hecho</StatusLabel>
-            </span>
           </div>
         </div>
 
