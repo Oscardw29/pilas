@@ -30,7 +30,15 @@
     </style>
 
 
+    <!-- Arranque: fondo liso del color de la app y sin icono (Android 12+ pondría el de la app). Enlaza sin cortes con la
+         animación de apertura de la web. Capacitor cambia a AppTheme.NoActionBar en cuanto arranca la actividad. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/pilas_bg_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_blank</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:background">@drawable/splash</item>
+        <item name="android:windowBackground">@color/pilas_bg_dark</item>
+        <item name="android:statusBarColor">@color/pilas_bg_dark</item>
+        <item name="android:navigationBarColor">@color/pilas_bg_dark</item>
     </style>
 </resources>
