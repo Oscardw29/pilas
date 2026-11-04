@@ -2,6 +2,7 @@
 # compila Windows (.exe), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
 # borrador de GitHub Release. Cada instalador va también con un nombre fijo (Pilas-Windows.exe, Pilas-Android.apk,
 # Pilas-Linux.AppImage, Pilas-Linux.deb): la página /descargar los descarga directamente de la última versión publicada. Gratis en repos públicos (2000 min/mes en privados).
+# La versión de los instaladores sale de la etiqueta (scripts/set-version.mjs): no hace falta cambiarla a mano.
 #
 # Secretos del repositorio (Settings → Secrets and variables → Actions):
 #   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY   proyecto de Supabase (públicos por diseño)
@@ -43,6 +44,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: npm ci
+      - name: Versión desde la etiqueta
+        run: node scripts/set-version.mjs "${{ github.ref_name }}"
       - run: npm test
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -83,6 +86,8 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      - name: Versión desde la etiqueta
+        run: node scripts/set-version.mjs "${{ github.ref_name }}"
       - name: Keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/pilas-release.jks"
       - name: APK firmado
