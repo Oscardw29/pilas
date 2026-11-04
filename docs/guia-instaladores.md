@@ -4,12 +4,11 @@ Esta guía cubre los pasos 5 a 8: el `.exe` de Windows, el `.apk` de Android, pu
 Está pensada para hacerla en orden y sin experiencia previa. Los textos **en negrita** son los botones y menús tal como aparecen
 en pantalla (si tu programa está en inglés, va entre paréntesis).
 
-> **Estado de tu equipo (comprobado el 01-11-2026):** C++ de Visual Studio ✅, Rust ✅ (el `.exe` ya compila), Android Studio
-> y SDK ✅, `JAVA_HOME` y `ANDROID_HOME` definidos ✅, **JDK 21 ❌** (paso 6.2), clave de firma ❌ (paso 6.4),
-> GitHub CLI con sesión iniciada como `Oscardw29` ✅, repositorio en GitHub ❌, proyecto en Vercel ❌.
-> Supabase: tablas 0001–0005 aplicadas ✅, función `pilas-ai` sin desplegar ❌ ([supabase.md](supabase.md), «IA de la app»).
+> **Estado (comprobado el 04-11-2026):** instalador de Windows (`.exe`) ✅ y APK firmado ✅ compilados en tu PC (pasos 5 y 6),
+> repositorio público `Oscardw29/pilas` en GitHub ✅. **Falta:** subir los instaladores a *Releases* ❌ (7.3), secretos de
+> GitHub ❌ (7.4, solo para que GitHub compile las versiones futuras), proyecto en Vercel ❌ (7.6).
 >
-> Ya tienes hechos los pasos 5.1, 5.2 y 6.1. Empieza por el 6.2.
+> **Si ya tienes el `.exe` y el `.apk`, sigue el orden de la sección 7: 7.3 → 7.6 → 7.7.**
 
 ---
 
@@ -183,8 +182,11 @@ En la terminal (cambia `TU-CONTRASEÑA` por la del paso anterior):
 ```powershell
 $env:PILAS_KEYSTORE_PATH = "C:\Users\oscar\claves\pilas-release.jks"; $env:PILAS_KEYSTORE_PASS = "TU-CONTRASEÑA"; npm run android:apk
 ```
-Tarda unos minutos y termina con `APK firmado en android/app/build/outputs/apk/release/`. En esa carpeta está el archivo que
-termina en **`-signed.apk`**: es el que repartes (cámbiale el nombre a `Pilas.apk` si quieres).
+Tarda unos minutos y termina con `APK firmado: …\android\app\build\outputs\apk\release\app-release-signed.apk`.
+Ese es el archivo que repartes (cámbiale el nombre a `Pilas.apk` si quieres).
+
+> El script compila con `android\gradlew.bat` y firma con `apksigner.jar` por su cuenta. Ya no usa `cap build`, que en Windows
+> fallaba con «"gradlew" no se reconoce…». Si te vuelve a salir ese error, tu carpeta tiene una versión vieja: `git pull`.
 
 ### 6.6 Instalarlo en un móvil Android
 1. Pasa el `.apk` al móvil: por cable USB (cópialo a *Descargas*), por Google Drive o enviándotelo por Telegram o WhatsApp.
@@ -216,8 +218,10 @@ Ambos son gratis.
 - **Privado:** el código queda oculto, pero **los archivos de *Releases* tampoco se pueden descargar** sin acceso al repo.
   Tendrías que subir los instaladores a otro sitio (por ejemplo Google Drive) y poner ese enlace en `VITE_DOWNLOADS_URL`.
 
-### 7.2 Crear el repositorio y subir el código
-Tu terminal ya tiene sesión de GitHub (`Oscardw29`). En la carpeta del proyecto:
+### 7.2 Crear el repositorio y subir el código ✅ (ya hecho: `Oscardw29/pilas`, público)
+Ya no hace falta repetirlo: los cambios llegan a `main` con cada PR fusionado, y los traes a tu carpeta con `git pull`.
+Lo que sigue es solo de referencia, por si algún día creas el repo de cero. Tu terminal ya tiene sesión de GitHub (`Oscardw29`).
+En la carpeta del proyecto:
 1. Primero guarda o descarta tus cambios sin confirmar (`git status` los muestra). Solo se sube lo confirmado.
    > Si el repo es público, cualquiera verá tu correo `oscarwis2009@gmail.com`: está en `src/lib/creator.ts`,
    > en `supabase/migrations/0002_social.sql`, en las pruebas y como autor de los commits.
@@ -234,7 +238,30 @@ En github.com: botón **+** (arriba a la derecha) → **New repository** → **R
 line»: cópialos y pégalos en la terminal.
 </details>
 
-### 7.3 Guardar los secretos en GitHub (para que pueda compilar)
+### 7.3 Publicar los instaladores que ya compilaste en tu PC (lo más rápido)
+Si ya tienes el `.exe` (paso 5.3) y el `.apk` (paso 6.5), súbelos tú mismo a una versión de GitHub. No hace falta configurar
+nada más y en 2 minutos están disponibles para descargar. La diferencia con 7.5 es que no incluye la versión de Linux, que no se
+compila en Windows.
+
+1. Abre la terminal en la carpeta del proyecto (paso 0.2) y trae lo último: `git pull`.
+2. Pon un nombre claro al APK (así lo verán quienes lo descarguen):
+   ```powershell
+   Copy-Item android\app\build\outputs\apk\release\app-release-signed.apk Pilas-v2.0.0.apk
+   ```
+3. Crea la versión `v2.0.0` y sube los dos archivos:
+   ```powershell
+   gh release create v2.0.0 "src-tauri\target\release\bundle\nsis\Pilas_2.0.0_x64-setup.exe" Pilas-v2.0.0.apk --title "¡Pilas! v2.0.0" --notes "Windows: descarga el .exe. Android: descarga el .apk. iPhone, iPad y Mac: usa la app web."
+   ```
+   Termina mostrando un enlace `https://github.com/Oscardw29/pilas/releases/tag/v2.0.0`. La versión ya es pública.
+4. Borra la copia `Pilas-v2.0.0.apk` de la carpeta del proyecto: no debe subirse con el código.
+5. Comprueba que funciona: abre `https://github.com/Oscardw29/pilas/releases/latest`. Deben salir los dos archivos en **Assets**.
+
+> Esta versión ya usa la etiqueta `v2.0.0`. Para las siguientes, sube el número (por ejemplo `v2.0.1`; ver el recuadro de 7.5).
+
+### 7.4 Guardar los secretos en GitHub (para que GitHub compile las versiones futuras)
+Hazlo una vez, para no tener que compilar y subir a mano cada versión (7.5). Si de momento prefieres el método manual de 7.3,
+puedes saltártelo.
+
 1. En la página del repo, pestaña **Settings** (con el engranaje; si no la ves, está en el menú **⋯**).
 2. Menú izquierdo, sección **Security** → **Secrets and variables** → **Actions**.
 3. En la pestaña **Secrets**, pulsa **New repository secret**. Crea estos seis, uno por uno: escribe el **Name**, pega el valor en
@@ -254,7 +281,9 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\oscar\claves\pilas-release.jks")) | Set-Clipboard
 ```
 
-### 7.4 Publicar una versión
+### 7.5 Publicar una versión automáticamente (GitHub compila Windows, Linux y Android)
+Necesita los secretos de 7.4. Usa una etiqueta nueva: si ya publicaste `v2.0.0` a mano en 7.3, empieza por `v2.0.1`, y antes
+sube la versión en los dos archivos del recuadro de abajo.
 1. En la terminal:
    ```powershell
    git tag v2.0.0
@@ -274,8 +303,11 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
 > 1. Sube el número de versión en `package.json` y en `src-tauri/tauri.conf.json` (por ejemplo `2.0.1`).
 > 2. Guarda los cambios con un commit y súbelos.
 > 3. Repite el punto 1 con `v2.0.1`.
+>
+> **Sin secretos (método manual de 7.3):** sube la versión igual, recompila con `npm run desktop:build` y `npm run android:apk`,
+> y crea la versión con `gh release create v2.0.1 …` (cambia el número en los nombres de los archivos).
 
-### 7.5 Publicar la app web en Vercel
+### 7.6 Publicar la app web en Vercel
 1. Entra en [vercel.com](https://vercel.com) → **Sign Up** → plan **Hobby** (gratis) → **Continue with GitHub** y autoriza.
 2. En el panel: **Add New…** (arriba a la derecha) → **Project**.
 3. **Import Git Repository**: aparece la lista de tus repos. Si `pilas` no aparece, pulsa **Adjust GitHub App Permissions** y
@@ -291,9 +323,29 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
    - `https://pilas-xxxx.vercel.app/descargar` → página con los instaladores e instrucciones para cada sistema.
    - `https://pilas-xxxx.vercel.app` → la app web (en iPhone: Safari → **Compartir** → **Añadir a pantalla de inicio**).
 
+7. **Dale tu dirección a Supabase.** En [supabase.com/dashboard](https://supabase.com/dashboard) → tu proyecto →
+   **Authentication** → **URL Configuration**:
+   - **Site URL:** `https://pilas-xxxx.vercel.app` (la tuya del paso 6).
+   - **Redirect URLs** → **Add URL** → `https://pilas-xxxx.vercel.app/**` → **Save**.
+
+   Los correos de la app usan códigos de 6 dígitos y funcionan sin esto. Pero si alguna plantilla de correo lleva un enlace, sin la
+   **Site URL** ese enlace apuntaría a `localhost`.
+8. Abre `https://pilas-xxxx.vercel.app` en el móvil y en el PC. Comprueba que se ve la animación de apertura y que puedes iniciar
+   sesión. Después abre `/descargar` y pulsa el botón de descarga: debe llevar a la versión de 7.3.
+
 > Si más adelante cambias una variable (**Settings → Environment Variables**), hay que volver a desplegar:
 > pestaña **Deployments** → **⋯** en el último despliegue → **Redeploy**.
 > Cada vez que subas cambios a `main`, Vercel publica la web solo.
+
+### 7.7 Resumen: qué compartir
+| Para | Enlace |
+|---|---|
+| Todo el mundo (elige su sistema y trae instrucciones) | `https://pilas-xxxx.vercel.app/descargar` |
+| Windows y Android, directo | `https://github.com/Oscardw29/pilas/releases/latest` |
+| iPhone, iPad, Mac o cualquier navegador | `https://pilas-xxxx.vercel.app` |
+
+Al instalar, en Windows sale el aviso de SmartScreen (5.4) y en Android el de «fuentes desconocidas» (6.6). Es normal en las apps
+que no vienen de una tienda, y la página `/descargar` explica cómo pasarlos.
 
 ---
 
@@ -303,9 +355,9 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
 |---|---|
 | Nadie puede iniciar sesión ni registrarse | El proyecto gratuito de Supabase se pausa tras ~7 días sin uso. Entra a [supabase.com/dashboard](https://supabase.com/dashboard): el proyecto mostrará **Paused** y un botón **Restore project**. Púlsalo y espera 1–3 minutos. |
 | Los correos de confirmación no llegan | El correo incluido de Supabase solo envía unos pocos por hora. Configura SMTP gratis con Resend (ver [supabase.md](supabase.md), punto 5). |
-| Quieres publicar una versión nueva | Ver el recuadro de «Próximas versiones» al final de 7.4. |
+| Quieres publicar una versión nueva | Ver el recuadro de «Próximas versiones» al final de 7.5. |
 | Cambiaste de PC | Copia `C:\Users\oscar\claves\pilas-release.jks` al nuevo equipo. Sin él no puedes actualizar la app de Android. |
-| Olvidaste tu contraseña de ¡Pilas! | En la app: **Olvidé mi contraseña**. Necesitas el código del correo y tu **código de recuperación**. |
+| Olvidaste tu contraseña de ¡Pilas! | En la app: **Olvidé mi contraseña** y escribe el código que llega al correo. (Desde el 3-11-2026 ya no hay código de recuperación.) |
 
 ### Problemas comunes
 
@@ -318,4 +370,6 @@ Para `ANDROID_KEYSTORE_BASE64`, este comando copia el `.jks` convertido a texto 
 | `SDK location not found` | Falta `ANDROID_HOME` (paso 6.2), o no se abrió el proyecto una vez en Android Studio (paso 6.3). |
 | «La app no está instalada» / «el paquete no es válido» en el móvil | Ya había otra versión firmada con una clave distinta: desinstálala primero. |
 | La app abre en «Falta conectar la cuenta» | Compilaste sin `.env.local` (local) o sin los secretos `VITE_SUPABASE_*` (GitHub o Vercel). |
+| `"gradlew" no se reconoce como un comando interno o externo` | Tu carpeta tiene el script viejo del APK: `git pull` y vuelve a ejecutar `npm run android:apk`. |
+| `tag v2.0.0 already exists` (o parecido) al usar `gh release create` | Esa versión ya existe: usa un número nuevo, o bórrala en GitHub (**Releases** → la versión → **Delete**) y repite. |
 | `Falta el keystore` al compilar el APK | No definiste `PILAS_KEYSTORE_PATH` y `PILAS_KEYSTORE_PASS` en esa misma terminal (paso 6.5). |
