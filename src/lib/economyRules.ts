@@ -233,6 +233,24 @@ export const dayXpCap = (boosted: boolean, p: EconomyParams = ECONOMY) =>
 /** Monedas del día con el tope diario, en entero */
 export const dayCoins = (sumOfLogs: number, p: EconomyParams = ECONOMY) => toInt(Math.min(sumOfLogs, p.coinDailyCap));
 
+/* ---------------- Recompensas propias y retos (valores fijos) ---------------- */
+
+/** Precio mínimo de una recompensa propia de la tienda: por debajo se gana casi sin esfuerzo */
+export const REWARD_MIN_COST = 50;
+export const REWARD_MAX_COST = 100_000;
+/** Precio válido de una recompensa: entero entre el mínimo y el máximo */
+export const clampRewardCost = (n: number) => toInt(clamp(Number.isFinite(n) ? n : REWARD_MIN_COST, REWARD_MIN_COST, REWARD_MAX_COST));
+
+/** Monedas que da superar un reto: iguales para todos los retos (no se eligen al crearlo) */
+export const CHALLENGE_REWARD_POINTS = 250;
+/** Parte de los días del reto que hay que cumplir para ganarlo (25 de 30, 18 de 21…) */
+export const CHALLENGE_SUCCESS_RATIO = 5 / 6;
+/** Días mínimos para ganar un reto: se calculan con su duración, nunca a mano */
+export const challengeSuccessDays = (durationDays: number) => {
+  const total = Math.max(1, Math.round(Number(durationDays) || 30));
+  return Math.min(total, Math.max(1, Math.ceil(total * CHALLENGE_SUCCESS_RATIO - 1e-9)));
+};
+
 /* ---------------- Precios dinámicos y equivalencias ---------------- */
 
 /** Protector de racha: unos 2 días de esfuerzo al ritmo del usuario, entre 100 y 600 (entero) */

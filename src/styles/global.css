@@ -803,6 +803,16 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
   border: 2px solid var(--accent);
   color: var(--accent-2);
 }
+/* Días que aún no llegan: no se pueden marcar */
+.challenge-day-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+.challenge-day-btn:disabled:hover {
+  border-color: var(--border-2);
+  color: var(--muted);
+}
 
 /* Experimentos A/B */
 .variant-card {

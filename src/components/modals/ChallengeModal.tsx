@@ -4,6 +4,7 @@ import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
 import type { Challenge } from '@/types';
 import { todayKey } from '@/lib/dates';
+import { CHALLENGE_REWARD_POINTS, challengeSuccessDays } from '@/lib/economyRules';
 
 interface ChallengeModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface ChallengeModalProps {
 }
 
 const CHALLENGE_ICONS = ['🌅', '📵', '🏃', '📚', '🧘', '💧', '🥗', '🎯', '💪', '🏆'];
+/** Duración válida de un reto: entre 7 y 365 días */
+const clampDuration = (n: number) => Math.min(365, Math.max(7, Math.round(Number(n) || 30)));
 
 export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose, challengeToEdit }) => {
   const addChallenge = useStore((s) => s.addChallenge);
@@ -24,14 +27,13 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
   const [metric, setMetric] = useState(challengeToEdit?.metric ?? 'Días cumplidos');
   const [startDate, setStartDate] = useState(challengeToEdit?.startDate ?? todayKey());
   const [durationDays, setDurationDays] = useState(challengeToEdit?.durationDays ?? 30);
-  const [successDays, setSuccessDays] = useState(challengeToEdit?.successDays ?? 25);
-  const [rewardPoints, setRewardPoints] = useState(challengeToEdit?.rewardPoints ?? 250);
   const [rewardText, setRewardText] = useState(challengeToEdit?.rewardText ?? '');
   const [conditions, setConditions] = useState(challengeToEdit?.conditions ?? '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const duration = clampDuration(durationDays);
 
     const payload = {
       name: name.trim(),
@@ -39,10 +41,10 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       description: description.trim(),
       metric: metric.trim(),
       startDate,
-      durationDays: Number(durationDays) || 30,
-      successDays: Number(successDays) || 25,
-      // Las monedas son siempre enteras
-      rewardPoints: Math.max(0, Math.round(Number(rewardPoints) || 0)),
+      durationDays: duration,
+      // Los días para ganar salen de la duración y el premio en monedas es el mismo para todos los retos
+      successDays: challengeSuccessDays(duration),
+      rewardPoints: CHALLENGE_REWARD_POINTS,
       rewardText: rewardText.trim() || undefined,
       conditions: conditions.trim() || undefined,
     };
@@ -112,7 +114,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
           />
         </div>
 
-        {/* Duración y Días de éxito */}
+        {/* Duración (los días para ganar se calculan solos) y premio */}
         <div className="form-row">
           <div className="field">
             <span className="label">Duración total (días)</span>
@@ -124,34 +126,9 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
               value={durationDays}
               onChange={(e) => setDurationDays(Number(e.target.value))}
             />
-          </div>
-
-          <div className="field">
-            <span className="label">Días mínimos para ganar</span>
-            <input
-              type="number"
-              min={1}
-              max={durationDays}
-              className="input"
-              value={successDays}
-              onChange={(e) => setSuccessDays(Number(e.target.value))}
-            />
-            <span className="hint">Ej. 25 de 30 días cumplidos</span>
-          </div>
-        </div>
-
-        {/* Recompensa */}
-        <div className="form-row">
-          <div className="field">
-            <span className="label">Puntos de bonificación al ganar</span>
-            <input
-              type="number"
-              min={0}
-              max={5000}
-              className="input"
-              value={rewardPoints}
-              onChange={(e) => setRewardPoints(Number(e.target.value))}
-            />
+            <span className="hint">
+              Para ganar: {challengeSuccessDays(clampDuration(durationDays))} días cumplidos (se calcula solo)
+            </span>
           </div>
 
           <div className="field">
@@ -162,6 +139,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
               value={rewardText}
               onChange={(e) => setRewardText(e.target.value)}
             />
+            <span className="hint">Al superarlo ganas +{CHALLENGE_REWARD_POINTS} puntos de bonificación.</span>
           </div>
         </div>
 

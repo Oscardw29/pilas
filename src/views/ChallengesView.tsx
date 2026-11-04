@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 import { Challenge } from '../types';
 import { todayKey, addDaysKey } from '../lib/dates';
+import { CHALLENGE_REWARD_POINTS, challengeSuccessDays } from '../lib/economyRules';
 import { Trophy, Plus, CheckCircle, Gift, ArrowRight, Sparkles, Check, Trash2, TrendingUp } from 'lucide-react';
 import {
   BarChart,
@@ -27,8 +28,10 @@ export const ChallengesView: React.FC = () => {
   const currentTodayKey = todayKey();
 
   const handleDayToggle = (challenge: Challenge, dateStr: string) => {
-    toggleChallengeCheckin(challenge.id, dateStr);
     const wasChecked = challenge.checkins.includes(dateStr);
+    // Los días que aún no llegan no se pueden marcar
+    if (!wasChecked && dateStr > currentTodayKey) return;
+    toggleChallengeCheckin(challenge.id, dateStr);
     if (!wasChecked) {
       showToast(`¡Día registrado en «${challenge.name}»!`, 'success');
     }
@@ -37,12 +40,12 @@ export const ChallengesView: React.FC = () => {
   const handleClaimReward = (challenge: Challenge) => {
     if (challenge.status === 'completed') return;
     addPointEvent({
-      amount: Math.round(challenge.rewardPoints),
+      amount: CHALLENGE_REWARD_POINTS,
       reason: `Completar reto: ${challenge.name}`,
       source: 'challenge',
     });
     updateChallenge(challenge.id, { status: 'completed' });
-    showToast(`¡Reto superado! +${Math.round(challenge.rewardPoints)} puntos otorgados.`, 'reward');
+    showToast(`¡Reto superado! +${CHALLENGE_REWARD_POINTS} puntos otorgados.`, 'reward');
   };
 
   const handleConvertToHabit = (challenge: Challenge) => {
@@ -213,15 +216,17 @@ export const ChallengesView: React.FC = () => {
           <div className="stack" style={{ gap: 16 }}>
             {activeChallenges.map((challenge) => {
               const completedCount = challenge.checkins.length;
-              const pct = Math.min(100, Math.round((completedCount / challenge.successDays) * 100));
-              const isTargetReached = completedCount >= challenge.successDays;
+              const successDays = challengeSuccessDays(challenge.durationDays);
+              const pct = Math.min(100, Math.round((completedCount / successDays) * 100));
+              const isTargetReached = completedCount >= successDays;
               const hasCheckedToday = challenge.checkins.includes(currentTodayKey);
 
               const daysArray = Array.from({ length: challenge.durationDays }, (_, i) => {
                 const dKey = addDaysKey(challenge.startDate, i);
                 const isChecked = challenge.checkins.includes(dKey);
                 const isToday = dKey === currentTodayKey;
-                return { index: i + 1, dateKey: dKey, isChecked, isToday };
+                const isFuture = dKey > currentTodayKey;
+                return { index: i + 1, dateKey: dKey, isChecked, isToday, isFuture };
               });
 
               return (
@@ -271,7 +276,7 @@ export const ChallengesView: React.FC = () => {
                   <div style={{ marginTop: 18 }}>
                     <div className="row-between small" style={{ marginBottom: 6 }}>
                       <span>
-                        Objetivo de victoria: <b>{completedCount} / {challenge.successDays} días cumplidos</b>
+                        Objetivo de victoria: <b>{completedCount} / {successDays} días cumplidos</b>
                       </span>
                       <span className="bold accent">{pct}%</span>
                     </div>
@@ -283,7 +288,7 @@ export const ChallengesView: React.FC = () => {
                   {/* Días del reto en cuadrícula interactiva */}
                   <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                     <div className="xs muted bold" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Cuadrícula diaria (pulsa en cualquier día para marcarlo):
+                      Cuadrícula diaria (pulsa un día de hoy o anterior para marcarlo):
                     </div>
                     <div className="challenge-days-grid">
                       {daysArray.map((day) => (
@@ -291,9 +296,11 @@ export const ChallengesView: React.FC = () => {
                           key={day.dateKey}
                           type="button"
                           onClick={() => handleDayToggle(challenge, day.dateKey)}
-                          title={`${day.dateKey} (Día ${day.index})`}
+                          // Un día futuro no se marca (si quedó marcado de antes, sí se puede desmarcar)
+                          disabled={day.isFuture && !day.isChecked}
+                          title={day.isFuture ? `${day.dateKey} (Día ${day.index}): aún no llega` : `${day.dateKey} (Día ${day.index})`}
                           aria-label={`${day.dateKey} (Día ${day.index})`}
-                          className={`challenge-day-btn ${day.isChecked ? 'checked' : ''} ${day.isToday ? 'today' : ''}`}
+                          className={`challenge-day-btn ${day.isChecked ? 'checked' : ''} ${day.isToday ? 'today' : ''} ${day.isFuture ? 'future' : ''}`}
                         >
                           {day.index}
                         </button>
@@ -315,7 +322,7 @@ export const ChallengesView: React.FC = () => {
                     <div className="row" style={{ color: 'var(--warning)' }}>
                       <Gift size={16} />
                       <span className="small bold">
-                        +{Math.round(challenge.rewardPoints)} pts
+                        +{CHALLENGE_REWARD_POINTS} pts
                       </span>
                       {challenge.rewardText && (
                         <span className="small muted">({challenge.rewardText})</span>
@@ -373,7 +380,7 @@ export const ChallengesView: React.FC = () => {
                   <span className="badge">{c.status}</span>
                 </div>
                 <div className="small muted" style={{ marginTop: 8 }}>
-                  Logrado: {c.checkins.length} de {c.successDays} días
+                  Logrado: {c.checkins.length} de {challengeSuccessDays(c.durationDays)} días
                 </div>
               </div>
             ))}

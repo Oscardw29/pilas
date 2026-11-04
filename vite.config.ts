@@ -22,6 +22,8 @@ const buildCsp = (supabaseOrigin: string) =>
     // La síntesis de Fish Audio va por el relay del mismo dominio (/api/fish-tts): 'self'
     // blob: → canvas-confetti dibuja en un worker creado desde un blob (fuera del hilo principal)
     "worker-src 'self' blob:",
+    // blob: → <audio> silencioso que mantiene la voz del coach sonando con el iPhone en silencio (src/lib/coachVoice.ts)
+    "media-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
