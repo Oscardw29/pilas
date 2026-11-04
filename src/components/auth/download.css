@@ -1,0 +1,308 @@
+/* =====================================================================
+   PÁGINA DE DESCARGA (/descargar) — DownloadPage.tsx
+   Un cartel de colores planos de la marca: violeta, amarillo del rayo, tinta casi negra y el fondo de la app.
+   Cinco tamaños de letra: cartel (titular y lista), título de sección, selector, texto y nota.
+   Un solo radio grande (28px) para paneles y capturas; botones redondos.
+   ===================================================================== */
+
+.dl {
+  --dl-ground: #0c0c10;
+  --dl-ink: #f7f5ff;
+  --dl-soft: #c9c4dc;
+  --dl-violet: #7c3aed; /* taste-skill-ignore: violeta de la marca (logo, app) */
+  --dl-yellow: #fbbf24;
+  --dl-deep: #14092b;
+  --dl-paper: #f5f4fa;
+  --dl-top-ink: var(--dl-yellow);
+  --dl-tile: #1b1a24;
+
+  --t-poster: clamp(64px, 12vw, 184px);
+  --t-h2: clamp(32px, 4vw, 56px);
+  --t-seg: clamp(18px, 2vw, 28px);
+  --t-body: 18px;
+  --t-small: 15px;
+
+  --m: clamp(16px, 2.2vw, 32px);
+  --radius: 28px;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  background: var(--dl-ground);
+  color: var(--dl-ink);
+  /* taste-skill-ignore: Inter es la fuente de la marca */
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  overflow-x: clip;
+}
+:root[data-theme='light'] .dl {
+  --dl-ground: #f5f4fa;
+  --dl-ink: #14092b;
+  --dl-soft: #4b4560;
+  --dl-top-ink: #6d28d9; /* taste-skill-ignore: violeta de la marca en tema claro */
+  --dl-tile: #e7e2f4;
+}
+html:has(.dl) { scroll-behavior: smooth; }
+
+.dl-wrap { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 var(--m); }
+.dl h2 { font-size: var(--t-h2); font-weight: 900; line-height: 1; letter-spacing: -0.035em; text-wrap: balance; }
+.dl strong { font-weight: 800; }
+.dl-bang { color: var(--dl-yellow); }
+
+/* ---------- Botones: redondos y planos ---------- */
+.dl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; padding: 0 26px; border-radius: 999px;
+  font-size: var(--t-body); font-weight: 800; letter-spacing: -0.01em; text-decoration: none; white-space: nowrap;
+  transition: transform .2s var(--ease), background-color .2s, color .2s;
+}
+.dl-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.dl-btn:hover { transform: translateY(-2px); }
+.dl-btn:active { transform: translateY(0) scale(.97); }
+.dl-btn:focus-visible, .dl-seg button:focus-visible, .dl-card button:focus-visible, .dl a:focus-visible {
+  outline: 3px solid var(--dl-ink); outline-offset: 3px;
+}
+.dl-btn-accent { background: var(--dl-yellow); color: var(--dl-deep); }
+.dl-btn-ink { background: var(--dl-deep); color: var(--dl-yellow); }
+.dl-btn-xl { min-height: 72px; padding: 0 34px; font-size: 20px; }
+.dl-btn-xl svg { width: 24px; height: 24px; }
+
+/* ---------- 1 · Cartel con línea de flotación ---------- */
+.dl-hero {
+  --seam: 50%;
+  position: relative; height: 100svh; min-height: 640px; max-height: 1100px; overflow: hidden;
+  background: var(--dl-ground);
+}
+/* El campo de abajo: un bloque de color, sin degradados */
+.dl-hero::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; top: var(--seam); background: var(--dl-violet); }
+
+.dl-bar {
+  position: absolute; z-index: 3; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: calc(var(--m) + env(safe-area-inset-top, 0px)) var(--m) 0;
+}
+.dl-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--dl-ink); text-decoration: none; font-weight: 900; font-size: 20px; letter-spacing: -0.03em; }
+.dl-bar-cta { min-height: 48px; }
+
+.dl-title { position: absolute; inset: 0; z-index: 1; margin: 0; pointer-events: none; font-size: var(--t-poster); }
+.dl-title-copy {
+  position: absolute; inset: 0;
+  font-weight: 900; line-height: .86; letter-spacing: -0.045em; text-transform: uppercase; text-align: center; white-space: nowrap;
+}
+.dl-title-in {
+  /* El centro de la segunda línea cae justo en la costura entre los dos campos (top en % es del alto del cartel) */
+  position: absolute; left: 0; right: 0; top: calc(var(--seam) - 1.29em);
+  display: flex; flex-direction: column; align-items: center;
+}
+.dl-title-top { color: var(--dl-top-ink); clip-path: inset(0 0 calc(100% - var(--seam)) 0); }
+.dl-title-bottom { color: var(--dl-deep); clip-path: inset(var(--seam) 0 0 0); }
+.dl-line { display: block; overflow: hidden; padding: 0 .04em .1em; margin-bottom: -.1em; }
+.dl-line > span { display: block; animation: dlRise .95s var(--ease) both; }
+.dl-line + .dl-line > span { animation-delay: .11s; }
+@keyframes dlRise { from { transform: translateY(105%); } to { transform: none; } }
+
+.dl-hero-foot {
+  /* Justo debajo del titular (la segunda línea acaba media línea por debajo de la costura) */
+  position: absolute; z-index: 2; left: 0; right: 0; top: calc(var(--seam) + .5 * var(--t-poster) + 36px);
+  display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 0 var(--m);
+  text-align: center; color: var(--dl-paper);
+  animation: dlUp .7s var(--ease) .55s both;
+}
+.dl-lede { max-width: 34em; font-size: 20px; line-height: 1.45; font-weight: 500; text-wrap: balance; }
+@keyframes dlUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+/* Pilo, recortado y un poco inclinado, saluda desde el pie del campo violeta (nunca encima del titular) */
+.dl-pilo { position: absolute; z-index: 1; right: max(var(--m), 3vw); bottom: -6px; width: clamp(150px, 17vw, 260px); rotate: 4deg; transform-origin: bottom center; animation: dlPilo .9s var(--ease) .35s both; }
+.dl-pilo .coach-avatar { width: 100%; height: auto; display: block; }
+@keyframes dlPilo { from { opacity: 0; transform: translateY(40%); } to { opacity: 1; transform: none; } }
+
+/* ---------- 2 · Selector de dispositivo en grande ---------- */
+.dl-get {
+  --get-field: var(--dl-yellow); --get-ink: var(--dl-deep); --get-on: var(--dl-violet); --get-on-ink: #fff;
+  background: var(--get-field); color: var(--get-ink);
+  padding: clamp(80px, 11vw, 160px) 0; transition: background-color .45s var(--ease), color .45s;
+}
+/* iPhone y Mac usan la app web: el campo cambia de color con la elección */
+.dl-get.is-web { --get-field: var(--dl-violet); --get-ink: var(--dl-paper); --get-on: var(--dl-yellow); --get-on-ink: var(--dl-deep); }
+.dl-get-head p { margin-top: 16px; max-width: 36em; font-size: var(--t-body); font-weight: 500; }
+.dl-get .dl-btn-ink { background: var(--dl-deep); color: var(--dl-yellow); }
+.dl-get.is-web .dl-btn-ink { background: var(--dl-yellow); color: var(--dl-deep); }
+.dl-get .dl-btn:focus-visible, .dl-get .dl-seg button:focus-visible { outline-color: var(--get-ink); }
+
+.dl-seg {
+  display: flex; flex-wrap: wrap; gap: .3em; width: fit-content; max-width: 100%;
+  margin-top: clamp(36px, 5vw, 64px); padding: .3em; border-radius: 999px;
+  background: var(--dl-deep); font-size: var(--t-seg);
+}
+.dl-seg button {
+  display: inline-flex; align-items: center; gap: .45em; height: 2.4em; padding: 0 1em; border-radius: 999px;
+  color: var(--dl-paper); font-weight: 800; letter-spacing: -0.01em;
+  transition: background-color .25s var(--ease), color .25s, transform .15s;
+}
+.dl-seg button svg { width: 1em; height: 1em; flex-shrink: 0; }
+.dl-seg button:hover:not(.is-on) { background: rgba(255, 255, 255, .1); }
+.dl-seg button:active { transform: scale(.96); }
+.dl-seg button.is-on { background: var(--get-on); color: var(--get-on-ink); }
+
+.dl-get-body {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(28px, 5vw, 80px); align-items: start;
+  margin-top: clamp(36px, 5vw, 64px);
+}
+.dl-swap { animation: dlUp .45s var(--ease) both; }
+.dl-get-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.dl-btn-line { background: color-mix(in srgb, var(--dl-deep) 14%, transparent); color: var(--dl-deep); }
+.dl-file { font-size: var(--t-small); font-weight: 600; opacity: .8; }
+.dl-soon { font-size: 20px; font-weight: 700; max-width: 22em; }
+.dl-steps { list-style: none; display: flex; flex-direction: column; gap: 18px; font-size: var(--t-body); font-weight: 500; max-width: 34em; }
+.dl-steps li { padding-left: 34px; position: relative; }
+.dl-steps li::before {
+  content: ''; position: absolute; left: 0; top: .32em; width: 18px; height: 18px; border-radius: 50%; background: var(--get-ink);
+}
+.dl-steps em { font-style: normal; font-weight: 700; }
+
+/* ---------- 3 · Lo que hace: palabras de cartel ---------- */
+.dl-what { padding: clamp(96px, 12vw, 200px) 0; }
+.dl-what h2 { max-width: 14em; }
+.dl-poster { list-style: none; margin-top: clamp(40px, 6vw, 88px); }
+.dl-poster li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+  cursor: default;
+}
+.dl-poster-word {
+  font-size: var(--t-poster); font-weight: 900; line-height: .92; letter-spacing: -0.045em; text-transform: uppercase;
+  transition: color .2s, transform .35s var(--ease);
+}
+.dl-poster-fact { font-size: var(--t-body); font-weight: 600; color: var(--dl-ink); text-align: right; max-width: 16em; }
+.dl-poster li:hover .dl-poster-word { color: var(--dl-top-ink); transform: translateX(12px); }
+
+/* ---------- 4 · Capturas reales ---------- */
+.dl-look { background: var(--dl-violet); color: var(--dl-paper); padding: clamp(96px, 12vw, 180px) 0 clamp(110px, 13vw, 200px); overflow: hidden; }
+.dl-look-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.dl-look-head p { font-size: var(--t-body); font-weight: 500; max-width: 30em; justify-self: end; }
+.dl-shots {
+  list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(20px, 3vw, 48px);
+  max-width: 1440px; margin: clamp(48px, 7vw, 96px) auto 0; padding: 0 var(--m);
+}
+.dl-shots li:nth-child(1) { --r: -4deg; }
+.dl-shots li:nth-child(2) { --r: 3deg; margin-top: 56px; }
+.dl-shots li:nth-child(3) { --r: -2deg; }
+.dl-shots li:nth-child(4) { --r: 4deg; margin-top: 56px; }
+.dl-shots figure { margin: 0; }
+.dl-shots img {
+  display: block; width: 100%; height: auto; aspect-ratio: 390 / 844; object-fit: cover; border-radius: var(--radius);
+  background: var(--dl-deep); rotate: var(--r, 0deg); transition: rotate .45s var(--ease), scale .45s var(--ease);
+}
+.dl-shots li:hover img { rotate: 0deg; scale: 1.03; }
+.dl-shots figcaption { margin-top: 22px; font-size: var(--t-body); font-weight: 800; text-align: center; }
+
+/* ---------- 5 · Dudas en fichas con pestaña ---------- */
+.dl-faq { padding: clamp(96px, 12vw, 180px) 0; }
+.dl-faq .dl-wrap { max-width: 1080px; }
+.dl-cards { margin-top: clamp(40px, 6vw, 72px); }
+.dl-card {
+  /* Las pestañas se escalonan sin salirse nunca de la ficha (5 fichas: 4 pasos) */
+  --tab-w: 200px; --tab-h: 40px; --step: min(150px, (100% - var(--tab-w)) / 4);
+  --tab-x: calc(var(--i) * var(--step));
+  position: relative; margin-top: calc(-1 * var(--tab-h));
+  padding: var(--tab-h) 0 var(--tab-h);
+  background: var(--card); color: var(--card-ink);
+  /* Ficha y pestaña son una sola forma */
+  clip-path: polygon(
+    var(--tab-x) 0, calc(var(--tab-x) + var(--tab-w)) 0, calc(var(--tab-x) + var(--tab-w)) var(--tab-h),
+    100% var(--tab-h), 100% 100%, 0 100%, 0 var(--tab-h), var(--tab-x) var(--tab-h)
+  );
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.dl-card:first-child { margin-top: 0; }
+.dl-card:last-child { padding-bottom: 8px; }
+.dl-card.c0 { --card: var(--dl-violet); --card-ink: var(--dl-paper); }
+.dl-card.c1 { --card: var(--dl-yellow); --card-ink: var(--dl-deep); }
+.dl-card.c2 { --card: var(--dl-tile); --card-ink: var(--dl-ink); }
+.dl-card h3 { margin: 0; font: inherit; }
+.dl-card button { display: block; width: 100%; text-align: left; color: inherit; padding: 0; }
+.dl-card-tab {
+  position: absolute; top: 0; left: var(--tab-x); width: var(--tab-w); height: var(--tab-h);
+  display: grid; place-items: center; font-size: var(--t-small); font-weight: 800;
+}
+.dl-card-q { display: block; padding: 16px 28px 16px; min-height: 56px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.dl-card button:hover .dl-card-q { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.dl-card-a { padding: 0 28px 28px; font-size: var(--t-body); max-width: 50ch; }
+.dl-card.is-open .dl-card-a { animation: dlUp .35s var(--ease) both; }
+
+/* ---------- 6 · Cierre ---------- */
+.dl-foot { background: var(--dl-yellow); color: var(--dl-deep); padding: clamp(64px, 8vw, 120px) 0 calc(40px + env(safe-area-inset-bottom, 0px)); overflow: hidden; }
+.dl-foot .dl-bang { color: var(--dl-violet); }
+.dl-foot-name { font-size: clamp(96px, 22.5vw, 330px); font-weight: 900; line-height: .8; letter-spacing: -0.06em; margin-left: -.04em; white-space: nowrap; }
+.dl-foot-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-top: clamp(32px, 4vw, 56px); flex-wrap: wrap; }
+.dl-foot-links { display: flex; gap: clamp(20px, 3vw, 44px); flex-wrap: wrap; }
+.dl-foot-links a { color: inherit; text-decoration: none; font-size: 20px; font-weight: 800; transition: transform .2s var(--ease); display: inline-block; }
+.dl-foot-links a:hover { transform: translateX(6px); text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
+.dl-foot-links a:focus-visible { outline-color: var(--dl-deep); }
+.dl-foot-note { font-size: var(--t-small); font-weight: 600; max-width: 30em; }
+
+/* ---------- Entradas al hacer scroll (solo con JS y sin «reducir movimiento») ---------- */
+.dl-anim .dl-reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s var(--ease), transform .8s var(--ease); }
+.dl-anim .dl-reveal.is-in { opacity: 1; transform: none; }
+.dl-anim .dl-poster li:nth-child(2) { transition-delay: 60ms; }
+.dl-anim .dl-poster li:nth-child(3) { transition-delay: 120ms; }
+.dl-anim .dl-poster li:nth-child(4) { transition-delay: 180ms; }
+.dl-anim .dl-poster li:nth-child(5) { transition-delay: 240ms; }
+.dl-anim .dl-poster li:nth-child(6) { transition-delay: 300ms; }
+.dl-anim .dl-shots li:nth-child(2) { transition-delay: 80ms; }
+.dl-anim .dl-shots li:nth-child(3) { transition-delay: 160ms; }
+.dl-anim .dl-shots li:nth-child(4) { transition-delay: 240ms; }
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1023.98px) {
+  .dl-get-body { grid-template-columns: minmax(0, 1fr); }
+  .dl-seg { font-size: 16px; }
+  .dl-seg button { padding: 0 .8em; }
+  .dl-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dl-shots li:nth-child(n) { margin-top: 0; }
+  .dl-shots li:nth-child(even) { margin-top: 56px; }
+}
+
+/* ---------- Teléfono: su propia composición ---------- */
+@media (max-width: 639.98px) {
+  .dl { --t-body: 17px; }
+  .dl-hero { --seam: 36%; min-height: 600px; }
+  .dl-brand svg { width: 30px; height: 30px; }
+  .dl-bar-cta { min-height: 44px; padding: 0 18px; font-size: var(--t-body); }
+  .dl-title { font-size: 14.2vw; }
+  .dl-hero { --t-poster: 14.2vw; }
+  .dl-hero-foot { align-items: flex-start; text-align: left; gap: 18px; }
+  .dl-lede { font-size: var(--t-body); }
+  .dl-hero-foot .dl-btn { min-height: 50px; padding: 0 20px; font-size: var(--t-body); }
+  .dl-pilo { width: min(46vw, 190px); right: 4px; }
+
+  .dl-seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; border-radius: 26px; font-size: var(--t-body); }
+  .dl-seg button { justify-content: center; padding: 0 .6em; }
+  .dl-seg button:last-child { grid-column: 1 / -1; }
+  .dl-btn-xl { width: 100%; min-height: 64px; font-size: 20px; }
+  .dl-get-actions { align-items: stretch; }
+
+  .dl-poster li { flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 22px; }
+  .dl-poster-word { font-size: 15vw; }
+  .dl-poster-fact { text-align: left; }
+
+  .dl-look-head { grid-template-columns: minmax(0, 1fr); }
+  .dl-look-head p { justify-self: start; }
+  /* Las cuatro a la vista, en dos columnas escalonadas (nada que deslizar de lado) */
+  .dl-shots { gap: 28px 16px; }
+  .dl-shots li:nth-child(even) { margin-top: 40px; }
+  .dl-shots li:nth-child(odd) { --r: -2deg; }
+  .dl-shots li:nth-child(even) { --r: 2deg; }
+  .dl-shots img { border-radius: 20px; }
+  .dl-shots figcaption { margin-top: 14px; font-size: var(--t-small); }
+
+  .dl-card { --tab-w: 120px; }
+  .dl-card-q { font-size: 20px; padding: 14px 20px; }
+  .dl-card-a { padding: 0 20px 22px; }
+
+  .dl-foot-name { font-size: 27vw; }
+  .dl-foot-row { flex-direction: column; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-line > span, .dl-hero-foot, .dl-pilo, .dl-swap { animation: none; }
+  .dl-get, .dl-poster-word, .dl-shots img { transition: none; }
+}

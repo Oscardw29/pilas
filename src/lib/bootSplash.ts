@@ -61,6 +61,11 @@ export function runBootSplash() {
   const splash = document.getElementById('boot-splash');
   if (!splash) return;
   template = splash.cloneNode(true) as HTMLElement;
+  // En la página de descarga no hay animación de apertura: fuera desde el principio (el CSS ya la ocultaba)
+  if (isDownloadPage()) {
+    splash.remove();
+    return;
+  }
   const leave = makeLeave(splash);
 
   // Con la app lista, un toque salta lo que quede de animación
