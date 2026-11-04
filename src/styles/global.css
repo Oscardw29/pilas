@@ -266,6 +266,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: var(--bg); color: var(--text); }
+/* Sin el recuadro azul que Android/Chrome pinta al tocar: la respuesta al toque la dan las animaciones
+   (styles/motion.css) y el teclado sigue mostrando el anillo de :focus-visible */
+html { -webkit-tap-highlight-color: transparent; }
 body { font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 button:disabled { cursor: not-allowed; }
