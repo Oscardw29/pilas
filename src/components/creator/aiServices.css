@@ -3,14 +3,38 @@
 .ai-service .card-head { margin-bottom: 0; flex-wrap: wrap; gap: 10px; }
 .ai-service-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; color: var(--accent-2); background: var(--accent-soft); }
 .ai-service-icon svg { width: 18px; height: 18px; }
-.ai-service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
-.ai-service-key { display: flex; align-items: center; gap: 6px; }
-.ai-service-key .input { flex: 1; min-width: 0; }
+.ai-service-main { border: 1px solid rgba(139, 92, 246, 0.35); }
+.ai-service .form { gap: 14px; }
+.ai-service-pair { gap: 14px; }
+.ai-service-label { margin-bottom: 4px; }
+.ai-service-label .label, .label.ai-service-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.ai-service-link { display: inline-flex; align-items: center; gap: 4px; }
+/* Clave con el ojo dentro del campo, como en Ajustes */
+.ai-service-key { position: relative; display: flex; align-items: center; }
+.ai-service-key .input { flex: 1; min-width: 0; padding-right: 40px; }
+.ai-service-eye { position: absolute; right: 8px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--muted); }
+.ai-service-eye:hover { color: var(--text); background: var(--surface-3); }
+/* Plataforma de IA en tarjetas (mismo aspecto que Ajustes → Inteligencia Artificial) */
+.ai-platforms { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 4px; }
+.ai-platform {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; text-align: left;
+  border: 1px solid var(--border); background: transparent; color: var(--text-2); transition: all .15s ease;
+}
+.ai-platform:hover { border-color: var(--border-2); color: var(--text); }
+.ai-platform.is-on { border: 1.5px solid var(--accent); background: rgba(99, 102, 241, 0.16); color: var(--text); }
+.ai-platform-name { font-size: 13px; font-weight: 600; }
+.ai-platform-tag { font-size: 10px; color: var(--muted); }
+.ai-platform.is-on .ai-platform-tag { color: var(--accent-2); }
+.ai-badge-main { font-size: 10px; background: rgba(99, 102, 241, 0.2); }
+.ai-badge-auto { font-size: 10px; background: rgba(16, 185, 129, 0.2); color: var(--emerald); }
+.ai-badge-tts { font-size: 10px; background: rgba(6, 182, 212, 0.15); color: var(--cyan); }
+.ai-service-limit { max-width: 320px; }
+.ai-service-foot .btn svg { width: 14px; height: 14px; }
 .ai-service-test { padding: 10px 12px; }
 .ai-service-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .ai-service-clear { color: var(--danger); }
 
 @media (max-width: 639.98px) {
-  .ai-service-fields { grid-template-columns: minmax(0, 1fr); }
+  .ai-service-limit { max-width: none; }
   .ai-service-foot .row { width: 100%; justify-content: flex-end; }
 }
