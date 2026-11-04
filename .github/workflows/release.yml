@@ -1,6 +1,6 @@
 # Publica una versión: al subir una etiqueta v* (p. ej. `git tag v2.0.0 && git push --tags`)
 # compila Windows (.exe), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
-# borrador de GitHub Release. Cada instalador va también con un nombre fijo (Pilas-Windows.exe, Pilas-Android.apk,
+# borrador de GitHub Release. Cada instalador va con un nombre fijo, sin la versión (Pilas-Windows.exe, Pilas-Android.apk,
 # Pilas-Linux.AppImage, Pilas-Linux.deb): la página /descargar los descarga directamente de la última versión publicada. Gratis en repos públicos (2000 min/mes en privados).
 #
 # Secretos del repositorio (Settings → Secrets and variables → Actions):
@@ -44,15 +44,11 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: npm ci
       - run: npm test
+      # Solo compila (sin tagName no sube nada): a la versión van únicamente los instaladores con nombre fijo, sin duplicados
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '¡Pilas! ${{ github.ref_name }}'
-          releaseBody: 'Descarga el instalador para tu sistema. iOS y macOS: usa la app web (Añadir a pantalla de inicio / Añadir al Dock).'
-          releaseDraft: true
-      # Copias con nombre fijo: /descargar las enlaza con …/releases/latest/download/<nombre> (descarga directa)
+      # Nombre fijo: /descargar los enlaza con …/releases/latest/download/<nombre> (descarga directa de la última versión)
       - name: Instaladores con nombre fijo
         shell: bash
         run: |
@@ -67,6 +63,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          name: '¡Pilas! ${{ github.ref_name }}'
+          body: 'Windows: descarga Pilas-Windows.exe. Android: Pilas-Android.apk. Linux: Pilas-Linux.AppImage o .deb. iPhone, iPad y Mac: usa la app web (Añadir a pantalla de inicio / Añadir al Dock).'
           draft: true
           files: fixed/*
 
@@ -93,16 +91,12 @@ jobs:
           PILAS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: npm run android:apk
       - name: Nombre del APK
-        run: |
-          cp android/app/build/outputs/apk/release/*-signed.apk "Pilas-${{ github.ref_name }}.apk"
-          cp android/app/build/outputs/apk/release/*-signed.apk Pilas-Android.apk
+        run: cp android/app/build/outputs/apk/release/*-signed.apk Pilas-Android.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           draft: true
-          files: |
-            Pilas-${{ github.ref_name }}.apk
-            Pilas-Android.apk
+          files: Pilas-Android.apk
       - name: Borrar keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/pilas-release.jks"

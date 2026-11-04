@@ -262,7 +262,8 @@ compila en Windows.
    descargarse el APK directamente. Si da «Not Found», revisa que el nombre del archivo subido sea exactamente ese.
 
 > **Si ya publicaste `v2.0.0` con otros nombres** (por ejemplo `Pilas-v2.0.0.apk`), no hace falta crear otra versión.
-> Súbele los archivos con el nombre fijo: `gh release upload v2.0.0 Pilas-Windows.exe Pilas-Android.apk`.
+> Súbele los archivos con el nombre fijo: `gh release upload v2.0.0 Pilas-Windows.exe Pilas-Android.apk`. Después puedes
+> borrar los de nombre antiguo, que son el mismo archivo: `gh release delete-asset v2.0.0 Pilas-v2.0.0.apk -y` (uno por archivo).
 
 > Esta versión ya usa la etiqueta `v2.0.0`. Para las siguientes, sube el número (por ejemplo `v2.0.1`; ver el recuadro de 7.5).
 
@@ -303,7 +304,8 @@ sube la versión en los dos archivos del recuadro de abajo.
    **15–30 minutos**: compila Windows, Linux y Android a la vez. Al terminar, el círculo se vuelve un **✓ verde**.
    Si sale una **✗ roja**, ábrelo, copia el error y pásamelo.
 3. Pestaña **Code** → a la derecha, **Releases** → aparece **¡Pilas! v2.0.0** con la etiqueta **Draft** (borrador).
-   Dentro, en **Assets**, verás: `Pilas_2.0.0_x64-setup.exe`, `Pilas_2.0.0_amd64.AppImage`, `pilas_2.0.0_amd64.deb` y `Pilas-v2.0.0.apk`.
+   Dentro, en **Assets**, verás: `Pilas-Windows.exe`, `Pilas-Linux.AppImage`, `Pilas-Linux.deb` y `Pilas-Android.apk`, además de los
+   dos «Source code» que GitHub añade siempre.
 4. Pulsa el **lápiz (Edit)**, revisa el texto y pulsa **Publish release**. Ya es pública.
 5. El enlace que siempre apunta a la última versión es: `https://github.com/Oscardw29/pilas/releases/latest`.
 
