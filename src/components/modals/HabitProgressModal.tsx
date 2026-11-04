@@ -268,7 +268,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center' }}
                 value={minutesToAdd}
                 onChange={(e) => setMinutesToAdd(Math.max(0, Number(e.target.value)))}
-                autoFocus
+                data-autofocus
               />
             </div>
 
@@ -397,7 +397,7 @@ export const HabitProgressModal: React.FC<HabitProgressModalProps> = ({
                 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center' }}
                 value={quantityToAdd}
                 onChange={(e) => setQuantityToAdd(Math.max(0, Number(e.target.value)))}
-                autoFocus
+                data-autofocus
               />
             </div>
 

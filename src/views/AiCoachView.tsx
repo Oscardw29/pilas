@@ -23,14 +23,19 @@ import {
   ChevronDown,
   Plus,
   MoreHorizontal,
+  AlignLeft,
+  SquarePen,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { useCoachMute } from '../components/coach/useCoachMute';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CoachStage } from '../components/coach/CoachStage';
 import { LocalModeNotice } from '../components/coach/LocalModeNotice';
 import { CoachAvatar } from '../components/coach/CoachAvatar';
 import { useCoachPersona, type CoachPersona } from '../components/coach/coachPersona';
 import { markCoachVisited } from '../components/coach/coachTeasers';
-import { speakCoach, stopCoachVoice, unlockCoachVoice } from '../lib/coachVoice';
+import { speakCoach, stopCoachVoice, unlockCoachVoice, useCoachSpeaking } from '../lib/coachVoice';
 import { phraseText } from '../lib/coachPhrases';
 import { useToast } from '../components/ui/ToastContext';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
@@ -74,6 +79,78 @@ const PRESET_QUESTIONS = [
   '¿Qué experimento A/B me recomiendas hacer ahora?',
   'Resume mi semana',
 ];
+
+interface PhonePreset {
+  emoji: string;
+  label: string;
+  prompt: string;
+}
+
+/** Ideas del inicio en el teléfono: dos cintas que se desplazan solas en sentidos opuestos */
+const PHONE_PRESET_ROWS: PhonePreset[][] = [
+  [
+    { emoji: '⚡', label: '¿Qué hago ahora?', prompt: '¿Qué hago ahora mismo?' },
+    { emoji: '🔥', label: 'Salvar mi racha', prompt: '¿Cómo salvo mi racha hoy?' },
+    { emoji: '⏱️', label: 'Hoy tengo poco tiempo', prompt: '¿Cómo organizo mi día si tengo poco tiempo?' },
+    { emoji: '📅', label: 'Resume mi semana', prompt: 'Resume mi semana' },
+  ],
+  [
+    { emoji: '🌱', label: 'Versiones mínimas', prompt: 'Analiza mis razones de abandono y proponme versiones mínimas.' },
+    { emoji: '🧪', label: 'Un experimento A/B', prompt: '¿Qué experimento A/B me recomiendas hacer ahora?' },
+    { emoji: '🎯', label: 'Revisar mis objetivos', prompt: '¿Voy bien con mis objetivos? Dime en cuál enfocarme ahora.' },
+    { emoji: '💡', label: 'Un hábito nuevo', prompt: '¿Qué hábito nuevo me recomiendas según mis datos?' },
+  ],
+];
+
+/**
+ * Cintas de sugerencias: cada fila lleva sus botones dos veces seguidas y se desplaza la mitad de su ancho, así el
+ * bucle no tiene costura. Al tocar se detiene para poder pulsar con calma. Con «reducir movimiento» se quedan quietas
+ * y se pueden desplazar con el dedo (mobile.css).
+ */
+const PresetMarquee: React.FC<{ rows: PhonePreset[][]; disabled: boolean; onPick: (prompt: string) => void }> = ({ rows, disabled, onPick }) => (
+  <div className="coach-marquee" role="group" aria-label="Sugerencias">
+    {rows.map((row, r) => (
+      <div key={r} className={`coach-marquee-row${r % 2 ? ' reverse' : ''}`}>
+        <div className="coach-marquee-track" style={{ '--dur': `${34 + r * 7}s` } as React.CSSProperties}>
+          {[0, 1].map((copy) => (
+            <div key={copy} className="coach-marquee-group" aria-hidden={copy === 1 ? true : undefined}>
+              {row.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  className="coach-chip"
+                  tabIndex={copy === 1 ? -1 : undefined}
+                  disabled={disabled}
+                  onClick={() => onPick(p.prompt)}
+                >
+                  <span className="coach-chip-emoji" aria-hidden="true">
+                    {p.emoji}
+                  </span>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const PHONE_QUERY = '(max-width: 639.98px)';
+/** Teléfono: el coach ocupa la página entera (sin tarjetas) */
+function useIsPhone() {
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.(PHONE_QUERY).matches));
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE_QUERY);
+    if (!mq) return;
+    const sync = () => setPhone(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return phone;
+}
 
 /** Bienvenida del catálogo de frases fijas: con las frases grabadas tiene voz aunque no haya clave de TTS */
 const welcomeText = (p: CoachPersona) => phraseText('bienvenida.pagina', p.gender);
@@ -140,6 +217,21 @@ export const AiCoachView: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // En móvil/tablet la lista de conversaciones se pliega para dejar el chat a la vista
   const [convListOpen, setConvListOpen] = useState(false);
+  const isPhone = useIsPhone();
+  const { muted, hasVoice, toggleMute } = useCoachMute();
+  const speaking = useCoachSpeaking();
+
+  // Teléfono: el desplegable de conversaciones se cierra al tocar fuera (el menú «⋯» de cada una cuenta como dentro)
+  useEffect(() => {
+    if (!isPhone || !convListOpen) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.('.coach-m-head, .conv-portal-dropdown, .modal-backdrop')) return;
+      setConvListOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [isPhone, convListOpen]);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     return [
@@ -691,75 +783,8 @@ export const AiCoachView: React.FC = () => {
     toast('Conversación renombrada con éxito', 'success');
   };
 
-  return (
-    <div className="stack fade-up coach-page">
-      {/* Cabecera */}
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">Coach de hábitos con IA</p>
-          <h1>
-            {persona.name}, tu {persona.role}
-          </h1>
-        </div>
-
-        <div className="actions coach-model-badges">
-          {/* Muestra automáticamente el modelo principal en uso */}
-          <span
-            className="badge accent"
-            style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            title={`Modelo principal activo: ${activePrimaryModel}`}
-          >
-            <Sparkles size={13} /> {activePrimaryModel}
-          </span>
-
-          {ownKey && settings.backupModel && (
-            <span
-              className="badge"
-              style={{ fontSize: 11, background: 'var(--success-soft)', color: 'var(--success)' }}
-              title="Modelo de respaldo automático si el principal falla"
-            >
-              Respaldo: {settings.backupModel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* LAYOUT PRINCIPAL: CONVERSACIONES A LA IZQUIERDA Y CHAT A LA DERECHA */}
-      <div className="coach-layout">
-        {/* PANEL IZQUIERDO: CONVERSACIONES Y, DEBAJO, EL COACH */}
-        <div className="coach-left">
-        <div className={`card conversations-sidebar ${convListOpen ? 'conv-list-open' : ''}`}>
-          {/* Encabezado: Recientes ⌵ (plegable en pantallas pequeñas) y botón + Nueva */}
-          <div className="conversations-header">
-            <button
-              type="button"
-              className="conversations-title-btn"
-              onClick={() => setConvListOpen((v) => !v)}
-              aria-expanded={convListOpen}
-              aria-controls="coach-conv-list"
-            >
-              <span className="conv-header-label">Recientes</span>
-              <span className="conv-header-current truncate">
-                {conversations.find((c) => c.id === activeConversationId)?.title ?? 'Conversaciones'}
-              </span>
-              <ChevronDown size={14} className="conv-header-chevron" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-btn sm"
-              onClick={() => {
-                setNewConvTitle('');
-                setShowNewConvModal(true);
-              }}
-              title="Nueva conversación"
-              aria-label="Nueva conversación"
-            >
-              <Plus size={15} />
-            </button>
-          </div>
-
-          {/* Lista de conversaciones con estilo idéntico a la referencia y acción de eliminar directa */}
-          <div id="coach-conv-list" className="conv-list">
+  const convItems = (
+    <>
             {(conversations || []).map((conv) => {
               const isActive = conv.id === activeConversationId;
               const isMenuOpen = menuState?.convId === conv.id;
@@ -820,15 +845,10 @@ export const AiCoachView: React.FC = () => {
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        <CoachStage thinking={loading && !streamRef.current} cheerKey={cheerKey} />
-        </div>
-
-        {/* CONTENEDOR DE CHAT PRINCIPAL A LA DERECHA */}
-        <div className="card chat-container" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="chat-messages">
+    </>
+  );
+  const messageNodes = (
+    <>
             {messages.map((m) => {
               const isUser = m.sender === 'user';
               // La respuesta aún vacía no se dibuja: mientras tanto se ve la burbuja de «pensando»
@@ -1028,64 +1048,10 @@ export const AiCoachView: React.FC = () => {
             <LocalModeNotice />
 
             <div ref={messagesEndRef} />
-          </div>
-
-          {/* Sugerencias de consulta rápida compactas (solo al inicio del chat para ahorrar espacio) */}
-          {messages.filter((m) => m.sender === 'user').length === 0 && (
-            <div
-              className="chat-presets"
-              style={{
-                marginTop: 8,
-                padding: '6px 10px',
-                background: 'var(--well)',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                overflowX: 'auto',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: 'var(--muted)',
-                  flexShrink: 0,
-                }}
-              >
-                <Lightbulb size={12} style={{ color: 'var(--accent)' }} /> <span className="chat-presets-label">Sugerencias:</span>
-              </span>
-              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'nowrap' }}>
-                {PRESET_QUESTIONS.map((q, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="chip"
-                    onClick={() => handleSend(q)}
-                    disabled={loading}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 12,
-                      fontSize: 11.5,
-                      cursor: 'pointer',
-                      border: '1px solid var(--border)',
-                      background: 'var(--surface)',
-                      color: 'var(--text-2)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
+    </>
+  );
+  const inputForm = (
+    <>
           {/* Input de chat */}
           <form
             className="chat-input-bar"
@@ -1100,7 +1066,7 @@ export const AiCoachView: React.FC = () => {
               className="input chat-input grow"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Pregunta sobre tus hábitos, tu racha o cómo organizar tu día..."
+              placeholder={isPhone ? `Pregúntale a ${persona.name}…` : 'Pregunta sobre tus hábitos, tu racha o cómo organizar tu día...'}
               disabled={loading}
             />
 
@@ -1114,6 +1080,10 @@ export const AiCoachView: React.FC = () => {
               <Send size={16} /> <span className="chat-send-label">Enviar</span>
             </button>
           </form>
+    </>
+  );
+  const privacyNote = (
+    <>
           {/* Privacidad: el coach necesita contexto, pero el usuario debe saber qué sale del dispositivo */}
           <p className="faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.45 }}>
             {ownKey
@@ -1122,9 +1092,10 @@ export const AiCoachView: React.FC = () => {
                 ? 'Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA de la app. El servidor no los guarda.'
                 : 'Con el motor local tus mensajes se responden en este dispositivo: no se envían a ninguna IA.'}
           </p>
-        </div>
-      </div>
-
+    </>
+  );
+  const overlays = (
+    <>
       {/* MENÚ FLOTANTE VÍA PORTAL PARA LOS 3 PUNTOS (CERO RECORTES POR OVERFLOW) */}
       {menuState &&
         createPortal(
@@ -1179,7 +1150,7 @@ export const AiCoachView: React.FC = () => {
               placeholder="Ej. Plan semanal, Nutrición, Enfoque matutino..."
               value={newConvTitle}
               onChange={(e) => setNewConvTitle(e.target.value)}
-              autoFocus
+              data-autofocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreateNewConversation();
               }}
@@ -1226,7 +1197,7 @@ export const AiCoachView: React.FC = () => {
               className="input"
               value={renameTitle}
               onChange={(e) => setRenameTitle(e.target.value)}
-              autoFocus
+              data-autofocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleConfirmRename();
               }}
@@ -1309,6 +1280,246 @@ export const AiCoachView: React.FC = () => {
         confirmVariant="primary"
         zIndex={1400}
       />
+    </>
+  );
+
+  const isEmptyChat = !messages.some((m) => m.sender === 'user');
+
+  if (isPhone) {
+    const currentTitle = conversations.find((c) => c.id === activeConversationId)?.title ?? 'Conversaciones';
+    const openNewConversation = () => {
+      setConvListOpen(false);
+      setNewConvTitle('');
+      setShowNewConvModal(true);
+    };
+    return (
+      <div className={`coach-mobile${isEmptyChat ? ' is-empty' : ''}`}>
+        {/* Cabecera: conversaciones en un desplegable arriba a la izquierda; voz y nueva conversación a la derecha */}
+        <header className="coach-m-head">
+          <button
+            type="button"
+            className={`coach-m-menu${convListOpen ? ' open' : ''}`}
+            onClick={() => setConvListOpen((v) => !v)}
+            aria-expanded={convListOpen}
+            aria-controls="coach-m-convs"
+            aria-label={`Conversaciones: ${currentTitle}`}
+          >
+            <AlignLeft size={18} aria-hidden="true" />
+            <span className="coach-m-title">{currentTitle}</span>
+            <ChevronDown size={15} className="coach-m-chevron" aria-hidden="true" />
+          </button>
+          <div className="coach-m-actions">
+            <button
+              type="button"
+              className={`icon-btn coach-m-voice${muted ? ' muted' : ''}${speaking ? ' speaking' : ''}`}
+              onClick={toggleMute}
+              aria-pressed={muted}
+              aria-label={muted ? `Activar la voz de ${persona.name}` : `Silenciar a ${persona.name}`}
+              title={!hasVoice ? 'Sin voz: configúrala en Ajustes' : muted ? 'Activar voz' : 'Silenciar'}
+              data-no-sound="true"
+            >
+              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+            <button type="button" className="icon-btn coach-m-new" onClick={openNewConversation} aria-label="Nueva conversación" title="Nueva conversación">
+              <SquarePen size={18} />
+            </button>
+          </div>
+
+          {convListOpen && (
+            <div id="coach-m-convs" className="coach-m-dropdown" role="dialog" aria-label="Conversaciones">
+              <div className="coach-m-dropdown-head">
+                <span>Conversaciones</span>
+                <button type="button" className="btn btn-ghost sm" onClick={openNewConversation}>
+                  <Plus size={14} /> Nueva
+                </button>
+              </div>
+              <div className="coach-m-conv-list">{convItems}</div>
+            </div>
+          )}
+        </header>
+
+        {isEmptyChat ? (
+          /* Inicio de la conversación: el coach saluda y las ideas pasan en dos cintas infinitas */
+          <div className="coach-m-empty">
+            <div className="coach-m-hero" aria-hidden="true">
+              <span className="coach-m-halo" />
+              <CoachAvatar
+                gender={persona.gender}
+                crop="bust"
+                size={124}
+                expression={loading ? 'thinking' : speaking ? 'neutral' : 'happy'}
+                talk
+                gesture="wave"
+                gestureKey={1}
+              />
+            </div>
+            <h2 className="coach-m-greet">¿En qué te ayudo hoy?</h2>
+            <p className="coach-m-sub">
+              Soy {persona.name}, tu {persona.role}. Toca una idea o escríbeme.
+            </p>
+            <PresetMarquee rows={PHONE_PRESET_ROWS} disabled={loading} onPick={(prompt) => void handleSend(prompt)} />
+          </div>
+        ) : (
+          <div className="chat-messages coach-m-messages">{messageNodes}</div>
+        )}
+
+        <div className="coach-m-composer">
+          {inputForm}
+          <p className="coach-m-model">
+            <Sparkles size={11} aria-hidden="true" /> {activePrimaryModel}
+            {!ownKey && !appLlm && ' · tus mensajes no salen del dispositivo'}
+          </p>
+        </div>
+
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack fade-up coach-page">
+      {/* Cabecera */}
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Coach de hábitos con IA</p>
+          <h1>
+            {persona.name}, tu {persona.role}
+          </h1>
+        </div>
+
+        <div className="actions coach-model-badges">
+          {/* Muestra automáticamente el modelo principal en uso */}
+          <span
+            className="badge accent"
+            style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title={`Modelo principal activo: ${activePrimaryModel}`}
+          >
+            <Sparkles size={13} /> {activePrimaryModel}
+          </span>
+
+          {ownKey && settings.backupModel && (
+            <span
+              className="badge"
+              style={{ fontSize: 11, background: 'var(--success-soft)', color: 'var(--success)' }}
+              title="Modelo de respaldo automático si el principal falla"
+            >
+              Respaldo: {settings.backupModel}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* LAYOUT PRINCIPAL: CONVERSACIONES A LA IZQUIERDA Y CHAT A LA DERECHA */}
+      <div className="coach-layout">
+        {/* PANEL IZQUIERDO: CONVERSACIONES Y, DEBAJO, EL COACH */}
+        <div className="coach-left">
+        <div className={`card conversations-sidebar ${convListOpen ? 'conv-list-open' : ''}`}>
+          {/* Encabezado: Recientes ⌵ (plegable en pantallas pequeñas) y botón + Nueva */}
+          <div className="conversations-header">
+            <button
+              type="button"
+              className="conversations-title-btn"
+              onClick={() => setConvListOpen((v) => !v)}
+              aria-expanded={convListOpen}
+              aria-controls="coach-conv-list"
+            >
+              <span className="conv-header-label">Recientes</span>
+              <span className="conv-header-current truncate">
+                {conversations.find((c) => c.id === activeConversationId)?.title ?? 'Conversaciones'}
+              </span>
+              <ChevronDown size={14} className="conv-header-chevron" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="icon-btn sm"
+              onClick={() => {
+                setNewConvTitle('');
+                setShowNewConvModal(true);
+              }}
+              title="Nueva conversación"
+              aria-label="Nueva conversación"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+
+          {/* Lista de conversaciones con estilo idéntico a la referencia y acción de eliminar directa */}
+          <div id="coach-conv-list" className="conv-list">
+            {convItems}
+          </div>
+        </div>
+
+        <CoachStage thinking={loading && !streamRef.current} cheerKey={cheerKey} />
+        </div>
+
+        {/* CONTENEDOR DE CHAT PRINCIPAL A LA DERECHA */}
+        <div className="card chat-container" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="chat-messages">
+            {messageNodes}
+          </div>
+
+          {/* Sugerencias de consulta rápida compactas (solo al inicio del chat para ahorrar espacio) */}
+          {messages.filter((m) => m.sender === 'user').length === 0 && (
+            <div
+              className="chat-presets"
+              style={{
+                marginTop: 8,
+                padding: '6px 10px',
+                background: 'var(--well)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                overflowX: 'auto',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--muted)',
+                  flexShrink: 0,
+                }}
+              >
+                <Lightbulb size={12} style={{ color: 'var(--accent)' }} /> <span className="chat-presets-label">Sugerencias:</span>
+              </span>
+              <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'nowrap' }}>
+                {PRESET_QUESTIONS.map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="chip"
+                    onClick={() => handleSend(q)}
+                    disabled={loading}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 12,
+                      fontSize: 11.5,
+                      cursor: 'pointer',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text-2)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {inputForm}
+          {privacyNote}
+        </div>
+      </div>
+
+      {overlays}
 
     </div>
   );

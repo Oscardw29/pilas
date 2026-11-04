@@ -14,7 +14,7 @@ import { BanScreen } from './BanScreen';
  * Avisos nuevos de la comunidad mientras la app está abierta:
  * - Un toast con el texto de la notificación (o una notificación del sistema si la ventana está oculta).
  * - Los logros nuevos NO lanzan ninguna animación sola: solo un aviso discreto y el contador de Notificaciones.
- *   La animación del logro sale al pulsar su notificación (o «Ver animación» en el panel del creador).
+ *   La medalla sale una sola vez, al tocar su tarjeta en Logros (social/achievementSeen.ts).
  * - Un veto se muestra una vez por sesión con su motivo y su fecha de fin.
  * Aquí también se monta el overlay del logro (Shell monta los de racha y recompensa).
  */
@@ -35,7 +35,7 @@ export const SocialNotices: React.FC = () => {
         if (document.visibilityState === 'hidden' && notifications?.enabled) {
           void showSystemNotification({ title: '¡Pilas!', body: text, tag: `social-${n.id}` });
         } else if (n.kind === 'achievement') {
-          toast(text, 'reward', 'Ábrelo en Notificaciones para ver tu medalla');
+          toast(text, 'reward', 'Tu medalla te espera en Logros → Conseguidos');
         } else {
           toast(text, n.kind === 'warning' || n.kind === 'ban' ? 'warning' : 'info');
         }

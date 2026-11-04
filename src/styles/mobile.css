@@ -1,0 +1,258 @@
+/* =====================================================================
+   PULIDO PARA MÓVIL (y algunos arreglos de rendimiento)
+   Va después de global.css y motion.css: aquí se ajusta lo que en el teléfono se veía apretado o iba a tirones.
+   ===================================================================== */
+
+/* ---------- «Hábitos para hoy» (DashboardView) ----------
+   Escritorio: una fila (nombre · acciones · ✕).
+   Móvil: el nombre ocupa todo el ancho (hasta 2 líneas) con la ✕ a su lado, y debajo los botones, todos de la misma
+   altura y repartiendo el ancho. */
+.today-habit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'main actions miss';
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.today-habit.is-full { border-color: var(--accent); }
+.today-habit.is-min { border-color: var(--minimum); }
+.today-habit.is-missed { border-color: var(--danger); }
+.today-habit-main { grid-area: main; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.today-habit-icon { font-size: 24px; line-height: 1; flex-shrink: 0; width: 30px; text-align: center; }
+.today-habit-text { min-width: 0; }
+.today-habit-name {
+  font-weight: 600; line-height: 1.3; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+}
+.today-habit.is-full .today-habit-name { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text) 45%, transparent); }
+.today-habit-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.today-habit-actions { grid-area: actions; display: flex; align-items: center; gap: 6px; }
+.today-habit-actions .btn-habit-check { height: 36px; white-space: nowrap; }
+.today-habit-count { font-variant-numeric: tabular-nums; opacity: .8; font-weight: 600; }
+.today-habit-miss { grid-area: miss; }
+
+@media (max-width: 639.98px) {
+  .today-habit {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'main miss' 'actions actions';
+    row-gap: 10px; column-gap: 8px;
+    padding: 12px;
+  }
+  .today-habit-main { gap: 10px; align-items: flex-start; }
+  .today-habit-icon { font-size: 22px; width: 28px; padding-top: 1px; }
+  .today-habit-name { font-size: 14.5px; }
+  .today-habit-miss.icon-btn.sm { min-width: 36px; min-height: 36px; width: 36px; height: 36px; align-self: start; margin: -4px -4px 0 0; }
+  .today-habit-actions { gap: 8px; }
+  /* Todos los botones del mismo alto; los de texto se reparten el ancho */
+  .today-habit-actions .btn-habit-check { flex: 1 1 0; min-width: 0; height: 42px; padding: 0 10px; font-size: 13px; border-radius: 12px; }
+  .today-habit-actions .btn-habit-check > span:not(.today-habit-count) { overflow: hidden; text-overflow: ellipsis; }
+  .today-habit-play.icon-btn.sm { flex: 0 0 42px; width: 42px; height: 42px; min-width: 42px; min-height: 42px; border-radius: 12px; border: 1.5px solid var(--border-2); }
+}
+
+/* ---------- Gráficos (Recharts) ----------
+   Al tocar un sector el navegador lo enfocaba y pintaba el anillo de foco (el «recuadro blanco»): fuera.
+   Con teclado sigue habiendo foco visible en el gráfico entero. La tarjeta flotante se cierra sola (lib/chartTouch.ts). */
+.recharts-wrapper :focus, .recharts-wrapper:focus, .recharts-surface:focus { outline: none; }
+.recharts-wrapper .recharts-surface:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 8px; }
+.recharts-sector, .recharts-layer, .recharts-rectangle { -webkit-tap-highlight-color: transparent; }
+
+/* ---------- Avisos (toasts) en el teléfono ----------
+   Antes ocupaban todo el ancho encima de la barra inferior y se apilaban hasta 5. Ahora: pastillas compactas arriba,
+   bajo la cabecera, como mucho 2 a la vez, texto en 2 líneas como máximo y se descartan deslizándolas
+   (ToastContext.tsx). Arriba tampoco tapan los botones de las hojas inferiores. */
+@media (max-width: 639.98px) {
+  .toast-root {
+    top: calc(var(--safe-top) + 56px); bottom: auto; left: 12px; right: 12px;
+    align-items: center; gap: 6px;
+  }
+  .toast {
+    width: auto; max-width: 100%; min-height: 0;
+    padding: 7px 6px 7px 12px; gap: 8px; border-radius: 16px;
+    font-size: 13px; line-height: 1.35;
+    box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--shadow-color) 70%, transparent);
+    animation: toastDrop .22s cubic-bezier(.16, 1, .3, 1) both;
+    touch-action: none;
+  }
+  .toast-body > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .toast-body small { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast svg { width: 15px; height: 15px; }
+  .toast-close { width: 26px; height: 26px; }
+  .toast-close svg { width: 13px; height: 13px; }
+  /* Solo los 2 más recientes */
+  .toast-root > .toast:nth-last-child(n + 3) { display: none; }
+}
+@keyframes toastDrop { from { opacity: 0; transform: translateY(-12px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* ---------- Fluidez en pantallas táctiles ----------
+   Lo más caro en Android era desenfocar lo que hay detrás (backdrop-filter) en cada fotograma: la cabecera y la barra
+   inferior al desplazar, y el fondo de cada modal al abrirse (por eso la hoja tardaba en subir). Se cambian por fondos
+   casi opacos. También se paran los halos desenfocados que latían sin fin y los adornos secundarios de la llama. */
+@media (pointer: coarse) {
+  .modal-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: color-mix(in srgb, var(--overlay) 100%, rgba(0, 0, 0, 0.18)); }
+  .mobile-topbar { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg); }
+  .bottom-nav { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); }
+  .donut-tip, .resume-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .card-streak-neon::before, .card-streak-neon-super::before, .card-streak-neon-frozen::before { animation: none; opacity: .85; }
+  .streak-flame.is-animated .sf-rays, .streak-flame.is-animated .sf-orbit,
+  .streak-flame.is-animated .sf-wisp, .streak-flame.is-animated .sf-twinkle { animation: none; }
+  /* El botón flotante del coach: el anillo que se expandía cada 3 s obligaba a recomponer la capa */
+  .coach-fab::after { animation-iteration-count: 3; }
+}
+
+/* ---------- Coach a pantalla completa en el teléfono (AiCoachView, rama `isPhone`) ----------
+   Sin tarjetas: ocupa todo el hueco entre la cabecera de la app y la barra inferior (las dos siguen visibles).
+   Arriba a la izquierda, el desplegable de conversaciones; al empezar, el coach saluda y las ideas pasan en cintas. */
+@media (max-width: 639.98px) {
+  .page-container:has(.coach-mobile) { padding: 0; }
+  .coach-mobile {
+    position: fixed; z-index: 5; left: 0; right: 0;
+    top: var(--mobile-topbar-h, 57px);
+    bottom: calc(var(--bottom-nav-h) + var(--safe-bottom));
+    display: flex; flex-direction: column;
+    padding: 0 max(12px, var(--safe-right)) 0 max(12px, var(--safe-left));
+    background: var(--bg);
+    animation: fadeIn .2s ease both;
+  }
+  .app-shell:has(.timer-bar) .coach-mobile { bottom: calc(var(--bottom-nav-h) + 78px + var(--safe-bottom)); }
+}
+
+.coach-m-head { position: relative; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0 6px; }
+.coach-m-menu {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 68%;
+  min-height: 44px; padding: 0 14px 0 13px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
+  font-size: 14px; font-weight: 600;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.coach-m-menu:active { transform: scale(.97); }
+.coach-m-menu.open { border-color: var(--accent); background: var(--accent-soft); }
+.coach-m-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coach-m-chevron { flex-shrink: 0; color: var(--muted); transition: transform .2s; }
+.coach-m-menu.open .coach-m-chevron { transform: rotate(180deg); }
+.coach-m-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.coach-m-actions .icon-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text-2); }
+.coach-m-voice.muted { color: var(--muted); }
+.coach-m-voice.speaking { color: var(--accent-2); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+
+/* Desplegable de conversaciones */
+.coach-m-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; z-index: 20;
+  width: min(330px, calc(100vw - 24px)); max-height: min(62dvh, 440px);
+  display: flex; flex-direction: column;
+  padding: 6px; border-radius: 18px;
+  background: var(--popover); border: 1px solid var(--border-2);
+  box-shadow: 0 18px 44px -10px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+  transform-origin: 24px 0; animation: coachDropIn .2s cubic-bezier(.16, 1, .3, 1) both;
+}
+@keyframes coachDropIn { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+.coach-m-dropdown-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 6px 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.coach-m-conv-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; overscroll-behavior: contain; }
+.coach-m-conv-list .conversation-item { min-height: 46px; padding: 4px 4px 4px 12px; font-size: 14px; border-radius: 12px; }
+.coach-m-conv-list .conversation-item .conv-more-btn { width: 36px; height: 36px; border-radius: 10px; opacity: 1; }
+
+/* Inicio: coach, saludo y cintas de ideas (las cintas llegan de borde a borde) */
+.coach-m-empty {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 4px; overflow: hidden;
+  margin: 0 calc(-1 * max(12px, var(--safe-left))) 0 calc(-1 * max(12px, var(--safe-right)));
+}
+.coach-m-hero { position: relative; display: grid; place-items: end center; height: 128px; margin-bottom: 6px; }
+.coach-m-halo { position: absolute; left: 50%; bottom: 6px; width: 120px; height: 120px; translate: -50% 0; border-radius: 50%; background: radial-gradient(circle, rgba(167, 139, 250, 0.32), transparent 68%); }
+.coach-m-greet { font-size: 23px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-strong); padding: 0 20px; }
+.coach-m-sub { font-size: 13.5px; color: var(--text-2); max-width: 300px; padding: 0 20px; line-height: 1.45; }
+
+.coach-marquee { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.coach-marquee-row {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+.coach-marquee-track { display: flex; width: max-content; animation: coachMarquee var(--dur, 36s) linear infinite; will-change: transform; }
+.coach-marquee-row.reverse .coach-marquee-track { animation-direction: reverse; }
+/* Con el dedo encima se para: así se puede pulsar una idea sin perseguirla */
+.coach-marquee-row:active .coach-marquee-track { animation-play-state: paused; }
+.coach-marquee-group { display: flex; gap: 10px; padding-right: 10px; }
+@keyframes coachMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.coach-chip {
+  display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap;
+  min-height: 50px; padding: 0 20px 0 16px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
+  font-size: 15px; font-weight: 600;
+  transition: transform .15s, background .15s, border-color .15s;
+}
+.coach-chip:active:not(:disabled) { transform: scale(.95); border-color: var(--accent); background: var(--accent-soft); }
+.coach-chip:disabled { opacity: .55; }
+.coach-chip-emoji { font-size: 19px; line-height: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .coach-marquee-row { overflow-x: auto; scrollbar-width: none; }
+  .coach-marquee-track { animation: none !important; }
+  .coach-marquee-group[aria-hidden="true"] { display: none; }
+}
+
+/* Conversación: mensajes a todo el ancho y la caja de texto como una píldora al pie */
+.coach-m-messages { flex: 1; min-height: 0; padding: 6px 2px 10px; overscroll-behavior: contain; }
+.coach-mobile .chat-message-wrapper > .chat-bubble { max-width: 88%; }
+.coach-mobile .chat-bubble.assistant { background: var(--surface-2); }
+.coach-m-composer { flex-shrink: 0; padding: 6px 0 8px; }
+.coach-mobile .chat-input-bar {
+  margin-top: 0 !important; padding: 5px 5px 5px 16px !important; gap: 6px;
+  border: 1px solid var(--border-2); border-radius: 999px; background: var(--surface-2);
+}
+.coach-mobile .chat-input-bar:focus-within { border-color: var(--accent); }
+.coach-mobile .chat-input-bar .input { height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.coach-mobile .chat-input-bar .input:focus { box-shadow: none; }
+.coach-mobile .chat-send-btn { width: 44px; height: 44px; padding: 0; border-radius: 50%; }
+.coach-mobile .chat-send-label { display: none; }
+.coach-m-model { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; font-size: 11px; color: var(--faint); text-align: center; }
+
+/* ---------- Medallas por ver (social/achievementSeen.ts) ----------
+   «!» rojo en «Más», en «Logros» y en «Conseguidos»; la tarjeta del logro late hasta que se toca. */
+.nav-icon-wrap { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
+.nav-alert {
+  position: absolute; top: -6px; right: -9px;
+  display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
+  background: #ff1f4b; color: #fff; font-size: 11.5px; font-weight: 900; line-height: 1;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 0 rgba(255, 31, 75, 0.7), 0 2px 8px rgba(255, 31, 75, 0.55);
+  animation: navAlertPop .4s cubic-bezier(.34, 1.56, .64, 1) both, navAlertPulse 1.6s ease-out .4s infinite;
+  pointer-events: none;
+}
+.nav-alert.inline { position: relative; top: auto; right: auto; margin-left: 6px; border-color: transparent; vertical-align: middle; }
+.more-item .nav-alert { top: -7px; right: -11px; border-color: var(--surface-2); }
+@keyframes navAlertPop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes navAlertPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 31, 75, 0.65), 0 2px 8px rgba(255, 31, 75, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 8px rgba(255, 31, 75, 0), 0 2px 8px rgba(255, 31, 75, 0.55); }
+}
+
+.ach-card.is-new {
+  position: relative; cursor: pointer; overflow: visible;
+  border-color: var(--r) !important;
+  animation: achNewNudge 2.6s cubic-bezier(.36, .07, .19, .97) .6s infinite, achNewGlow 2.6s ease-in-out infinite;
+}
+.ach-card.is-new .ach-icon { animation: achNewIcon 2.6s ease-in-out .6s infinite; }
+.ach-card.is-new:active { transform: scale(.97); }
+.ach-new-tag {
+  position: absolute; top: -11px; right: 12px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
+  background: #ff1f4b; color: #fff; font-size: 11.5px; font-weight: 800; letter-spacing: .01em;
+  box-shadow: 0 4px 14px rgba(255, 31, 75, 0.5);
+}
+.ach-new-tag svg { width: 12px; height: 12px; }
+/* Un pequeño «toc-toc» cada pocos segundos y un brillo del color de la rareza */
+@keyframes achNewNudge {
+  0%, 72%, 100% { transform: none; }
+  76% { transform: rotate(-1.4deg) scale(1.015); }
+  82% { transform: rotate(1.4deg) scale(1.015); }
+  88% { transform: rotate(-.8deg); }
+  94% { transform: rotate(.5deg); }
+}
+@keyframes achNewGlow {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--r) 40%, transparent), 0 8px 24px -10px color-mix(in srgb, var(--r) 60%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--r) 55%, transparent), 0 10px 34px -6px color-mix(in srgb, var(--r) 75%, transparent); }
+}
+@keyframes achNewIcon { 0%, 70%, 100% { transform: none; } 80% { transform: scale(1.18) rotate(-8deg); } 90% { transform: scale(1.1) rotate(6deg); } }

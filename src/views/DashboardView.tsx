@@ -511,19 +511,6 @@ export const DashboardView: React.FC = () => {
         {data.habits.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  background: 'var(--accent-soft)',
-                  color: 'var(--accent-2)',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <Sparkles size={28} />
-              </div>
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 700 }}>Bienvenido a ¡Pilas!</h2>
                 <p style={{ color: 'var(--text-2)', fontSize: 14, marginTop: 4 }}>
@@ -542,6 +529,7 @@ export const DashboardView: React.FC = () => {
                 style={{
                   width: 72,
                   height: 72,
+                  flexShrink: 0,
                   borderRadius: '50%',
                   border: '4px solid var(--accent)',
                   display: 'grid',
@@ -1057,34 +1045,22 @@ export const DashboardView: React.FC = () => {
                 const isMin = log?.status === 'minimum';
                 const isMissed = log?.status === 'missed';
 
+                const isTimed = h.kind === 'time' || (!h.kind && Boolean(h.targetMinutes));
                 return (
                   <div
                     key={h.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      borderRadius: 14,
-                      background: 'var(--surface-2)',
-                      border: `1px solid ${isFull ? 'var(--accent)' : isMin ? 'var(--minimum)' : isMissed ? 'var(--danger)' : 'var(--border)'}`,
-                      gap: 12,
-                    }}
+                    className={`today-habit${isFull ? ' is-full' : isMin ? ' is-min' : isMissed ? ' is-missed' : ''}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 24 }}>{h.icon}</span>
-                      <div className="truncate">
-                        <div style={{ fontWeight: 600, textDecoration: isFull ? 'line-through' : 'none' }}>
+                    <div className="today-habit-main">
+                      <span className="today-habit-icon" aria-hidden="true">{h.icon}</span>
+                      <div className="today-habit-text">
+                        <div className="today-habit-name" title={h.name}>
                           {h.name}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        <div className="today-habit-meta">
                           +{habitCoinValue(h)} pts
-                          {h.kind === 'time' && (
-                            <span> · {log?.minutes ? `${log.minutes}/${h.targetMinutes || 30} min` : `${h.targetMinutes || 30} min`}</span>
-                          )}
-                          {h.kind === 'quantity' && (
-                            <span> · {log?.quantity ? `${log.quantity}/${h.targetQuantity || 100} ${h.quantityUnit || 'reps'}` : `${h.targetQuantity || 100} ${h.quantityUnit || 'reps'}`}</span>
-                          )}
+                          {h.kind === 'time' && <span> · {h.targetMinutes || 30} min</span>}
+                          {h.kind === 'quantity' && <span> · {h.targetQuantity || 100} {h.quantityUnit || 'reps'}</span>}
                           {!h.kind && h.targetMinutes && <span> · {h.targetMinutes} min</span>}
                           {h.reminderTime && (
                             <span className="icon-label" style={{ color: 'var(--accent-2)', fontWeight: 600, marginLeft: 4 }}>
@@ -1098,10 +1074,10 @@ export const DashboardView: React.FC = () => {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {(h.kind === 'time' || (!h.kind && h.targetMinutes)) && (
+                    <div className="today-habit-actions">
+                      {isTimed && (
                         <button
-                          className="icon-btn sm"
+                          className="icon-btn sm today-habit-play"
                           onClick={() => {
                             startTimer(h.id);
                             navigate('/temporizador');
@@ -1127,8 +1103,13 @@ export const DashboardView: React.FC = () => {
                               ? (h.kind === 'time' ? `${log?.minutes || h.targetMinutes}m` : `${log?.quantity || h.targetQuantity}`)
                               : isMin
                               ? (h.kind === 'time' ? `${log?.minutes || 0}m` : `${log?.quantity || 0}`)
-                              : (h.kind === 'time' ? `Registrar (${log?.minutes || 0}/${h.targetMinutes || 30}m)` : `Registrar (${log?.quantity || 0}/${h.targetQuantity || 100})`)}
+                              : 'Registrar'}
                           </span>
+                          {!isFull && !isMin && (
+                            <span className="today-habit-count">
+                              {h.kind === 'time' ? `${log?.minutes || 0}/${h.targetMinutes || 30}m` : `${log?.quantity || 0}/${h.targetQuantity || 100}`}
+                            </span>
+                          )}
                         </button>
                       ) : (
                         <>
@@ -1153,22 +1134,22 @@ export const DashboardView: React.FC = () => {
                           </button>
                         </>
                       )}
-
-                      <button
-                        className={`icon-btn sm ${isMissed ? 'danger active' : 'danger'}`}
-                        onClick={() => handleMarkMissed(h)}
-                        title={
-                          isMissed
-                            ? 'Quitar registro de no realizado'
-                            : data.settings.askFailReason
-                            ? 'Registrar motivo por el cual no se pudo hacer'
-                            : 'Marcar como no realizado'
-                        }
-                        aria-label={isMissed ? 'Quitar registro de no realizado' : 'Marcar como no realizado'}
-                      >
-                        <X size={15} strokeWidth={2.6} />
-                      </button>
                     </div>
+
+                    <button
+                      className={`icon-btn sm today-habit-miss ${isMissed ? 'danger active' : 'danger'}`}
+                      onClick={() => handleMarkMissed(h)}
+                      title={
+                        isMissed
+                          ? 'Quitar registro de no realizado'
+                          : data.settings.askFailReason
+                          ? 'Registrar motivo por el cual no se pudo hacer'
+                          : 'Marcar como no realizado'
+                      }
+                      aria-label={isMissed ? 'Quitar registro de no realizado' : 'Marcar como no realizado'}
+                    >
+                      <X size={15} strokeWidth={2.6} />
+                    </button>
                   </div>
                 );
               })

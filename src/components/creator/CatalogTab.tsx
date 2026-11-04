@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Archive, Coins, Eye, EyeOff, PackagePlus, Pencil, P
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/ToastContext';
 import { adminDeleteItem, adminSaveItem, assetUrl, getCatalog, removeCatalogFiles } from '@/social/api';
+import { useCreatorTrash } from './creatorTrash';
 import { loadCatalog } from '@/social/runtime';
 import { KIND_LABEL, RARITY } from '@/social/texts';
 import type { CatalogItem, CatalogKind, CatalogStatus } from '@/social/types';
@@ -89,9 +90,9 @@ export const CatalogTab: React.FC = () => {
     setBusyId(item.id);
     try {
       await adminDeleteItem(item.id);
-      // Los archivos se quedan si falla: no rompen nada
-      void removeCatalogFiles([item.asset_path ?? '', item.thumb_path ?? '']).catch(() => {});
-      showToast(`«${item.name}» eliminado`, 'success');
+      // Papelera: los archivos se quedan 24 h para poder restaurarlo completo (luego los borra creatorTrash)
+      useCreatorTrash.getState().add({ kind: 'catalog', item });
+      showToast(`«${item.name}» movido a la papelera`, 'success', 'Tienes 24 h para restaurarlo desde «Papelera».');
       await refresh();
     } catch (err) {
       // Si alguien ya lo compró el servidor no deja borrarlo: el mensaje sugiere retirarlo
@@ -239,7 +240,7 @@ export const CatalogTab: React.FC = () => {
         onClose={() => setDeleting(null)}
         onConfirm={() => deleting && void remove(deleting)}
         title={`¿Eliminar «${deleting?.name ?? ''}»?`}
-        message="Se borra del catálogo y sus archivos. Si alguien ya lo compró no se puede borrar: en ese caso usa «Retirar»."
+        message="Sale del catálogo y va a la papelera: durante 24 h puedes restaurarlo con sus archivos; después se borra para siempre. Si alguien ya lo compró no se puede borrar: en ese caso usa «Retirar»."
         confirmText="Eliminar"
         danger
       />

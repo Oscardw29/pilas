@@ -18,6 +18,7 @@ import {
   type FieldGroup,
 } from './economyModel';
 import { compareEconomies } from './simulation';
+import { useCreatorTrash } from './creatorTrash';
 
 type Closure = Awaited<ReturnType<typeof adminClosures>>[number];
 
@@ -275,8 +276,10 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
     if (editing == null) return;
     setBusy(true);
     try {
+      const draft = versions?.find((v) => v.version === editing);
       await adminDeleteEconomyDraft(editing);
-      showToast(`Borrador v${editing} eliminado`, 'success');
+      if (draft) useCreatorTrash.getState().add({ kind: 'economyDraft', version: draft.version, params: draft.params, note: draft.note ?? null });
+      showToast(`Borrador v${editing} movido a la papelera`, 'success', 'Tienes 24 h para restaurarlo desde «Papelera».');
       await reload(true);
     } catch (err) {
       showToast((err as Error).message, 'error');
@@ -580,7 +583,7 @@ export const EconomyTab: React.FC<{ focus?: string | null; onFocused?: () => voi
         onClose={() => setDeleteOpen(false)}
         onConfirm={() => void onDeleteDraft()}
         title={`¿Eliminar el borrador v${editing ?? ''}?`}
-        message="Se pierden los cambios de este borrador. La versión vigente no cambia."
+        message="Va a la papelera: durante 24 h puedes restaurarlo con sus valores guardados. La versión vigente no cambia."
         confirmText="Eliminar"
         danger
       />

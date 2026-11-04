@@ -14,6 +14,91 @@
       :where(html) { background: #0c0c10; }
       :where(html[data-theme='light']) { background: #f5f4fa; }
     </style>
+    <!-- Animación de apertura (#boot-splash, en el body). Tiempos: chispa 0–0,4 s · llama 0,22–1,1 s · se retuerce en
+         rayo 1,0–1,4 s · el logo encaja con rebote 1,42–2,04 s · la barra de carga sale a los 2,15 s si aún hace falta -->
+    <style>
+      .boot-splash { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #0c0c10; overflow: hidden; transition: opacity .4s ease, visibility .4s; -webkit-tap-highlight-color: transparent; }
+      html[data-theme='light'] .boot-splash { background: #f5f4fa; }
+      .boot-splash.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+      .boot-splash.is-leaving .sp-stage { transform: scale(1.06); }
+      .sp-stage { position: relative; width: 112px; height: 112px; transition: transform .4s cubic-bezier(.16, 1, .3, 1); }
+      .sp-svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible; }
+      .sp-svg * { transform-box: view-box; }
+      .sp-glow { position: absolute; left: 50%; top: 50%; border-radius: 50%; pointer-events: none; translate: -50% -50%; opacity: 0; }
+      .sp-glow-amber { width: 560px; height: 560px; background: radial-gradient(circle, rgba(251, 191, 36, .5), rgba(245, 158, 11, .2) 38%, rgba(180, 83, 9, .06) 58%, transparent 70%); animation: spAmber 1.8s ease-out both; }
+      .sp-glow-violet { width: 340px; height: 340px; background: radial-gradient(circle, rgba(139, 92, 246, .5), rgba(124, 58, 237, .16) 45%, transparent 70%); animation: spViolet .7s ease-out 1.4s both, spVioletPulse 3.2s ease-in-out 2.1s infinite; }
+      html[data-theme='light'] .sp-glow-amber { background: radial-gradient(circle, rgba(251, 191, 36, .42), rgba(245, 158, 11, .14) 40%, transparent 70%); }
+      html[data-theme='light'] .sp-glow-violet { background: radial-gradient(circle, rgba(139, 92, 246, .34), rgba(124, 58, 237, .1) 45%, transparent 70%); }
+      @keyframes spAmber { 0% { opacity: 0; scale: .2; } 18% { opacity: .45; scale: .45; } 70% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 1.1; } }
+      @keyframes spViolet { from { opacity: 0; scale: .5; } to { opacity: 1; scale: 1; } }
+      @keyframes spVioletPulse { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
+
+      /* 1 · Chispa: un punto que se enciende y suelta dos ráfagas de rayitos y unas brasas */
+      .sp-core { fill: #fffbe6; transform-origin: 32px 34px; animation: spCore .62s ease-out .04s both; }
+      @keyframes spCore { 0% { opacity: 0; transform: scale(0); } 14% { opacity: 1; transform: scale(1.9); } 30% { transform: scale(1); } 46% { transform: scale(1.6); } 64% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(.3); } }
+      .sp-ray { stroke: #fde68a; stroke-width: .9; stroke-linecap: round; opacity: 0; transform-origin: 32px 34px; animation: spRay .46s cubic-bezier(.2, .8, .3, 1) .07s both; }
+      .sp-ray-2 { stroke-width: .7; animation-delay: .27s; }
+      html[data-theme='light'] .sp-ray { stroke: #f59e0b; }
+      @keyframes spRay { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(2.1); } }
+      .sp-ember { fill: #fcd34d; opacity: 0; animation: spEmber .7s ease-out var(--dl, .3s) both; }
+      @keyframes spEmber { 0% { opacity: 0; transform: none; } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
+
+      /* 2 · Llama: crece desde la chispa, parpadea y se retuerce estirándose hasta volverse el rayo */
+      .sp-flame { opacity: 0; transform-origin: 32px 55px; animation: spFlame 1.15s cubic-bezier(.45, 0, .3, 1) .22s both; }
+      .sp-flame-in { transform-origin: 32px 54px; animation: spFlameIn .26s ease-in-out .5s 3 alternate both; }
+      @keyframes spFlame {
+        0% { opacity: 0; transform: scale(.05); }
+        26% { opacity: 1; transform: scale(.88, 1); }
+        38% { transform: scale(1.03, .95); }
+        50% { transform: scale(.95, 1.05) skewX(2deg); }
+        62% { transform: scale(1.02, .98) skewX(-2deg); }
+        80% { opacity: 1; transform: rotate(9deg) skewX(-13deg) scale(.8, 1.1); }
+        100% { opacity: 0; transform: rotate(15deg) skewX(-24deg) scale(.45, 1.22); }
+      }
+      @keyframes spFlameIn { from { transform: scale(1, 1); } to { transform: scale(.86, 1.12); } }
+
+      /* 3 · Rayo: sale de la llama retorcida con un latigazo y estelas */
+      .sp-bolt { opacity: 0; transform-origin: 32px 35px; animation: spBolt .9s cubic-bezier(.3, 0, .2, 1) 1.06s both; }
+      /* Sale grande (del tamaño de la llama), aguanta y se encoge a su sitio cuando llega el cuadrado */
+      @keyframes spBolt {
+        0% { opacity: 0; transform: scale(.8, 1.75) skewX(18deg); }
+        22% { opacity: 1; transform: scale(1.62) skewX(-4deg); }
+        40% { transform: scale(1.5); }
+        62% { transform: scale(.92); }
+        80% { transform: scale(1.05); }
+        100% { opacity: 1; transform: none; }
+      }
+      .sp-streaks { transform-origin: 32px 35px; scale: 1.5; }
+      .sp-streaks line { stroke: #fde047; stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 10 14; stroke-dashoffset: 10; opacity: 0; animation: spStreak .38s ease-out both; }
+      .sp-streaks line:nth-child(1) { animation-delay: 1.13s; }
+      .sp-streaks line:nth-child(2) { animation-delay: 1.17s; }
+      .sp-streaks line:nth-child(3) { animation-delay: 1.21s; }
+      @keyframes spStreak { 0% { opacity: 0; stroke-dashoffset: 10; } 30% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -12; } }
+
+      /* 4 · Logo: el cuadrado violeta y la pila crecen detrás del rayo con un rebote */
+      .sp-tile { opacity: 0; transform-origin: 32px 32px; animation: spTile .62s cubic-bezier(.3, 0, .2, 1) 1.42s both; }
+      @keyframes spTile { 0% { opacity: 0; transform: scale(.25); } 45% { opacity: 1; transform: scale(1.14); } 70% { transform: scale(.96); } 88% { transform: scale(1.02); } 100% { opacity: 1; transform: none; } }
+      .sp-battery { opacity: 0; transform-origin: 32px 33px; animation: spBattery .5s cubic-bezier(.34, 1.56, .64, 1) 1.5s both; }
+      @keyframes spBattery { 0% { opacity: 0; transform: scale(.45); } 55% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+
+      /* 5 · Carga, justo debajo del logo (solo se ve si la app tarda más que la animación) */
+      .sp-loader { position: absolute; left: 50%; top: calc(100% + 34px); translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 160px; opacity: 0; animation: spLoaderIn .35s ease 2.15s both; }
+      .sp-bar { position: relative; width: 120px; height: 4px; border-radius: 99px; overflow: hidden; background: rgba(255, 255, 255, .09); }
+      html[data-theme='light'] .sp-bar { background: rgba(76, 29, 149, .1); }
+      .sp-bar i { position: absolute; top: 0; bottom: 0; width: 45%; border-radius: inherit; background: linear-gradient(90deg, #8b5cf6, #fbbf24); animation: spBar 1.1s ease-in-out infinite; }
+      .sp-text { font: 600 12.5px/1.2 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #8b8aa0; white-space: nowrap; }
+      html[data-theme='light'] .sp-text { color: #6b6880; }
+      @keyframes spLoaderIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @keyframes spBar { 0% { left: -45%; } 100% { left: 100%; } }
+
+      /* Con «reducir movimiento»: el logo aparece con un fundido y nada más */
+      @media (prefers-reduced-motion: reduce) {
+        .sp-burst, .sp-core, .sp-ember, .sp-flame, .sp-streaks, .sp-glow-amber { display: none; }
+        .sp-tile, .sp-battery, .sp-bolt, .sp-glow-violet { animation: spFade .3s ease both; }
+        .sp-loader { animation-delay: .4s; }
+        @keyframes spFade { from { opacity: 0; } to { opacity: 1; } }
+      }
+    </style>
     <meta name="description" content="¡Pilas!: ponte las pilas con tus hábitos, objetivos y rachas, con coach de IA." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -26,6 +111,56 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
+    <!--
+      ANIMACIÓN DE APERTURA (se ve cada vez que la app arranca de cero). Va en el HTML con SVG y CSS para que empiece
+      en cuanto se pinta la página, antes de que cargue la app. La chispa crece en llama, la llama se retuerce en el
+      rayo y el rayo encaja en el logo (mismo dibujo que BrandMark.tsx). Si la app aún no terminó de cargar, debajo del
+      logo aparece la barra de carga. src/lib/bootSplash.ts la retira cuando la sesión está lista.
+    -->
+    <div id="boot-splash" class="boot-splash" role="status" aria-label="Abriendo ¡Pilas!">
+      <div class="sp-stage">
+        <span class="sp-glow sp-glow-amber"></span>
+        <span class="sp-glow sp-glow-violet"></span>
+        <svg class="sp-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="sp-bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#a78bfa" /><stop offset="0.55" stop-color="#7c3aed" /><stop offset="1" stop-color="#4c1d95" />
+            </linearGradient>
+            <linearGradient id="sp-boltg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fde047" /><stop offset="1" stop-color="#f59e0b" />
+            </linearGradient>
+            <linearGradient id="sp-flameg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fef08a" /><stop offset="0.55" stop-color="#fbbf24" /><stop offset="1" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <rect class="sp-tile" width="64" height="64" rx="15" fill="url(#sp-bg)" />
+          <g class="sp-burst">
+            <line class="sp-ray" x1="32.0" y1="30.0" x2="32.0" y2="22.0"/><line class="sp-ray" x1="34.4" y1="30.8" x2="37.3" y2="26.7"/><line class="sp-ray" x1="35.8" y1="32.8" x2="43.4" y2="30.3"/><line class="sp-ray" x1="35.8" y1="35.2" x2="40.6" y2="36.8"/><line class="sp-ray" x1="34.4" y1="37.2" x2="39.1" y2="43.7"/><line class="sp-ray" x1="32.0" y1="38.0" x2="32.0" y2="43.0"/><line class="sp-ray" x1="29.6" y1="37.2" x2="24.9" y2="43.7"/><line class="sp-ray" x1="28.2" y1="35.2" x2="23.4" y2="36.8"/><line class="sp-ray" x1="28.2" y1="32.8" x2="20.6" y2="30.3"/><line class="sp-ray" x1="29.6" y1="30.8" x2="26.7" y2="26.7"/>
+            <line class="sp-ray sp-ray-2" x1="35.5" y1="27.9" x2="39.0" y2="21.9"/><line class="sp-ray sp-ray-2" x1="39.0" y1="34.0" x2="46.0" y2="34.0"/><line class="sp-ray sp-ray-2" x1="35.5" y1="40.1" x2="39.0" y2="46.1"/><line class="sp-ray sp-ray-2" x1="28.5" y1="40.1" x2="25.0" y2="46.1"/><line class="sp-ray sp-ray-2" x1="25.0" y1="34.0" x2="18.0" y2="34.0"/><line class="sp-ray sp-ray-2" x1="28.5" y1="27.9" x2="25.0" y2="21.9"/>
+          </g>
+          <circle class="sp-ember" cx="32" cy="30" r="1.2" style="--dx:-1.1px;--dy:-21.5px;--dl:0.24s"/><circle class="sp-ember" cx="32" cy="30" r="0.8" style="--dx:10.8px;--dy:-25.4px;--dl:0.28s"/><circle class="sp-ember" cx="32" cy="30" r="1.2" style="--dx:14.2px;--dy:-9.3px;--dl:0.31s"/><circle class="sp-ember" cx="32" cy="30" r="1" style="--dx:13.7px;--dy:-0.2px;--dl:0.34s"/><circle class="sp-ember" cx="32" cy="30" r="1" style="--dx:7.5px;--dy:6.9px;--dl:0.38s"/><circle class="sp-ember" cx="32" cy="30" r="0.8" style="--dx:-3.2px;--dy:13.4px;--dl:0.42s"/><circle class="sp-ember" cx="32" cy="30" r="0.8" style="--dx:-17.7px;--dy:3.0px;--dl:0.45s"/><circle class="sp-ember" cx="32" cy="30" r="0.8" style="--dx:-17.6px;--dy:-9.7px;--dl:0.48s"/><circle class="sp-ember" cx="32" cy="30" r="1" style="--dx:-17.5px;--dy:-20.2px;--dl:0.52s"/>
+          <circle class="sp-core" cx="32" cy="34" r="2.4" />
+          <g class="sp-flame">
+            <path d="M32 9C36 19 46 24.5 46 38.5C46 49.5 39.5 56 32 56C24.5 56 18 49.5 18 39.5C18 31.5 22.5 27.5 25 21.5C27 27 29 29.5 31.5 29.5C30 22 30 15 32 9Z" fill="url(#sp-flameg)" />
+            <path class="sp-flame-in" d="M32 31C35 37 39.5 40 39.5 46C39.5 51.5 36.2 54.5 32 54.5C27.8 54.5 24.5 51.5 24.5 46.5C24.5 41.5 29 39.5 32 31Z" fill="#fff7c2" />
+          </g>
+          <g transform="rotate(12 32 33)">
+            <g class="sp-battery">
+              <rect x="26" y="8.5" width="12" height="6" rx="2.2" fill="#fff" />
+              <rect x="17.5" y="13" width="29" height="44" rx="8.5" fill="#fff" />
+            </g>
+            <g class="sp-streaks">
+              <line x1="30" y1="4" x2="27" y2="14" /><line x1="36" y1="2" x2="33.5" y2="11" /><line x1="41.5" y1="6" x2="39.5" y2="13" />
+            </g>
+            <path class="sp-bolt" d="M35.5 18 L23.5 37.5 H31 L28.5 52 L41 31.5 H33.5 Z" fill="url(#sp-boltg)" stroke="#b45309" stroke-width="1" stroke-linejoin="round" />
+          </g>
+        </svg>
+        <div class="sp-loader" aria-hidden="true">
+          <span class="sp-bar"><i></i></span>
+          <span class="sp-text">Abriendo ¡Pilas!…</span>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

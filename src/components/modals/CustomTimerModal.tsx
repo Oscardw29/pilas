@@ -189,7 +189,7 @@ export const CustomTimerModal: React.FC<CustomTimerModalProps> = ({ isOpen, onCl
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej. Redactar documento, Limpiar correos, Lectura..."
-              autoFocus
+              data-autofocus
               required
             />
           </div>

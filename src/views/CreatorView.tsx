@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DatabaseZap, ShieldAlert } from 'lucide-react';
 import { useSocial } from '@/social/useSocial';
 import { useIsCreator } from '@/lib/creator';
@@ -8,6 +8,8 @@ import { EconomyTab } from '@/components/creator/EconomyTab';
 import { LeaguesAchievementsTab } from '@/components/creator/LeaguesAchievementsTab';
 import { ModerationTab } from '@/components/creator/ModerationTab';
 import { TestSettingsTab } from '@/components/creator/TestSettingsTab';
+import { TrashTab } from '@/components/creator/TrashTab';
+import { purgeExpired, useCreatorTrash } from '@/components/creator/creatorTrash';
 import '@/components/creator/creator.css';
 
 /**
@@ -23,6 +25,7 @@ const TABS = [
   { id: 'moderation', label: 'Moderación' },
   { id: 'ai', label: 'IA de la app' },
   { id: 'tests', label: 'Ajustes de prueba' },
+  { id: 'trash', label: 'Papelera' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
@@ -64,6 +67,12 @@ export const CreatorView: React.FC = () => {
     }
   };
   const clearFocus = useCallback(() => setEconomyFocus(null), []);
+  const trashCount = useCreatorTrash((s) => s.entries.length);
+
+  // Lo que lleva más de 24 h en la papelera se borra para siempre al abrir el panel
+  useEffect(() => {
+    if (isAdmin) void purgeExpired();
+  }, [isAdmin]);
 
   if (!available) {
     return (
@@ -128,6 +137,7 @@ export const CreatorView: React.FC = () => {
             onClick={() => setTab(t.id)}
           >
             {t.label}
+            {t.id === 'trash' && trashCount > 0 && <span className="creator-tab-count">{trashCount}</span>}
           </button>
         ))}
       </div>
@@ -145,6 +155,7 @@ export const CreatorView: React.FC = () => {
         {tab === 'moderation' && <ModerationTab />}
         {tab === 'ai' && <AiServicesTab />}
         {tab === 'tests' && <TestSettingsTab />}
+        {tab === 'trash' && <TrashTab />}
       </div>
     </div>
   );

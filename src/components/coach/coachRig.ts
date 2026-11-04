@@ -7,6 +7,7 @@
  */
 import { CLIPS } from './coachClips';
 import { REST, REST_FLAGS, RIG, type CoachExpression, type CoachGesture, type Flags, type HandShape, type Pose, type PropName } from './coachPose';
+import { isLowPowerDevice } from '@/lib/perf';
 
 /* ---------------- Cálculo puro de los miembros ---------------- */
 
@@ -115,10 +116,21 @@ const SPRINGS = KEYS.map(springFor);
 const running = new Set<CoachRig>();
 let raf = 0;
 let last = 0;
+/**
+ * En teléfonos y equipos modestos el personaje se dibuja a ~30 fps en vez de a 60: cada fotograma reescribe
+ * decenas de atributos del SVG y, a 60, competía con el desplazamiento y las animaciones de la página (tirones).
+ * Los muelles integran con el tiempo real transcurrido, así que el movimiento es el mismo, solo con menos pasos.
+ */
+const MIN_FRAME_MS = isLowPowerDevice() ? 1000 / 31 : 0;
 function frame(now: number) {
+  if (MIN_FRAME_MS && now - last < MIN_FRAME_MS) {
+    raf = running.size ? requestAnimationFrame(frame) : 0;
+    return;
+  }
   const dt = Math.min(1 / 24, (now - last) / 1000 || 1 / 60);
   last = now;
-  running.forEach((r) => r.step(now, dt));
+  // Con la app en segundo plano no se dibuja nada (el navegador ya frena requestAnimationFrame, esto lo asegura)
+  if (typeof document === 'undefined' || document.visibilityState !== 'hidden') running.forEach((r) => r.step(now, dt));
   raf = running.size ? requestAnimationFrame(frame) : 0;
 }
 

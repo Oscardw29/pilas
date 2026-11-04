@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -45,6 +45,15 @@ import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
 import { CoachIcon } from '@/components/ui/icons';
 import { useCoachPersona } from '@/components/coach/coachPersona';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
+import { useAchievementSeenSync, useHasUnseenAchievements } from '@/social/achievementSeen';
+
+/** «!» rojo: hay una medalla de logro por ver (Más → Logros → Conseguidos) */
+const NavAlert: React.FC = () => (
+  <span className="nav-alert" aria-hidden="true">
+    !
+  </span>
+);
+const ALERT_LABEL = ' (medalla nueva por ver)';
 
 interface NavItem {
   to: string;
@@ -133,6 +142,8 @@ export const Shell: React.FC = () => {
   // Capa pública: estado, publicación del día y avisos en tiempo real
   useSocialRuntime();
   const socialAvailable = useSocial((s) => s.available);
+  useAchievementSeenSync();
+  const medalPending = useHasUnseenAchievements() && socialAvailable;
 
   const coachName = useCoachPersona().name;
   const navGroups = useMemo(
@@ -144,6 +155,19 @@ export const Shell: React.FC = () => {
     [coachName, socialAvailable],
   );
   const allItems = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
+
+  // Alto real de la cabecera móvil (con la muesca): el coach a pantalla completa se coloca justo debajo
+  const topbarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = topbarRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty('--mobile-topbar-h', `${Math.round(h)}px`);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Cerrar la hoja «Más» al navegar
   useEffect(() => {
@@ -203,8 +227,12 @@ export const Shell: React.FC = () => {
                   data-no-sound="true"
                   className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                   title={item.label}
+                  aria-label={item.to === '/logros' && medalPending ? `${item.label}${ALERT_LABEL}` : undefined}
                 >
-                  <item.icon size={18} aria-hidden="true" />
+                  <span className="nav-icon-wrap">
+                    <item.icon size={18} aria-hidden="true" />
+                    {item.to === '/logros' && medalPending && <NavAlert />}
+                  </span>
                   <span className="nav-link-label">{item.label}</span>
                 </NavLink>
               ))}
@@ -218,7 +246,7 @@ export const Shell: React.FC = () => {
       {/* CONTENEDOR PRINCIPAL */}
       <main className="app-main">
         {/* BARRA SUPERIOR (móvil) */}
-        <header className="mobile-topbar">
+        <header className="mobile-topbar" ref={topbarRef}>
           <div className="brand">
             <BrandMark size={28} className="brand-logo sm" />
             <span className="mobile-topbar-title">
@@ -317,8 +345,12 @@ export const Shell: React.FC = () => {
           onClick={() => setShowMore(true)}
           aria-haspopup="dialog"
           aria-expanded={showMore}
+          aria-label={medalPending ? `Más${ALERT_LABEL}` : undefined}
         >
-          <LayoutGrid size={20} aria-hidden="true" />
+          <span className="nav-icon-wrap">
+            <LayoutGrid size={20} aria-hidden="true" />
+            {medalPending && <NavAlert />}
+          </span>
           <span>Más</span>
         </button>
       </nav>
@@ -339,8 +371,12 @@ export const Shell: React.FC = () => {
                       to={item.to}
                       data-no-sound="true"
                       className={({ isActive }) => `more-item ${isActive ? 'active' : ''}`}
+                      aria-label={item.to === '/logros' && medalPending ? `${item.short ?? item.label}${ALERT_LABEL}` : undefined}
                     >
-                      <item.icon size={22} aria-hidden="true" />
+                      <span className="nav-icon-wrap">
+                        <item.icon size={22} aria-hidden="true" />
+                        {item.to === '/logros' && medalPending && <NavAlert />}
+                      </span>
                       <span>{item.short ?? item.label}</span>
                     </NavLink>
                   ))}

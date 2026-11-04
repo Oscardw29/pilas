@@ -4,32 +4,21 @@ import { Award, Bell, Check, RefreshCw, Sparkles, X } from 'lucide-react';
 import { PersonAvatar } from '@/components/profile/Avatar';
 import { CommunityUnavailable, useSocialFail } from '@/components/social/PostCard';
 import { useToast } from '@/components/ui/ToastContext';
-import { triggerAchievementCelebration } from '@/components/ui/AchievementUnlockOverlay';
 import { playSound } from '@/lib/sound';
 import { getMyFriends, getNotifications, markNotificationsRead, respondFriendRequest } from '@/social/api';
-import { RARITY, notificationText, personName, timeAgo } from '@/social/texts';
+import { notificationText, personName, timeAgo } from '@/social/texts';
 import { useSocial } from '@/social/useSocial';
-import type { NotificationRow, Rarity } from '@/social/types';
+import type { NotificationRow } from '@/social/types';
 import '@/components/social/social.css';
 import '@/components/social/community.css';
 
 /**
  * NOTIFICACIONES (/notificaciones) — docs/plan-social.md, F6
  * Al abrirla se marcan como leídas; el punto de «sin leer» se mantiene en las que llegaron sin leer hasta salir.
- * Pulsar la notificación de un logro reproduce su animación (es el único sitio donde sale sola para la persona).
+ * Pulsar la notificación de un logro lleva a Logros → Conseguidos: allí su tarjeta late hasta que se toca y la
+ * medalla sale una sola vez (social/achievementSeen.ts).
  */
 
-/** Animación del logro de una notificación (los datos los puso el servidor al otorgarlo) */
-function playAchievement(n: NotificationRow) {
-  const d = n.data ?? {};
-  const rarity = (typeof d.rarity === 'string' && d.rarity in RARITY ? d.rarity : 'common') as Rarity;
-  triggerAchievementCelebration({
-    name: String(d.name ?? 'Logro'),
-    icon: String(d.icon ?? '🏅'),
-    rarity,
-    prize: Math.round(Number(d.prize) || 0),
-  });
-}
 export const NotificationsView: React.FC = () => {
   const available = useSocial((s) => s.available);
   const banned = useSocial((s) => Boolean(s.ban));
@@ -147,7 +136,7 @@ export const NotificationsView: React.FC = () => {
                   <Main
                     className="notif-main"
                     {...(isAchievement
-                      ? { type: 'button' as const, onClick: () => playAchievement(n), title: 'Ver la animación del logro' }
+                      ? { type: 'button' as const, onClick: () => navigate('/logros', { state: { filter: 'done' } }), title: 'Ver el logro en Logros' }
                       : t.to
                         ? { type: 'button' as const, onClick: () => navigate(t.to!) }
                         : {})}
@@ -169,7 +158,7 @@ export const NotificationsView: React.FC = () => {
                       <time dateTime={n.created_at}>{timeAgo(n.created_at)}</time>
                       {isAchievement && (
                         <span className="badge accent notif-play" style={{ marginTop: 6 }}>
-                          <Sparkles aria-hidden="true" /> Toca para ver tu medalla
+                          <Sparkles aria-hidden="true" /> Ver en Logros
                         </span>
                       )}
                     </span>
