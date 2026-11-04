@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arranque nativo: solo el fondo de la app (sin imagen). El logo y su animación los pone la web en cuanto carga
+     (#boot-splash en index.html), así no se ve un icono y después otro. Antes aquí estaba el splash de ejemplo de Capacitor. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/pilas_bg_dark" />
+</shape>
