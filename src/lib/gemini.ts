@@ -248,7 +248,7 @@ Detalles según la acción:
 - delete_habit: { "habitId": string, "habitName": string }
 - create_experiment: { "name": string, "hypothesis": string, "type": "schedule"|"duration"|"routine", "durationDays": number, "variants": [ { "id": "v1", "label": string, "startDay": 1, "endDay": number }, { "id": "v2", "label": string, "startDay": number, "endDay": number } ] }
 - create_connection: { "fromHabitName": string, "toHabitName": string, "type": "before"|"after"|"facilitates"|"depends_on", "note"?: string }
-- create_reward: { "name": string, "icon": string, "cost": number }
+- create_reward: { "name": string, "icon": string, "cost": number } (cost: entero de 50 o más)
 
 El usuario siempre verá una tarjeta de confirmación interactiva para verificar y confirmar la acción antes de ejecutarla.
 `;

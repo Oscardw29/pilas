@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/ToastContext';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { REWARD_ICONS } from '@/components/modals/RewardModal';
 import { playSound } from '@/lib/sound';
+import { REWARD_MAX_COST, REWARD_MIN_COST } from '@/lib/economyRules';
 import type { Reward } from '@/types';
 import './rewardsBulk.css';
 
@@ -16,7 +17,6 @@ import './rewardsBulk.css';
  * eliminar varios de golpe, siempre con confirmación. Los canjes pasados se conservan.
  */
 
-const COST_MAX = 100000;
 const NAME_MAX = 60;
 const DESC_MAX = 160;
 
@@ -37,7 +37,7 @@ const sameAs = (d: Draft, r: Reward) => {
 
 const costOk = (cost: string) => {
   const n = Number(cost);
-  return cost !== '' && Number.isInteger(n) && n >= 1 && n <= COST_MAX;
+  return cost !== '' && Number.isInteger(n) && n >= REWARD_MIN_COST && n <= REWARD_MAX_COST;
 };
 
 /** Casilla propia (sin el control nativo): marcada, sin marcar o «algunas» */
@@ -172,8 +172,8 @@ export const RewardsBulkEditor: React.FC<{ onClose: () => void }> = ({ onClose }
       setShowErrors(true);
       showToast(
         invalid.length === 1
-          ? 'Revisa la recompensa marcada: necesita un nombre y un costo entero de 1 a 100.000.'
-          : `Revisa las ${invalid.length} recompensas marcadas: necesitan un nombre y un costo entero de 1 a 100.000.`,
+          ? `Revisa la recompensa marcada: necesita un nombre y un costo entero de ${REWARD_MIN_COST} a 100.000.`
+          : `Revisa las ${invalid.length} recompensas marcadas: necesitan un nombre y un costo entero de ${REWARD_MIN_COST} a 100.000.`,
         'warning',
       );
       playSound.error();

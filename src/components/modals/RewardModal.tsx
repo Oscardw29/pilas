@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore';
 import { useToast } from '@/components/ui/ToastContext';
 import type { Reward } from '@/types';
 import { rewardDays } from '@/lib/economy';
+import { REWARD_MAX_COST, REWARD_MIN_COST } from '@/lib/economyRules';
 
 interface RewardModalProps {
   isOpen: boolean;
@@ -45,9 +46,13 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Las monedas son siempre enteras
-    const price = Math.min(100000, Math.round(cost));
-    if (!name.trim() || !(price > 0)) return;
+    // Las monedas son siempre enteras, con un precio mínimo
+    const price = Math.round(cost);
+    if (!name.trim()) return;
+    if (!(price >= REWARD_MIN_COST && price <= REWARD_MAX_COST)) {
+      toast(`El costo debe ser de ${REWARD_MIN_COST} a ${REWARD_MAX_COST.toLocaleString('es')} monedas`, 'warning');
+      return;
+    }
 
     if (rewardToEdit) {
       updateReward(rewardToEdit.id, { name: name.trim(), icon, cost: price, description: description.trim() || undefined });
@@ -107,8 +112,8 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <input
               type="number"
-              min={1}
-              max={100000}
+              min={REWARD_MIN_COST}
+              max={REWARD_MAX_COST}
               step={1}
               inputMode="numeric"
               className="input"
@@ -124,6 +129,11 @@ export const RewardModal: React.FC<RewardModalProps> = ({ isOpen, onClose, rewar
               ))}
             </div>
           </div>
+          {cost < REWARD_MIN_COST && (
+            <span className="hint" style={{ color: 'var(--warning)' }}>
+              El costo mínimo es de {REWARD_MIN_COST} monedas.
+            </span>
+          )}
           <span className="hint" role="status" aria-live="polite">
             {equivalence.kind === 'no-history'
               ? 'Aún no hay suficiente historial para estimar los días.'

@@ -7,7 +7,7 @@ import type {
 } from '@/types';
 import { doneCountByDate, getDayStreakStatus, logKey, pointsFor, previousCountedDay } from '@/lib/metrics';
 import { BOOST_REWARD_ID, FREEZE_REWARD_ID, boostOffer, economySummary, freezeOffer, isBackdated } from '@/lib/economy';
-import { ECONOMY } from '@/lib/economyRules';
+import { CHALLENGE_REWARD_POINTS, ECONOMY, challengeSuccessDays, clampRewardCost } from '@/lib/economyRules';
 import { todayKey, toKey } from '@/lib/dates';
 import { createDemoData, createEmptyData, defaultSettings, isDemoActive } from '@/data/seed';
 import { LEGACY_SECRET_FIELDS, useSecrets } from '@/store/useSecrets';
@@ -509,17 +509,38 @@ export const useStore = create<Store>()(
       deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
 
       /* Retos */
+      // Días para ganar y monedas del premio no se eligen: salen de la duración y son iguales para todos los retos
       addChallenge: (c) => {
-        const ch: Challenge = { ...c, id: uid(), createdAt: nowISO(), checkins: [], status: 'active' };
+        const ch: Challenge = {
+          ...c,
+          successDays: challengeSuccessDays(c.durationDays),
+          rewardPoints: CHALLENGE_REWARD_POINTS,
+          id: uid(),
+          createdAt: nowISO(),
+          checkins: [],
+          status: 'active',
+        };
         set((s) => ({ challenges: [...s.challenges, ch] }));
         return ch;
       },
-      updateChallenge: (id, patch) => set((s) => ({ challenges: s.challenges.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+      updateChallenge: (id, patch) =>
+        set((s) => ({
+          challenges: s.challenges.map((c) => {
+            if (c.id !== id) return c;
+            const next = { ...c, ...patch };
+            return { ...next, successDays: challengeSuccessDays(next.durationDays), rewardPoints: CHALLENGE_REWARD_POINTS };
+          }),
+        })),
       deleteChallenge: (id) => set((s) => ({ challenges: s.challenges.filter((c) => c.id !== id) })),
+      // Un día futuro no se puede marcar (sí desmarcar, por si quedó alguno de antes)
       toggleChallengeCheckin: (id, date) =>
         set((s) => ({
-          challenges: s.challenges.map((c) =>
-            c.id !== id ? c : { ...c, checkins: c.checkins.includes(date) ? c.checkins.filter((d) => d !== date) : [...c.checkins, date].sort() }),
+          challenges: s.challenges.map((c) => {
+            if (c.id !== id) return c;
+            if (c.checkins.includes(date)) return { ...c, checkins: c.checkins.filter((d) => d !== date) };
+            if (date > todayKey()) return c;
+            return { ...c, checkins: [...c.checkins, date].sort() };
+          }),
         })),
 
       /* Experimentos */
@@ -549,13 +570,13 @@ export const useStore = create<Store>()(
 
       /* Gamificación */
       addReward: (r) => {
-        const rw = { ...r, cost: int(r.cost), id: uid() };
+        const rw = { ...r, cost: clampRewardCost(r.cost), id: uid() };
         set((s) => ({ rewards: [...s.rewards, rw] }));
         return rw;
       },
       updateReward: (id, patch) =>
         set((s) => ({
-          rewards: s.rewards.map((r) => (r.id === id ? { ...r, ...patch, ...(patch.cost !== undefined ? { cost: int(patch.cost) } : {}) } : r)),
+          rewards: s.rewards.map((r) => (r.id === id ? { ...r, ...patch, ...(patch.cost !== undefined ? { cost: clampRewardCost(patch.cost) } : {}) } : r)),
         })),
       deleteReward: (id) => set((s) => ({ rewards: s.rewards.filter((r) => r.id !== id) })),
       redeem: (rewardId) => {

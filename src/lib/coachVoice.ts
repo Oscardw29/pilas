@@ -78,6 +78,7 @@ function setSpeaking(value: boolean) {
   speaking = value;
   stateListeners.forEach((l) => l());
   if (value) startMeter();
+  keepSessionAlive(value);
 }
 
 const subscribeState = (l: () => void) => {
@@ -118,13 +119,133 @@ function ensureCtx(): AudioContext | null {
   return ctx;
 }
 
+/* ---------------- Safari / iOS / macOS ----------------
+ * WebKit es más estricto que Chrome con el audio de la página:
+ * - El AudioContext solo arranca con `resume()` llamado DENTRO de un gesto (toque, clic, tecla). Fuera de un gesto la
+ *   promesa de `resume()` se queda pendiente para siempre: la voz esperaba ahí y no sonaba nunca.
+ * - En iOS el contexto pasa a «interrupted» (llamada, otra app, pantalla bloqueada) y hay que reanudarlo con otro gesto.
+ * - En el iPhone con el interruptor de silencio puesto, el Web Audio se calla salvo que la sesión de audio sea de
+ *   «reproducción»: `navigator.audioSession.type = 'playback'` (Safari 17+) o, en versiones anteriores, un <audio>
+ *   silencioso sonando mientras habla el coach.
+ */
+
+const isAppleTouch =
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/** Safari 17+: el audio de la página suena como reproducción multimedia (ignora el interruptor de silencio) */
+function preferPlaybackSession(): boolean {
+  try {
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (!session) return false;
+    if (session.type !== 'playback') session.type = 'playback';
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** WAV de 0,25 s de silencio (para el <audio> que mantiene la sesión de reproducción en iOS antiguos) */
+function silentWavUrl(): string {
+  // PCM de 16 bits y 22 050 Hz: el formato WAV que reproduce cualquier Safari. Las muestras a cero son el silencio
+  const rate = 22050;
+  const dataBytes = Math.floor(rate / 4) * 2;
+  const buf = new ArrayBuffer(44 + dataBytes);
+  const v = new DataView(buf);
+  const text = (o: number, s: string) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+  text(0, 'RIFF');
+  v.setUint32(4, 36 + dataBytes, true);
+  text(8, 'WAVE');
+  text(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true); // mono
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  text(36, 'data');
+  v.setUint32(40, dataBytes, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+
+let keeper: HTMLAudioElement | null = null;
+
+/** iOS < 17: <audio> silencioso en bucle mientras el coach habla, para que suene aunque el iPhone esté en silencio */
+function sessionKeeper(): HTMLAudioElement | null {
+  if (!isAppleTouch || preferPlaybackSession()) return null;
+  if (keeper) return keeper;
+  try {
+    keeper = new Audio(silentWavUrl());
+    keeper.loop = true;
+    keeper.preload = 'auto';
+    keeper.setAttribute('playsinline', '');
+  } catch {
+    keeper = null;
+  }
+  return keeper;
+}
+
+function keepSessionAlive(on: boolean) {
+  const el = sessionKeeper();
+  if (!el) return;
+  if (on) void el.play().catch(() => {});
+  else el.pause();
+}
+
+/** ¿El contexto está parado? En iOS además de «suspended» puede estar «interrupted» */
+const notRunning = (c: AudioContext) => (c.state as string) !== 'running' && (c.state as string) !== 'closed';
+
+/** Reanuda el contexto sin quedarse esperando: fuera de un gesto, Safari nunca resuelve la promesa */
+async function resumeCtx(c: AudioContext, timeoutMs = 1500): Promise<void> {
+  if (!notRunning(c)) return;
+  await Promise.race([c.resume().catch(() => {}), new Promise((r) => setTimeout(r, timeoutMs))]);
+}
+
+/** Desbloqueo dentro de un gesto: reanudar, un sonido vacío (iOS antiguos lo exigen) y la sesión de reproducción */
+function unlockInGesture(c: AudioContext) {
+  preferPlaybackSession();
+  if (notRunning(c)) void c.resume().catch(() => {});
+  try {
+    const src = c.createBufferSource();
+    src.buffer = c.createBuffer(1, 1, c.sampleRate);
+    src.connect(c.destination);
+    src.start(0);
+  } catch {
+    /* sin importancia */
+  }
+  // Dar play una vez dentro del gesto deja ese <audio> autorizado para cuando el coach hable más tarde
+  const el = sessionKeeper();
+  if (el && el.paused) {
+    void el
+      .play()
+      .then(() => {
+        if (!speaking) el.pause();
+      })
+      .catch(() => {});
+  }
+}
+
+/**
+ * Cualquier gesto en la página desbloquea el audio si ya existe el contexto y está parado (por ejemplo, la voz se
+ * pidió fuera de un gesto o iOS lo interrumpió). Se usa `touchend` y `click`: en iOS `touchstart` no cuenta como gesto.
+ */
+if (typeof document !== 'undefined') {
+  const onGesture = () => {
+    if (ctx && notRunning(ctx)) unlockInGesture(ctx);
+  };
+  for (const type of ['touchend', 'click', 'keydown'] as const) {
+    document.addEventListener(type, onGesture, { capture: true, passive: true });
+  }
+}
+
 /**
  * Llamar dentro de un gesto del usuario (enviar un mensaje): los navegadores solo dejan
  * reproducir audio después de una interacción.
  */
 export function unlockCoachVoice() {
   const c = ensureCtx();
-  if (c && c.state === 'suspended') void c.resume().catch(() => {});
+  if (c) unlockInGesture(c);
   // Se aprovecha el gesto para tener listo el índice de frases grabadas
   void ensureClipManifest();
 }
@@ -475,7 +596,8 @@ function planSpeech(source: string, gender: CoachGender, provider: Provider | nu
  */
 async function speakJobs(chunks: SpeechJob[], gender: CoachGender, provider: Provider | null, mySession: number): Promise<void> {
   const c = ensureCtx()!;
-  if (c.state === 'suspended') await c.resume().catch(() => {});
+  // Sin esperar indefinidamente: si no hay gesto, el audio arranca en cuanto el usuario toque la pantalla
+  await resumeCtx(c);
 
   const gain = c.createGain();
   gain.connect(analyser!);

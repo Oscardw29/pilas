@@ -1,6 +1,7 @@
 import type { ExperimentType, ExperimentVariant, Habit, HabitKind, Priority, RelationType, TimeOfDay } from '@/types';
 import { useStore } from '@/store/useStore';
 import { DAY_SHORT, todayKey } from './dates';
+import { REWARD_MAX_COST, REWARD_MIN_COST } from './economyRules';
 
 /**
  * ACCIONES PROPUESTAS POR EL COACH IA
@@ -229,7 +230,7 @@ export function describeCoachAction(action: ParsedAction): CoachActionSummary {
         title: 'Crear recompensa',
         subject: `${str(d.icon, 8) ?? '🎁'} ${str(d.name) ?? 'Recompensa'}`,
         tone: 'create',
-        details: [{ label: 'Costo', value: `${int(d.cost, 10, 100_000) ?? 100} puntos` }],
+        details: [{ label: 'Costo', value: `${int(d.cost, REWARD_MIN_COST, REWARD_MAX_COST) ?? 100} puntos` }],
       };
   }
 }
@@ -318,7 +319,7 @@ export function executeCoachAction(action: ParsedAction): CoachActionResult {
     case 'create_reward': {
       const name = str(d.name);
       if (!name) return { ok: false, message: 'La sugerencia no incluye un nombre de recompensa válido' };
-      store.addReward({ name, icon: str(d.icon, 8) ?? '🎁', cost: int(d.cost, 10, 100_000) ?? 100 });
+      store.addReward({ name, icon: str(d.icon, 8) ?? '🎁', cost: int(d.cost, REWARD_MIN_COST, REWARD_MAX_COST) ?? 100 });
       return { ok: true, message: `Recompensa «${name}» creada con éxito` };
     }
   }
