@@ -126,10 +126,10 @@ const FEATURES: [string, string][] = [
 ];
 
 const SHOTS: { src: string; alt: string; caption: string }[] = [
-  { src: '/descargar/inicio.webp', alt: 'Pantalla de inicio de ¡Pilas! con el progreso del día y los puntos', caption: 'Tu día de un vistazo' },
-  { src: '/descargar/habitos.webp', alt: 'Semana de hábitos con los días cumplidos marcados', caption: 'Tu semana, día a día' },
-  { src: '/descargar/coach.webp', alt: 'Pilo, el coach, listo para responder con ideas rápidas', caption: 'Pilo te responde' },
-  { src: '/descargar/recompensas.webp', alt: 'Tienda de recompensas con los puntos disponibles y el nivel', caption: 'Tus puntos se canjean' },
+  { src: '/capturas/inicio.webp', alt: 'Pantalla de inicio de ¡Pilas! con el progreso del día y los puntos', caption: 'Tu día de un vistazo' },
+  { src: '/capturas/habitos.webp', alt: 'Semana de hábitos con los días cumplidos marcados', caption: 'Tu semana, día a día' },
+  { src: '/capturas/coach.webp', alt: 'Pilo, el coach, listo para responder con ideas rápidas', caption: 'Pilo te responde' },
+  { src: '/capturas/recompensas.webp', alt: 'Tienda de recompensas con los puntos disponibles y el nivel', caption: 'Tus puntos se canjean' },
 ];
 
 const FAQ: { tab: string; q: string; a: React.ReactNode }[] = [
