@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Award, CheckCircle2, Coins, Eye, Lock, Users } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Award, CheckCircle2, Coins, Eye, Lock, Sparkles, Users } from 'lucide-react';
+import { triggerAchievementCelebration } from '@/components/ui/AchievementUnlockOverlay';
+import { useAchievementSeen, useUnseenAchievements } from '@/social/achievementSeen';
+import { playSound } from '@/lib/sound';
 import { BanScreen } from '@/components/social/BanScreen';
 import { getAchievementDefs, getAchievementProgress, getAchievementRates, getUserAchievements, socialAvailable } from '@/social/api';
 import { useSocial } from '@/social/useSocial';
@@ -60,13 +64,16 @@ interface Data {
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 const fmtPct = (n: number) => n.toLocaleString('es', { maximumFractionDigits: n < 10 ? 1 : 0 });
 
-const AchievementCard: React.FC<{ def: AchievementDef; at?: string; rate?: number; value: number | null; demoGot?: boolean }> = ({
-  def,
-  at,
-  rate,
-  value,
-  demoGot,
-}) => {
+const AchievementCard: React.FC<{
+  def: AchievementDef;
+  at?: string;
+  rate?: number;
+  value: number | null;
+  demoGot?: boolean;
+  /** Conseguido y con la medalla aún sin ver: la tarjeta late y al tocarla sale la medalla (una sola vez) */
+  isNew?: boolean;
+  onReveal?: () => void;
+}> = ({ def, at, rate, value, demoGot, isNew, onReveal }) => {
   const rarity = RARITY[def.rarity] ?? RARITY.common;
   const got = Boolean(at) || Boolean(demoGot);
   const target = Math.max(1, Number(def.threshold) || 1);
@@ -74,10 +81,28 @@ const AchievementCard: React.FC<{ def: AchievementDef; at?: string; rate?: numbe
   const metric = METRIC_LABEL[def.metric] ?? def.metric;
   return (
     <article
-      className={`card ach-card ${got ? 'is-done' : 'is-locked'}`}
+      className={`card ach-card ${got ? 'is-done' : 'is-locked'}${isNew ? ' is-new' : ''}`}
       style={{ '--r': rarity.color, '--r-text': rarity.text } as React.CSSProperties}
-      aria-label={`${def.name}${got ? ', conseguido' : ', pendiente'}`}
+      aria-label={`${def.name}${got ? ', conseguido' : ', pendiente'}${isNew ? '. Toca para ver tu medalla' : ''}`}
+      {...(isNew && onReveal
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onClick: onReveal,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onReveal();
+              }
+            },
+          }
+        : {})}
     >
+      {isNew && (
+        <span className="ach-new-tag">
+          <Sparkles aria-hidden="true" /> ¡Nueva medalla! Tócala
+        </span>
+      )}
       <div className="ach-top">
         <span className="ach-icon" aria-hidden="true">
           {def.icon || '🏅'}
@@ -150,7 +175,11 @@ export const AchievementsView: React.FC = () => {
   const hasProfile = Boolean(profile);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const location = useLocation();
+  // Desde la notificación de un logro se llega directo a «Conseguidos»
+  const [filter, setFilter] = useState<Filter>(() => ((location.state as { filter?: Filter } | null)?.filter === 'done' ? 'done' : 'all'));
+  const unseen = useUnseenAchievements();
+  const markSeen = useAchievementSeen((s) => s.markSeen);
   const ready = available && socialAvailable();
   const demoStats = useDemoStats();
 
@@ -206,6 +235,26 @@ export const AchievementsView: React.FC = () => {
     const done = data ? data.defs.filter(isDone).length : 0;
     return { total, done, pending: total - done };
   }, [data, isDone]);
+
+  // Los conseguidos (también los de la vista previa de demostración) alimentan el «!» de la navegación
+  useEffect(() => {
+    if (!data) return;
+    useAchievementSeen.getState().setEarned(data.defs.filter(isDone).map((d) => d.id));
+  }, [data, isDone]);
+
+  /** Primera (y única) vez que se ve la medalla de un logro */
+  const reveal = (d: AchievementDef) => {
+    markSeen(d.id);
+    playSound.click();
+    triggerAchievementCelebration({
+      name: d.name,
+      icon: d.icon || '🏅',
+      rarity: d.rarity in RARITY ? d.rarity : 'common',
+      description: d.description,
+      prize: Math.round(Number(d.prize) || 0),
+    });
+  };
+  const unseenSet = useMemo(() => new Set(unseen), [unseen.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = useMemo(() => {
     if (!data) return [];
@@ -273,8 +322,20 @@ export const AchievementsView: React.FC = () => {
             <>
               <div className="segmented" role="group" aria-label="Filtrar logros">
                 {FILTERS.map(([id, label, n]) => (
-                  <button key={id} type="button" className={filter === id ? 'active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)}>
+                  <button
+                    key={id}
+                    type="button"
+                    className={filter === id ? 'active' : ''}
+                    aria-pressed={filter === id}
+                    onClick={() => setFilter(id)}
+                    aria-label={id === 'done' && unseenSet.size > 0 ? `${label} (${n}), medalla nueva por ver` : undefined}
+                  >
                     {label} <span className="ach-filter-n">{n}</span>
+                    {id === 'done' && unseenSet.size > 0 && (
+                      <span className="nav-alert inline" aria-hidden="true">
+                        !
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -301,6 +362,8 @@ export const AchievementsView: React.FC = () => {
                       rate={data.rates.get(d.id)}
                       value={valueOf(d)}
                       demoGot={demoGot(d)}
+                      isNew={isDone(d) && unseenSet.has(d.id)}
+                      onReveal={() => reveal(d)}
                     />
                   ))}
                 </div>

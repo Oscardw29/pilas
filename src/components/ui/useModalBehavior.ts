@@ -15,6 +15,9 @@ export const hasOpenModal = () => stack.length > 0;
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** Lo que tarda la hoja inferior en subir (sheetIn, .24 s en global.css) más un margen */
+const SHEET_SETTLE_MS = 300;
+
 let lockCount = 0;
 let savedScrollY = 0;
 
@@ -53,14 +56,36 @@ export function useModalBehavior(isOpen: boolean, containerRef: RefObject<HTMLEl
     const previouslyFocused = document.activeElement as HTMLElement | null;
     lockScroll();
 
-    // Foco inicial: primer control marcado con data-autofocus, o el primero enfocable, o el propio diálogo
-    const focusTimer = window.setTimeout(() => {
+    // Foco inicial: primer control marcado con data-autofocus, o el primero enfocable, o el propio diálogo.
+    // En pantallas táctiles enfocar un campo de texto abre el teclado: primero sube la hoja y, cuando ya está
+    // en su sitio, se enfoca el campo marcado (el teclado sale después del modal, no antes). Sin campo marcado
+    // se enfoca el propio diálogo, así ningún teclado aparece sin pedirlo.
+    const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    let focusTimer = 0;
+    const focusInitial = () => {
       const el = containerRef.current;
-      if (!el || el.contains(document.activeElement)) return;
+      if (!el) return;
+      // Si la persona ya tocó un control del diálogo, no se le quita el foco (el propio diálogo no cuenta)
+      const active = document.activeElement;
+      if (active && active !== el && el.contains(active)) return;
       const preferred = el.querySelector<HTMLElement>('[data-autofocus]');
+      if (touch) {
+        (preferred ?? el).focus({ preventScroll: true });
+        return;
+      }
       const first = preferred ?? el.querySelector<HTMLElement>(FOCUSABLE);
       (first ?? el).focus({ preventScroll: true });
-    }, 30);
+    };
+    if (touch) {
+      // Mantiene el foco fuera de los campos mientras sube la hoja (algún control podría robarlo al montarse)
+      focusTimer = window.setTimeout(() => {
+        const el = containerRef.current;
+        if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
+        focusTimer = window.setTimeout(focusInitial, SHEET_SETTLE_MS);
+      }, 0);
+    } else {
+      focusTimer = window.setTimeout(focusInitial, 30);
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (stack[stack.length - 1] !== id) return;

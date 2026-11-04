@@ -57,6 +57,7 @@
 
 /* Plantillas del modal de publicación */
 .tpl-options { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.tpl-legend { padding: 0; margin-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .tpl-option {
   position: relative; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer;
   border-radius: var(--radius-sm); border: 1.5px solid var(--border-2); background: var(--surface-2);

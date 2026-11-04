@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Award, Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen } from 'lucide-react';
+import { Award, Clapperboard, Flame, Gift, MessageCircleMore, Snowflake, DoorOpen, Zap, Hourglass } from 'lucide-react';
+import { replayBootSplash } from '@/lib/bootSplash';
+import { useToast } from '@/components/ui/ToastContext';
 import { triggerStreakCelebration } from '@/components/ui/StreakCelebrationOverlay';
 import { triggerRewardCelebration } from '@/components/ui/RewardCelebrationOverlay';
 import { triggerAchievementCelebration } from '@/components/ui/AchievementUnlockOverlay';
@@ -37,6 +39,12 @@ export const AnimationTestCard: React.FC = () => {
   const [isSuper, setIsSuper] = useState(false);
   const [rarity, setRarity] = useState<Rarity>('epic');
   const coachName = useCoachPersona().name;
+  const { toast } = useToast();
+
+  const handleSplash = async (slowLoad: boolean) => {
+    const ok = await replayBootSplash({ slowLoad });
+    if (!ok) toast('No se pudo cargar la animación de apertura', 'warning');
+  };
 
   // Solo la animación: no concede el logro ni suma monedas
   const handleAchievement = () => triggerAchievementCelebration({ ...SAMPLE_ACHIEVEMENTS[rarity], rarity });
@@ -176,6 +184,25 @@ export const AnimationTestCard: React.FC = () => {
             Mostrar un aviso junto a su botón
           </button>
           <span className="hint">Siempre sale uno al entrar a la app; después, como mucho cada 2 horas y 4 veces al día.</span>
+        </div>
+
+        {/* Animación de apertura (index.html → #boot-splash) */}
+        <div className="field">
+          <span className="label">Animación de apertura</span>
+          <div className="grid-2">
+            <button type="button" className="btn btn-secondary" onClick={() => void handleSplash(false)} style={{ padding: 14 }}>
+              <Zap size={16} style={{ color: 'var(--accent-2)' }} />
+              Ver la apertura de la app
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => void handleSplash(true)} style={{ padding: 14 }}>
+              <Hourglass size={16} style={{ color: 'var(--accent-2)' }} />
+              Ver con carga lenta
+            </button>
+          </div>
+          <span className="hint">
+            La chispa que se vuelve rayo y encaja en el logo, como al abrir la app. «Con carga lenta» muestra además la barra de carga
+            debajo del logo; toca la pantalla para cerrarla.
+          </span>
         </div>
 
         {/* Pantalla de inicio */}

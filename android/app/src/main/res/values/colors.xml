@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo de cada tema de la app (igual que la variable bg de src/styles/global.css): si cambias uno, cambia el otro -->
+    <color name="pilas_bg_dark">#0C0C10</color>
+    <color name="pilas_bg_light">#F5F4FA</color>
+</resources>

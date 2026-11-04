@@ -25,6 +25,10 @@ const ToastContext = createContext<ToastContextValue>({
 
 /** Los errores y avisos se quedan más tiempo en pantalla para poder leerlos */
 const DURATION_MS: Record<ToastKind, number> = { success: 3800, reward: 3800, info: 3800, warning: 6000, error: 6500 };
+/** En el teléfono tapan más: duran algo menos (se pueden descartar deslizándolos) */
+const MOBILE_DURATION_MS: Record<ToastKind, number> = { success: 2600, reward: 3200, info: 2800, warning: 4800, error: 5500 };
+const durationFor = (kind: ToastKind) =>
+  typeof window !== 'undefined' && window.matchMedia?.('(max-width: 639.98px)').matches ? MOBILE_DURATION_MS[kind] : DURATION_MS[kind];
 /** Separación entre los avisos que esperaban a que terminara una celebración */
 const FLUSH_STAGGER_MS = 220;
 
@@ -49,7 +53,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (item: ToastItem) => {
       // Máximo 5 mensajes a la vez
       setToasts((prev) => [...prev, item].slice(-5));
-      timers.current.set(item.id, setTimeout(() => remove(item.id), DURATION_MS[item.type]));
+      timers.current.set(item.id, setTimeout(() => remove(item.id), durationFor(item.type)));
     },
     [remove]
   );
@@ -108,12 +112,55 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   // Valor estable: un toast nuevo no vuelve a renderizar todos los consumidores del contexto
   const value = useMemo(() => ({ toast, showToast: toast }), [toast]);
 
+  /** Deslizar un aviso hacia un lado o hacia arriba lo descarta (móvil) */
+  const swipe = useRef<{ id: string; x: number; y: number; el: HTMLElement } | null>(null);
+  const onTouchStart = (id: string) => (e: React.TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    swipe.current = { id, x: t.clientX, y: t.clientY, el: e.currentTarget };
+  };
+  const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const s = swipe.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = Math.min(0, t.clientY - s.y);
+    s.el.style.transition = 'none';
+    s.el.style.transform = `translate(${dx}px, ${dy}px)`;
+    s.el.style.opacity = String(Math.max(0.2, 1 - Math.max(Math.abs(dx), Math.abs(dy) * 2) / 220));
+  };
+  const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const s = swipe.current;
+    swipe.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (Math.abs(dx) > 70 || dy < -36) {
+      s.el.style.transition = 'transform .18s ease, opacity .18s ease';
+      s.el.style.transform = Math.abs(dx) > 70 ? `translateX(${Math.sign(dx) * 120}%)` : 'translateY(-120%)';
+      s.el.style.opacity = '0';
+      setTimeout(() => remove(s.id), 170);
+    } else {
+      s.el.style.transition = 'transform .2s cubic-bezier(.16, 1, .3, 1), opacity .2s ease';
+      s.el.style.transform = '';
+      s.el.style.opacity = '';
+    }
+  };
+
   return (
     <ToastContext.Provider value={value}>
       {children}
       <div className="toast-root" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`} role={t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'}>
+          <div
+            key={t.id}
+            className={`toast ${t.type}`}
+            role={t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'}
+            onTouchStart={onTouchStart(t.id)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
+          >
             {t.type === 'success' && <CheckCircle2 aria-hidden="true" />}
             {t.type === 'reward' && <Gift aria-hidden="true" />}
             {t.type === 'info' && <Info aria-hidden="true" />}

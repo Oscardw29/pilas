@@ -8,7 +8,7 @@ export type CatalogKind = 'banner' | 'frame' | 'card' | 'reward';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CatalogStatus = 'draft' | 'published' | 'retired';
 export type ReactionEmoji = 'fire' | 'muscle' | 'clap';
-export type PostTemplate = 'streak' | 'habit_streak' | 'perfect_week' | 'xp_week' | 'achievement' | 'league_up' | 'podium';
+export type PostTemplate = 'streak' | 'habit_streak' | 'perfect_week' | 'xp_week' | 'achievement' | 'league_up' | 'podium' | 'message';
 export type LeaderboardKind = 'streak' | 'xp_week' | 'xp_total';
 /** Colores del banner por defecto (sin cosmético). La paleta está en texts.ts (BANNER_COLORS) */
 export type BannerColor = 'violet' | 'blue' | 'teal' | 'green' | 'amber' | 'orange' | 'rose' | 'slate';

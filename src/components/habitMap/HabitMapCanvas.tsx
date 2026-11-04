@@ -3,6 +3,9 @@ import { Maximize2, Minimize2, Minus, Plus, Scan, Pause } from 'lucide-react';
 import { routeEdges, type MapLayout, type Point } from '@/lib/habitMapLayout';
 import { EDGE_KINDS, type EdgeKind } from './relationMeta';
 
+/** Lado (en unidades del mapa) de cada cuadro de la malla; las líneas fuertes, cada 5 */
+const GRID = 32;
+
 export interface MapNodeData {
   id: string;
   kind: 'goal' | 'habit';
@@ -277,6 +280,8 @@ export const HabitMapCanvas: React.FC<Props> = ({
   // ¿Queda mapa por debajo del borde? (móvil: invita a deslizar)
   const moreBelow = size.h > 0 && (layout.bounds.maxY + PAD) * view.k + view.y > size.h + 8;
 
+  const gridTransform = `translate(${view.x} ${view.y}) scale(${view.k})`;
+
   return (
     <div ref={wrapRef} className={`hm-canvas${dragging ? ' is-dragging' : ''}${connectFromId ? ' is-connecting' : ''}`} style={autoHeight ? { height: autoHeight } : undefined}>
       <svg
@@ -297,12 +302,29 @@ export const HabitMapCanvas: React.FC<Props> = ({
               <path d="M0,0.5 L10,5 L0,9.5 z" style={{ fill: EDGE_KINDS[k].color }} />
             </marker>
           ))}
-          <pattern id="hm-dots" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" className="hm-dot" />
+          {/* Malla que se mueve y escala con el mapa: así se nota el desplazamiento y el zoom */}
+          <pattern id="hm-grid-minor" width={GRID} height={GRID} patternUnits="userSpaceOnUse" patternTransform={gridTransform}>
+            <path d={`M ${GRID} 0 L 0 0 0 ${GRID}`} className="hm-grid-minor" vectorEffect="non-scaling-stroke" />
           </pattern>
+          <pattern id="hm-grid-major" width={GRID * 5} height={GRID * 5} patternUnits="userSpaceOnUse" patternTransform={gridTransform}>
+            <path d={`M ${GRID * 5} 0 L 0 0 0 ${GRID * 5}`} className="hm-grid-major" vectorEffect="non-scaling-stroke" />
+          </pattern>
+          {/* Viñeta: la malla se desvanece hacia los bordes (fija a la ventana, no al mapa) */}
+          <radialGradient id="hm-vignette" cx="50%" cy="50%" r="72%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="1" />
+            <stop offset="45%" stopColor="#fff" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
+          <mask id="hm-grid-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={size.w} height={size.h}>
+            <rect x={0} y={0} width={size.w} height={size.h} fill="url(#hm-vignette)" />
+          </mask>
         </defs>
 
-        <rect className="hm-bg" x={0} y={0} width={size.w} height={size.h} fill="url(#hm-dots)" />
+        <rect className="hm-bg" x={0} y={0} width={size.w} height={size.h} />
+        <g mask="url(#hm-grid-mask)" aria-hidden="true" className={`hm-grid${view.k < 0.45 ? ' is-far' : ''}`}>
+          <rect x={0} y={0} width={size.w} height={size.h} fill="url(#hm-grid-minor)" className="hm-grid-minor-layer" />
+          <rect x={0} y={0} width={size.w} height={size.h} fill="url(#hm-grid-major)" />
+        </g>
 
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
           {/* Regiones: un objetivo y los hábitos que aportan a él */}

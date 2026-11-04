@@ -16,8 +16,9 @@ import './community.css';
 const keyOf = (t: TemplateOption) => `${t.template}:${t.ref ?? ''}`;
 
 /**
- * Publicar: solo las plantillas que el servidor dice que cumples ahora (available_post_templates).
- * Los datos los rellena el servidor y no se pueden editar; solo se añade un comentario opcional.
+ * Publicar: las plantillas que el servidor ofrece ahora (available_post_templates): las de logros solo cuando se
+ * cumplen; las frases libres («Cuando quieras») siempre. Los datos los rellena el servidor y no se pueden editar;
+ * solo se añade un comentario opcional.
  */
 export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPosted?: () => void }> = ({ isOpen, onClose, onPosted }) => {
   const { showToast } = useToast();
@@ -113,8 +114,8 @@ export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPoste
       ) : (
         <form className="form" onSubmit={(e) => void submit(e)}>
           <p className="muted" style={{ fontSize: 13 }}>
-            Las plantillas aparecen cuando cumples la condición; los datos se rellenan solos y no se pueden editar. Para usar un
-            hábito, márcalo como visible en tu perfil.
+            Elige una frase y publícala tal cual, o una de tus logros cuando la tengas: los datos se rellenan solos. Para
+            presumir de un hábito, márcalo como visible en tu perfil.
           </p>
 
           {templates === null && !loadError ? (
@@ -129,24 +130,32 @@ export const PostModal: React.FC<{ isOpen: boolean; onClose: () => void; onPoste
               <p>Sigue con tus hábitos: cuando tengas una racha, una semana perfecta, XP esta semana o un logro nuevo, aparecerá aquí.</p>
             </div>
           ) : (
-            <fieldset className="tpl-options">
-              <legend className="c-sr">Elige qué quieres publicar</legend>
-              {templates!.map((t) => {
-                const k = keyOf(t);
-                const { icon, text } = postText(t.template, t.data ?? {});
-                const on = k === selected;
+            <>
+              {(['achievements', 'free'] as const).map((group) => {
+                const list = templates!.filter((t) => (t.template === 'message') === (group === 'free'));
+                if (!list.length) return null;
                 return (
-                  <label key={k} className={`tpl-option ${on ? 'is-selected' : ''}`}>
-                    <input type="radio" name={groupName} value={k} checked={on} onChange={() => setSelected(k)} />
-                    <span className="post-icon" aria-hidden="true">
-                      {icon}
-                    </span>
-                    <span className="tpl-text">{text}</span>
-                    <span className="tpl-check" aria-hidden="true" />
-                  </label>
+                  <fieldset key={group} className="tpl-options">
+                    <legend className="tpl-legend">{group === 'free' ? 'Cuando quieras' : 'Tus logros'}</legend>
+                    {list.map((t) => {
+                      const k = keyOf(t);
+                      const { icon, text } = postText(t.template, t.data ?? {});
+                      const on = k === selected;
+                      return (
+                        <label key={k} className={`tpl-option ${on ? 'is-selected' : ''}`}>
+                          <input type="radio" name={groupName} value={k} checked={on} onChange={() => setSelected(k)} />
+                          <span className="post-icon" aria-hidden="true">
+                            {icon}
+                          </span>
+                          <span className="tpl-text">{text}</span>
+                          <span className="tpl-check" aria-hidden="true" />
+                        </label>
+                      );
+                    })}
+                  </fieldset>
                 );
               })}
-            </fieldset>
+            </>
           )}
 
           {chosen && (

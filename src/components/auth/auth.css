@@ -26,18 +26,7 @@
 .pw-meter { height: 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
 .pw-meter > span { display: block; height: 100%; border-radius: inherit; transition: width .2s, background .2s; }
 
-.recovery-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 17px;
-  letter-spacing: 0.06em;
-  text-align: center;
-  padding: 16px 12px;
-  border-radius: 14px;
-  background: var(--surface-2);
-  border: 1px dashed var(--border-2);
-  user-select: all;
-  word-break: break-all;
-}
+.auth-title-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; color: var(--accent-2); }
 
 .auth-loading { min-height: 100dvh; display: grid; place-items: center; gap: 14px; align-content: center; color: var(--muted); font-size: 13.5px; }
 .auth-spinner {

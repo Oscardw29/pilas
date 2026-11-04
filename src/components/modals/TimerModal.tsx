@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalBehavior } from '@/components/ui/useModalBehavior';
+import { useSheetDismiss } from '@/components/ui/useSheetDismiss';
+import { MOBILE_QUERY } from '@/lib/useMediaQuery';
 import { Play, Pause, Square, X, Sparkles, Sprout } from 'lucide-react';
 import { useStore, useData, minimumMinutesFor } from '@/store/useStore';
 import { formatClock, todayKey } from '@/lib/dates';
@@ -68,6 +70,8 @@ export const TimerModal: React.FC = () => {
 
   // Escape agita el diálogo (se minimiza con la X); con un diálogo hijo abierto, responde el hijo
   useModalBehavior(isVisible && !showFinishModal && !showCancelConfirm, dialogRef, triggerShake);
+  // Móvil: deslizar hacia abajo o tocar fuera lo minimiza (el temporizador sigue en marcha)
+  const { dismiss } = useSheetDismiss(dialogRef, isVisible && !showFinishModal && !showCancelConfirm, handleMinimize);
 
   if (!activeTimer || !isTimerModalOpen) return null;
 
@@ -137,7 +141,9 @@ export const TimerModal: React.FC = () => {
             padding: '24px 16px',
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) triggerShake();
+            if (e.target !== e.currentTarget) return;
+            if (window.matchMedia(MOBILE_QUERY).matches) dismiss();
+            else triggerShake();
           }}
         >
           <div

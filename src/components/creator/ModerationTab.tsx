@@ -173,7 +173,7 @@ const ActionModal: React.FC<{ kind: ActionKind; user: AdminUserOverview; onClose
               // Solo enteros (con signo): XP y monedas nunca llevan decimales
               onChange={(e) => setAmount(e.target.value.replace(/[^\d-]/g, '').replace(/(?!^)-/g, '').slice(0, 9))}
               placeholder="Ej.: 100 o -50"
-              autoFocus
+              data-autofocus
             />
           </label>
         )}

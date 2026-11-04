@@ -55,7 +55,7 @@ export const App: React.FC = () => {
           toast(
             'Tu perfil ya es público en la comunidad',
             'info',
-            'Se ven tu nombre o alias, tu foto y tus cifras (racha, XP, logros y ligas). Tus registros, notas y hábitos no visibles siguen cifrados. Puedes editarlo en Mi perfil.',
+            'Se ven tu nombre o alias, tu foto y tus cifras (racha, XP, logros y ligas). Tus registros, notas y hábitos no visibles siguen siendo privados. Puedes editarlo en Mi perfil.',
           );
         }
         if (s.resetLimited && !prev.resetLimited) {
@@ -153,7 +153,7 @@ export const App: React.FC = () => {
         <Route path="/objetivos/:id" element={<GoalDetailView />} />
         <Route path="/goals/:id" element={<GoalDetailView />} />
 
-        {/* Mi Semana / Matriz */}
+        {/* Hábitos (matriz semanal) */}
         <Route path="/semana" element={<WeekView />} />
         <Route path="/week" element={<WeekView />} />
 

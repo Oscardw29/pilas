@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Check, KeyRound, ShieldCheck, CloudOff } from 'lucide-react';
+import { KeyRound, CloudOff, ShieldCheck } from 'lucide-react';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { useSession } from '@/store/useSession';
 import { supabase } from '@/sync/supabase';
 import {
   AccountError, MIN_PASSWORD_LENGTH, completePasswordReset, passwordProblem, requestPasswordReset, resendSignupCode,
-  signIn, signUp, verifySignup, type SignedIn,
+  sendDeviceCode, signIn, signUp, verifyDevice, verifySignup, type SignedIn,
 } from '@/account/account';
-import { boot, enterAccount, enterAfterCloudReset, resolveLegacy } from '@/account/runtime';
+import { boot, enterAccount, resolveLegacy } from '@/account/runtime';
 import { isNativeApp } from '@/platform';
 import { DownloadPage } from './DownloadPage';
 import './auth.css';
@@ -70,7 +70,7 @@ const Unconfigured: React.FC = () => (
 
 /* ---------------- Inicio de sesión / registro ---------------- */
 
-type Mode = 'signin' | 'signup' | 'verify' | 'forgot' | 'reset' | 'recovery';
+type Mode = 'signin' | 'signup' | 'verify' | 'device' | 'forgot' | 'reset';
 
 const message = (err: unknown) => (err instanceof Error ? err.message : 'Algo salió mal. Inténtalo de nuevo.');
 
@@ -80,14 +80,12 @@ const AuthScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [code, setCode] = useState('');
-  const [recovery, setRecovery] = useState('');
-  const [noRecovery, setNoRecovery] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const notice = useSession((s) => s.notice);
-  /** Cuenta abierta que aún tiene que guardar su código de recuperación */
-  const [pending, setPending] = useState<{ signed: SignedIn; cloudReset: boolean } | null>(null);
+  /** Contraseña correcta en un dispositivo nuevo: falta el código del correo */
+  const [pending, setPending] = useState<SignedIn | null>(null);
 
   const go = (m: Mode) => {
     setMode(m);
@@ -114,18 +112,24 @@ const AuthScreen: React.FC = () => {
     }
   };
 
-  const afterSignedIn = async (signed: SignedIn, cloudReset = false) => {
-    if (signed.recoveryCode) {
-      setPending({ signed, cloudReset });
-      go('recovery');
-      return;
-    }
-    await (cloudReset ? enterAfterCloudReset(signed) : enterAccount(signed));
-  };
-
   const onSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    void run('Protegiendo tu contraseña…', async () => afterSignedIn(await signIn(supabase(), email, password)));
+    void run('Comprobando tu contraseña…', async () => {
+      const result = await signIn(supabase(), email, password);
+      if (result.status === 'ready') return enterAccount(result.signed);
+      setPending(result.signed);
+      go('device');
+      setInfo(`Te enviamos un código de 6 dígitos a ${email.trim()}.`);
+    });
+  };
+
+  const onDevice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pending) return go('signin');
+    void run('Verificando…', async () => {
+      await verifyDevice(supabase(), email, code);
+      await enterAccount(pending);
+    });
   };
 
   const onSignUp = (e: React.FormEvent) => {
@@ -140,7 +144,7 @@ const AuthScreen: React.FC = () => {
 
   const onVerify = (e: React.FormEvent) => {
     e.preventDefault();
-    void run('Confirmando…', async () => afterSignedIn(await verifySignup(supabase(), email, code, password)));
+    void run('Confirmando…', async () => enterAccount(await verifySignup(supabase(), email, code)));
   };
 
   const onForgot = (e: React.FormEvent) => {
@@ -155,11 +159,7 @@ const AuthScreen: React.FC = () => {
   const onReset = (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== password2) return setError('Las contraseñas no coinciden.');
-    if (!noRecovery && !recovery.trim()) return setError('Escribe tu código de recuperación o marca que no lo tienes.');
-    void run('Recuperando tu cuenta…', async () => {
-      const signed = await completePasswordReset(supabase(), email, code, password, noRecovery ? null : recovery);
-      await afterSignedIn(signed, noRecovery);
-    });
+    void run('Recuperando tu cuenta…', async () => enterAccount(await completePasswordReset(supabase(), email, code, password)));
   };
 
   const emailField = (
@@ -252,10 +252,6 @@ const AuthScreen: React.FC = () => {
           <form className="form" onSubmit={onSignUp}>
             {emailField}
             <PasswordFields password={password} password2={password2} onPassword={setPassword} onPassword2={setPassword2} />
-            <p className="auth-lead">
-              Tus datos se cifran en tu dispositivo antes de subirse: <strong>nadie más puede leerlos</strong>, ni siquiera
-              nosotros. Por eso la contraseña no se puede ver ni restablecer sin tu código de recuperación.
-            </p>
             {feedback}
             {submit('Crear cuenta')}
           </form>
@@ -281,11 +277,36 @@ const AuthScreen: React.FC = () => {
           </form>
         )}
 
+        {mode === 'device' && (
+          <form className="form" onSubmit={onDevice}>
+            <div>
+              <h2 className="auth-title">
+                <ShieldCheck aria-hidden className="auth-title-icon" /> Verifica este dispositivo
+              </h2>
+              <p className="auth-lead">
+                Es la primera vez que entras desde aquí. Escribe el código que te enviamos al correo; después este dispositivo
+                ya no lo pedirá.
+              </p>
+            </div>
+            {codeField}
+            {feedback}
+            {submit('Verificar y entrar')}
+            <div className="auth-links">
+              <button type="button" className="auth-link" onClick={() => void run('Enviando…', async () => { await sendDeviceCode(supabase(), email); setInfo('Código reenviado.'); })}>
+                Reenviar código
+              </button>
+              <button type="button" className="auth-link" onClick={() => { setPending(null); go('signin'); }}>
+                Volver
+              </button>
+            </div>
+          </form>
+        )}
+
         {mode === 'forgot' && (
           <form className="form" onSubmit={onForgot}>
             <div>
               <h2 className="auth-title">Recuperar la cuenta</h2>
-              <p className="auth-lead">Te enviaremos un código al correo. Para conservar tus datos necesitarás también tu código de recuperación.</p>
+              <p className="auth-lead">Te enviaremos un código al correo para crear una contraseña nueva. Tus datos se conservan.</p>
             </div>
             {emailField}
             {feedback}
@@ -305,48 +326,14 @@ const AuthScreen: React.FC = () => {
             </div>
             {codeField}
             <PasswordFields password={password} password2={password2} onPassword={setPassword} onPassword2={setPassword2} newLabel />
-            {!noRecovery && (
-              <label className="field">
-                <span className="label">Código de recuperación</span>
-                <input
-                  className="input"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-                  value={recovery}
-                  onChange={(e) => setRecovery(e.target.value)}
-                />
-              </label>
-            )}
-            <label className="checkbox">
-              <input type="checkbox" checked={noRecovery} onChange={(e) => setNoRecovery(e.target.checked)} />
-              No tengo el código de recuperación
-            </label>
-            {noRecovery && (
-              <div className="callout attention">
-                <KeyRound aria-hidden />
-                <div className="detail">
-                  Sin el código, los datos guardados en la nube <strong>no se pueden descifrar y se borrarán</strong>. La cuenta
-                  empezará de nuevo con lo que haya en este dispositivo.
-                </div>
-              </div>
-            )}
             {feedback}
-            {submit(noRecovery ? 'Restablecer y empezar de nuevo' : 'Recuperar mi cuenta')}
+            {submit('Recuperar mi cuenta')}
             <div className="auth-links">
               <button type="button" className="auth-link" onClick={() => go('signin')}>
                 Volver
               </button>
             </div>
           </form>
-        )}
-
-        {mode === 'recovery' && pending && (
-          <RecoveryCodeStep
-            code={pending.signed.recoveryCode!}
-            onDone={() => void run('Abriendo tu cuenta…', () => (pending.cloudReset ? enterAfterCloudReset(pending.signed) : enterAccount(pending.signed)))}
-            busy={busy}
-          />
         )}
 
         <p className="auth-foot">
@@ -414,66 +401,6 @@ const PasswordFields: React.FC<{
         <input className="input" type="password" autoComplete="new-password" required value={password2} onChange={(e) => onPassword2(e.target.value)} />
       </label>
     </>
-  );
-};
-
-export const RecoveryCodeStep: React.FC<{ code: string; onDone: () => void; busy?: string | null; doneLabel?: string }> = ({
-  code,
-  onDone,
-  busy,
-  doneLabel = 'Continuar',
-}) => {
-  const [saved, setSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* el usuario puede copiarlo a mano: el texto es seleccionable */
-    }
-  };
-
-  const download = () => {
-    const blob = new Blob([`Código de recuperación de ¡Pilas!\n\n${code}\n\nGuárdalo en un lugar seguro. Sin él no podrás recuperar tus datos si olvidas la contraseña.\n`], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'pilas-codigo-recuperacion.txt';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
-
-  return (
-    <div className="form">
-      <div>
-        <h2 className="auth-title">Tu código de recuperación</h2>
-        <p className="auth-lead">
-          Si algún día olvidas la contraseña, este código es <strong>la única forma</strong> de recuperar tus datos. Solo se
-          muestra ahora: anótalo o guárdalo en tu gestor de contraseñas.
-        </p>
-      </div>
-      <div className="recovery-code" aria-label="Código de recuperación">{code}</div>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-secondary sm" onClick={() => void copy()}>
-          {copied ? <Check aria-hidden /> : <Copy aria-hidden />} {copied ? 'Copiado' : 'Copiar'}
-        </button>
-        {!isNativeApp && (
-          <button type="button" className="btn btn-secondary sm" onClick={download}>
-            Descargar .txt
-          </button>
-        )}
-      </div>
-      <label className="checkbox">
-        <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-        Lo guardé en un lugar seguro
-      </label>
-      <p className="auth-busy" aria-live="polite">{busy ?? ''}</p>
-      <button type="button" className="btn btn-primary lg block" disabled={!saved || Boolean(busy)} onClick={onDone}>
-        <ShieldCheck aria-hidden /> {doneLabel}
-      </button>
-    </div>
   );
 };
 

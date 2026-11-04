@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { playSound } from '@/lib/sound';
 import { useModalBehavior } from './useModalBehavior';
+import { useSheetDismiss } from './useSheetDismiss';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -48,6 +49,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }, [isOpen]);
 
   useModalBehavior(isOpen, dialogRef, handleClose);
+  const { dismiss } = useSheetDismiss(dialogRef, isOpen, () => {
+    playSound.dismiss();
+    onClose();
+  });
 
   if (!isOpen) return null;
 
@@ -56,10 +61,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       className="modal-backdrop"
       style={{ zIndex: zIndex ?? 1300 }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playSound.dismiss();
-          onClose();
-        }
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div

@@ -82,7 +82,7 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `ahora.todo_hecho.1` | ¡Hoy ya cumpliste todo lo programado! Disfruta el descanso, te lo ganaste. |
 | `ahora.todo_hecho.2` | Día completo. Lo que hagas de más es un extra, no una obligación. |
 | `ahora.sin_programar.1` | Hoy no tienes hábitos programados. Es un buen día para descansar o adelantar algo pequeño. |
-| `ahora.sin_habitos.1` | Todavía no tienes hábitos activos. Empecemos por uno pequeño: créalo en Mi semana con el botón Nuevo hábito. |
+| `ahora.sin_habitos.1` | Todavía no tienes hábitos activos. Empecemos por uno pequeño: créalo en Hábitos con el botón Nuevo hábito. |
 | `ahora.cierre.1` | Si vas con poco tiempo, haz la versión mínima: también cuenta para tu racha. |
 | `ahora.cierre.2` | Abre el temporizador y dale cinco minutos. Empezar es lo más difícil. |
 | `ahora.cierre.3` | Uno a la vez. Cuando termines, vuelve y vemos el siguiente. |
@@ -188,15 +188,15 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `primer.idea.agua` | Tomar un vaso de agua al despertar. |
 | `primer.idea.caminar` | Caminar cinco minutos después de comer. |
 | `primer.idea.respirar` | Respirar profundo un minuto antes de empezar a trabajar o estudiar. |
-| `primer.cierre.1` | Créalo en Mi semana con el botón Nuevo hábito y ponle una versión mínima. Cuando lo tengas, te ayudo a sostenerlo. |
+| `primer.cierre.1` | Créalo en Hábitos con el botón Nuevo hábito y ponle una versión mínima. Cuando lo tengas, te ayudo a sostenerlo. |
 | `primer.cierre.2` | Dime cuál te gusta, por ejemplo: crea un hábito de leer diez minutos, y te lo dejo listo para aceptar. |
 | `xp.apertura.1` | Así van tus números: |
 | `xp.apertura.2` | Te cuento cómo vas en experiencia y monedas. |
 | `xp.explica.1` | La experiencia nunca se gasta: mide tu progreso y sube tu nivel. Las monedas, en cambio, se gastan en la tienda. |
 | `xp.explica.2` | Ganas experiencia y monedas al completar hábitos. Los días perfectos y las rachas largas dan un extra. |
-| `app.habitos.1` | Para crear un hábito ve a Mi semana y toca Nuevo hábito. Elige si es de tiempo, de acción o de cantidad, sus días y su versión mínima. |
-| `app.habitos.2` | Puedes tener hasta ocho hábitos activos a la vez. Para editar, pausar o archivar uno, ábrelo desde Mi semana. |
-| `app.registrar.1` | Para registrar un hábito, márcalo en Inicio o en Mi semana como completo o como mínimo. Los de tiempo también se registran con el temporizador. |
+| `app.habitos.1` | Para crear un hábito ve a Hábitos y toca Nuevo hábito. Elige si es de tiempo, de acción o de cantidad, sus días y su versión mínima. |
+| `app.habitos.2` | Puedes tener hasta ocho hábitos activos a la vez. Para editar, pausar o archivar uno, ábrelo desde Hábitos. |
+| `app.registrar.1` | Para registrar un hábito, márcalo en Inicio o en Hábitos como completo o como mínimo. Los de tiempo también se registran con el temporizador. |
 | `app.temporizador.1` | En Temporizador eliges un hábito y le das a iniciar. Al terminar, la sesión se guarda y suma minutos, experiencia y monedas. |
 | `app.temporizador.2` | Puedes pausar la sesión cuando lo necesites; solo cuenta el tiempo activo. |
 | `app.tienda.1` | En la Tienda de recompensas gastas tus monedas: crea tus propios premios o compra el protector de racha y el multiplicador de experiencia. |
@@ -215,7 +215,7 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `app.revision.1` | La Revisión semanal resume tu semana hábito por hábito y te ayuda a planificar la siguiente. |
 | `app.retos.1` | En Retos 30 días te propones algo durante un mes y ves tu avance día a día. |
 | `app.insights.1` | En Insights encuentras patrones de tu comportamiento, tus principales obstáculos y recomendaciones para decidir qué ajustar. |
-| `app.calendario.1` | En Calendario ves tu historial día por día, y en Mi semana marcas los hábitos de la semana en curso. |
+| `app.calendario.1` | En Calendario ves tu historial día por día, y en Hábitos marcas los hábitos de la semana en curso. |
 | `app.objetivos.1` | En Objetivos defines metas y les conectas los hábitos que te acercan a ellas. El progreso se calcula solo. |
 | `app.general.1` | Puedo explicarte cualquier sección. Pregúntame por hábitos, temporizador, tienda, ligas, logros, amigos, perfil o el modo claro. |
 | `accion.aceptada.1` | ¡Listo! Ya quedó aplicado. Sigamos. |
@@ -277,7 +277,7 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `ahora.todo_hecho.1` | ¡Hoy ya cumpliste todo lo programado! Disfruta el descanso, te lo ganaste. |
 | `ahora.todo_hecho.2` | Día completo. Lo que hagas de más es un extra, no una obligación. |
 | `ahora.sin_programar.1` | Hoy no tienes hábitos programados. Es un buen día para descansar o adelantar algo pequeño. |
-| `ahora.sin_habitos.1` | Todavía no tienes hábitos activos. Empecemos por uno pequeño: créalo en Mi semana con el botón Nuevo hábito. |
+| `ahora.sin_habitos.1` | Todavía no tienes hábitos activos. Empecemos por uno pequeño: créalo en Hábitos con el botón Nuevo hábito. |
 | `ahora.cierre.1` | Si vas con poco tiempo, haz la versión mínima: también cuenta para tu racha. |
 | `ahora.cierre.2` | Abre el temporizador y dale cinco minutos. Empezar es lo más difícil. |
 | `ahora.cierre.3` | Uno a la vez. Cuando termines, vuelve y vemos el siguiente. |
@@ -383,15 +383,15 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `primer.idea.agua` | Tomar un vaso de agua al despertar. |
 | `primer.idea.caminar` | Caminar cinco minutos después de comer. |
 | `primer.idea.respirar` | Respirar profundo un minuto antes de empezar a trabajar o estudiar. |
-| `primer.cierre.1` | Créalo en Mi semana con el botón Nuevo hábito y ponle una versión mínima. Cuando lo tengas, te ayudo a sostenerlo. |
+| `primer.cierre.1` | Créalo en Hábitos con el botón Nuevo hábito y ponle una versión mínima. Cuando lo tengas, te ayudo a sostenerlo. |
 | `primer.cierre.2` | Dime cuál te gusta, por ejemplo: crea un hábito de leer diez minutos, y te lo dejo listo para aceptar. |
 | `xp.apertura.1` | Así van tus números: |
 | `xp.apertura.2` | Te cuento cómo vas en experiencia y monedas. |
 | `xp.explica.1` | La experiencia nunca se gasta: mide tu progreso y sube tu nivel. Las monedas, en cambio, se gastan en la tienda. |
 | `xp.explica.2` | Ganas experiencia y monedas al completar hábitos. Los días perfectos y las rachas largas dan un extra. |
-| `app.habitos.1` | Para crear un hábito ve a Mi semana y toca Nuevo hábito. Elige si es de tiempo, de acción o de cantidad, sus días y su versión mínima. |
-| `app.habitos.2` | Puedes tener hasta ocho hábitos activos a la vez. Para editar, pausar o archivar uno, ábrelo desde Mi semana. |
-| `app.registrar.1` | Para registrar un hábito, márcalo en Inicio o en Mi semana como completo o como mínimo. Los de tiempo también se registran con el temporizador. |
+| `app.habitos.1` | Para crear un hábito ve a Hábitos y toca Nuevo hábito. Elige si es de tiempo, de acción o de cantidad, sus días y su versión mínima. |
+| `app.habitos.2` | Puedes tener hasta ocho hábitos activos a la vez. Para editar, pausar o archivar uno, ábrelo desde Hábitos. |
+| `app.registrar.1` | Para registrar un hábito, márcalo en Inicio o en Hábitos como completo o como mínimo. Los de tiempo también se registran con el temporizador. |
 | `app.temporizador.1` | En Temporizador eliges un hábito y le das a iniciar. Al terminar, la sesión se guarda y suma minutos, experiencia y monedas. |
 | `app.temporizador.2` | Puedes pausar la sesión cuando lo necesites; solo cuenta el tiempo activo. |
 | `app.tienda.1` | En la Tienda de recompensas gastas tus monedas: crea tus propios premios o compra el protector de racha y el multiplicador de experiencia. |
@@ -410,7 +410,7 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `app.revision.1` | La Revisión semanal resume tu semana hábito por hábito y te ayuda a planificar la siguiente. |
 | `app.retos.1` | En Retos 30 días te propones algo durante un mes y ves tu avance día a día. |
 | `app.insights.1` | En Insights encuentras patrones de tu comportamiento, tus principales obstáculos y recomendaciones para decidir qué ajustar. |
-| `app.calendario.1` | En Calendario ves tu historial día por día, y en Mi semana marcas los hábitos de la semana en curso. |
+| `app.calendario.1` | En Calendario ves tu historial día por día, y en Hábitos marcas los hábitos de la semana en curso. |
 | `app.objetivos.1` | En Objetivos defines metas y les conectas los hábitos que te acercan a ellas. El progreso se calcula solo. |
 | `app.general.1` | Puedo explicarte cualquier sección. Pregúntame por hábitos, temporizador, tienda, ligas, logros, amigos, perfil o el modo claro. |
 | `accion.aceptada.1` | ¡Listo! Ya quedó aplicado. Sigamos. |

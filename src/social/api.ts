@@ -419,6 +419,14 @@ export async function adminDeleteItem(id: string) {
   fail(error);
 }
 
+/** Papelera del creador: vuelve a crear un artículo borrado con su mismo id y sus mismos datos */
+export async function adminRestoreItem(item: CatalogItem): Promise<void> {
+  const { created_at: _c, ...fields } = item as CatalogItem & { updated_at?: string };
+  delete (fields as { updated_at?: string }).updated_at;
+  const { error } = await sb().from('catalog_items').insert(fields);
+  fail(error);
+}
+
 export async function adminSaveAchievement(def: AchievementDef, isNew: boolean): Promise<void> {
   const { error } = isNew
     ? await sb().from('achievement_defs').insert(def)

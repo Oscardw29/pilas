@@ -6,7 +6,7 @@ import { CustomDatePicker } from '@/components/ui/CustomDatePicker';
 import { useToast } from '@/components/ui/ToastContext';
 import { triggerAchievementCelebration } from '@/components/ui/AchievementUnlockOverlay';
 import {
-  adminCloseWeek, adminDeleteAchievement, adminEconomyVersions, adminSaveAchievement, adminSetMyAchievement, getAchievementDefs,
+  adminCloseWeek, adminEconomyVersions, adminSaveAchievement, adminSetMyAchievement, getAchievementDefs,
   getUserAchievements,
 } from '@/social/api';
 import { myUserId } from '@/social/runtime';
@@ -14,6 +14,7 @@ import { METRIC_LABEL, RARITY } from '@/social/texts';
 import type { AchievementDef, AchievementMetric, Rarity } from '@/social/types';
 import { currentVersion, mergeEconomyParams, toFormText } from './economyModel';
 import { PrizeTable } from './EconomyTab';
+import { trashAchievement, trashedAchievementIds, useCreatorTrash } from './creatorTrash';
 import './achievementsTab.css';
 
 const METRICS = Object.keys(METRIC_LABEL) as AchievementMetric[];
@@ -309,8 +310,12 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
   const loadDefs = useCallback(
     async (keep: Row[] = []) => {
       try {
-        const defs = await getAchievementDefs();
-        setSaved(new Map(defs.map((d) => [d.id, d])));
+        const all = await getAchievementDefs();
+        // Los que están en la papelera siguen en el servidor (retirados) pero no se muestran ni se editan
+        const trashed = trashedAchievementIds(useCreatorTrash.getState().entries);
+        const defs = all.filter((d) => !trashed.has(d.id));
+        // `saved` los incluye todos: así un logro nuevo no puede reutilizar el id de uno que está en la papelera
+        setSaved(new Map(all.map((d) => [d.id, d])));
         const kept = new Map(keep.map((r) => [r.key, r]));
         setRows([...defs.map((d) => kept.get(d.id) ?? toRow(d)), ...keep.filter((r) => r.isNew)]);
         setSelected((s) => new Set([...s].filter((k) => defs.some((d) => d.id === k) || kept.has(k))));
@@ -420,7 +425,13 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
 
   const discard = () => {
     if (!saved) return;
-    setRows([...saved.values()].sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id)).map(toRow));
+    const trashed = trashedAchievementIds(useCreatorTrash.getState().entries);
+    setRows(
+      [...saved.values()]
+        .filter((d) => !trashed.has(d.id))
+        .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+        .map(toRow),
+    );
     setErrors({});
     setSelected(new Set());
   };
@@ -436,7 +447,7 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
       const removed = new Set<string>();
       for (const r of list) {
         try {
-          if (!r.isNew) await adminDeleteAchievement(r.id);
+          if (!r.isNew) await trashAchievement(saved?.get(r.key) ?? toDef(r));
           removed.add(r.key);
           ok++;
         } catch (err) {
@@ -444,14 +455,8 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
         }
       }
       setRows((rs) => rs.filter((r) => !removed.has(r.key)));
-      setSaved((m) => {
-        if (!m) return m;
-        const next = new Map(m);
-        removed.forEach((k) => next.delete(k));
-        return next;
-      });
       setSelected(new Set());
-      if (ok) showToast(ok === 1 ? '1 logro eliminado' : `${ok} logros eliminados`, 'success');
+      if (ok) showToast(ok === 1 ? '1 logro movido a la papelera' : `${ok} logros movidos a la papelera`, 'success', 'Tienes 24 h para restaurarlos desde «Papelera».');
     } else {
       const on = kind === 'activate';
       const done = new Set<string>();
@@ -489,20 +494,14 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
     }
     setBusyKey(r.key);
     try {
-      await adminDeleteAchievement(r.id);
+      await trashAchievement(saved?.get(r.key) ?? toDef(r));
       setRows((rs) => rs.filter((x) => x.key !== r.key));
-      setSaved((m) => {
-        if (!m) return m;
-        const next = new Map(m);
-        next.delete(r.key);
-        return next;
-      });
       setSelected((s) => {
         const next = new Set(s);
         next.delete(r.key);
         return next;
       });
-      showToast(`«${r.name || r.id}» eliminado`, 'success');
+      showToast(`«${r.name || r.id}» movido a la papelera`, 'success', 'Tienes 24 h para restaurarlo desde «Papelera».');
     } catch (err) {
       showToast((err as Error).message, 'error');
     } finally {
@@ -567,7 +566,7 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
     delete: {
       title: `¿Eliminar ${nSel === 1 ? '1 logro' : `${nSel} logros`}?`,
       message:
-        'Las personas que ya los consiguieron los perderán (y desaparecen de sus perfiles). No se puede deshacer. Si solo quieres que nadie más los consiga, usa «Retirar».',
+        'Van a la papelera: durante 24 h quedan retirados y puedes restaurarlos tal como estaban (quien los tenía los conserva). Pasado ese plazo se borran para siempre y las personas que los consiguieron los pierden.',
       confirm: 'Eliminar',
       danger: true,
     },
@@ -719,7 +718,7 @@ export const LeaguesAchievementsTab: React.FC<{ onEditLeagues: () => void }> = (
         message={
           deleting?.isNew
             ? 'Se quita esta fila sin guardar.'
-            : 'Las personas que ya lo consiguieron lo perderán (y desaparece de sus perfiles). Si solo quieres que nadie más lo consiga, usa «Retirado».'
+            : 'Va a la papelera: durante 24 h queda retirado y puedes restaurarlo tal como estaba. Pasado ese plazo se borra para siempre y quien lo consiguió lo pierde.'
         }
         confirmText="Eliminar"
         danger

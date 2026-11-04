@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  deriveAccountKeys, derivePasswordKeys, generateRecoveryCode, generateRootKey, opaqueId, openJson, recoveryKek,
+  deriveAccountKeys, derivePasswordKeys, generateRootKey, opaqueId, openJson,
   sealJson, unwrapRootKey, wrapRootKey,
 } from '@/crypto/keys';
 
 const FAST = 1000; // iteraciones bajas solo para que las pruebas sean rápidas
 
-describe('claves E2E', () => {
+describe('claves', () => {
   it('la misma contraseña y correo derivan el mismo authSecret; otro correo no', async () => {
     const a = await derivePasswordKeys('Ana@Mail.com ', 'una clave larga 123', FAST);
     const b = await derivePasswordKeys('ana@mail.com', 'una clave larga 123', FAST);
@@ -23,15 +23,6 @@ describe('claves E2E', () => {
     const fromServerSide = await derivePasswordKeys('ana@mail.com', pw.authSecret, FAST);
     await expect(unwrapRootKey(wrapped, fromServerSide.kek)).rejects.toThrow();
     expect(await unwrapRootKey(wrapped, pw.kek)).toEqual(root);
-  });
-
-  it('el código de recuperación abre su copia; uno distinto no', async () => {
-    const root = generateRootKey();
-    const code = generateRecoveryCode();
-    expect(code).toMatch(/^([A-Z2-9]{4}-){5}[A-Z2-9]{4}$/);
-    const wrapped = await wrapRootKey(root, await recoveryKek(code));
-    expect(await unwrapRootKey(wrapped, await recoveryKek(code.toLowerCase().replace(/-/g, ' ')))).toEqual(root);
-    await expect(unwrapRootKey(wrapped, await recoveryKek(generateRecoveryCode()))).rejects.toThrow();
   });
 
   it('cifra registros y genera ids opacos estables', async () => {

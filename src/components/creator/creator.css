@@ -95,3 +95,26 @@
 .creator-link:hover { text-decoration: underline; }
 
 .creator-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Papelera (TrashTab.tsx) */
+.creator-tab-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--danger-soft); color: var(--danger); }
+.trash-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.trash-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.trash-kind { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-2); }
+.trash-kind svg { width: 18px; height: 18px; }
+.trash-kind-catalog { background: var(--warning-soft); color: var(--warning); }
+.trash-kind-economyDraft { background: var(--info-soft, var(--surface-3)); color: var(--info); }
+.trash-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.trash-info strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-detail { font-size: 12.5px; color: var(--text-2); overflow-wrap: anywhere; }
+.trash-meta { font-size: 11.5px; color: var(--muted); }
+.trash-left { display: inline-flex; align-items: center; gap: 3px; color: var(--warning); font-weight: 600; }
+.trash-left svg { width: 12px; height: 12px; }
+.trash-actions { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 639.98px) {
+  .trash-row { grid-template-columns: auto minmax(0, 1fr); }
+  .trash-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}

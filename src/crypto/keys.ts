@@ -1,13 +1,12 @@
 /**
- * CIFRADO DE EXTREMO A EXTREMO (Web Crypto)
+ * CLAVES (Web Crypto)
  *
  * contraseña ──PBKDF2(salt = correo)──► masterKey ──HKDF──┬─► authSecret  (lo único que recibe Supabase)
- *                                                          └─► kek         (envuelve la clave de la cuenta)
- * rootKey (32 bytes aleatorios por cuenta) ──HKDF──┬─► encKey  AES-GCM: cifra cada registro
- *                                                  └─► ridKey  HMAC: ids opacos para el servidor
- * código de recuperación ──HKDF──► recoveryKek (envuelve otra copia de rootKey)
+ *                                                          └─► kek         (abría la clave de las cuentas de antes)
  *
- * Supabase nunca ve la contraseña ni rootKey: no puede leer los datos aunque quisiera.
+ * Hasta la migración 0006 los datos se cifraban de extremo a extremo con una clave por cuenta (rootKey → encKey):
+ * se conserva lo necesario para abrirla una vez y convertir esos datos a legibles (sync/engine.ts: migrateLegacy).
+ * También se usa para cifrar datos que solo viven en este equipo (claves API) y las copias de seguridad.
  */
 
 export const KDF_VERSION = 1;
@@ -131,26 +130,6 @@ export async function deriveAccountKeys(root: Uint8Array<ArrayBuffer>): Promise<
 /** Id opaco de un registro: el servidor no puede saber a qué colección ni a qué elemento corresponde */
 export async function opaqueId(ridKey: CryptoKey, key: string): Promise<string> {
   return toB64Url(await subtle().sign('HMAC', ridKey, enc.encode(key)));
-}
-
-/* ---------------- Código de recuperación ---------------- */
-
-// Sin 0/O ni 1/I/L para que no se confundan al copiarlo a mano
-const RECOVERY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-/** 24 caracteres en 6 grupos (≈118 bits): XXXX-XXXX-XXXX-XXXX-XXXX-XXXX */
-export function generateRecoveryCode(): string {
-  const bytes = randomBytes(24);
-  const chars = Array.from(bytes, (b) => RECOVERY_ALPHABET[b % RECOVERY_ALPHABET.length]);
-  return chars.join('').match(/.{4}/g)!.join('-');
-}
-
-export const normalizeRecoveryCode = (code: string) =>
-  code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-export async function recoveryKek(code: string): Promise<CryptoKey> {
-  const base = await importHkdf(enc.encode(`pilas-recovery:${normalizeRecoveryCode(code)}`));
-  return importAes(await hkdfBits(base, 'pilas-recovery-kek-v1'));
 }
 
 /* ---------------- Clave del dispositivo ---------------- */

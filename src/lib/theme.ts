@@ -5,6 +5,8 @@
  * aplique antes de pintar la primera vez: así la app no destella en claro al abrirla en oscuro (ni al revés).
  */
 
+import { platformKind } from '@/platform';
+
 export type Theme = 'light' | 'dark';
 
 /** Copia del último tema en este dispositivo (la lee public/theme-init.js: si cambias el nombre, cámbialo allí) */
@@ -27,4 +29,8 @@ export function applyTheme(theme: Theme) {
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim() || FALLBACK_BG[theme];
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', theme);
+  // En la app de Android el theme-color no pinta las barras del sistema: lo hace un plugin nativo
+  if (platformKind === 'android') {
+    void import('@/platform/systemBars').then((m) => m.paintSystemBars(bg, theme === 'dark'));
+  }
 }
