@@ -5,7 +5,7 @@
 # La versión de los instaladores sale de la etiqueta (scripts/set-version.mjs): no hace falta cambiarla a mano.
 #
 # Secretos del repositorio (Settings → Secrets and variables → Actions):
-#   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY   proyecto de Supabase (públicos por diseño)
+#   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY   proyecto de Supabase (públicos por diseño: mejor como *variables*)
 #   ANDROID_KEYSTORE_BASE64                            el .jks en base64
 #   ANDROID_KEYSTORE_PASS, ANDROID_KEY_ALIAS, ANDROID_KEY_PASS
 name: Publicar versión
@@ -17,9 +17,11 @@ on:
 permissions:
   contents: write
 
+# Valores públicos por diseño: se leen de las variables del repositorio (o de un secreto con el mismo nombre)
 env:
-  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+  VITE_DOWNLOADS_URL: ${{ vars.VITE_DOWNLOADS_URL }}
 
 jobs:
   desktop:
