@@ -47,14 +47,42 @@ const run = (cmd, args) => {
 };
 
 run('npm', ['run', 'build:android']);
-run('npx', [
-  'cap', 'build', 'android',
-  '--androidreleasetype', 'APK',
-  // apksigner firma con el esquema v2/v3 que exige Android 11+ (jarsigner, el predeterminado, solo v1)
-  '--signing-type', 'apksigner',
-  '--keystorepath', PILAS_KEYSTORE_PATH,
-  '--keystorepass', PILAS_KEYSTORE_PASS,
-  '--keystorealias', PILAS_KEYSTORE_ALIAS,
-  '--keystorealiaspass', PILAS_KEY_PASS ?? PILAS_KEYSTORE_PASS,
-]);
-console.log('\nAPK firmado en android/app/build/outputs/apk/release/');
+
+// Antes esto era `cap build android`, pero Capacitor 8.6 lanza Gradle como «./gradlew» y en Windows cmd no lo encuentra
+// («"gradlew" no se reconoce…»). Se hacen aquí los mismos dos pasos: compilar el APK sin firmar y firmarlo con apksigner
+// (esquema v2/v3, el que exige Android 11+; jarsigner solo firma v1).
+const androidDir = join(process.cwd(), 'android');
+// Con ruta completa: si NoDefaultCurrentDirectoryInExePath está definida, cmd no busca en la carpeta actual
+const gradlew = join(androidDir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
+const gradle = process.platform === 'win32'
+  ? spawnSync(`"${gradlew}" assembleRelease`, { stdio: 'inherit', cwd: androidDir, shell: true })
+  : spawnSync(gradlew, ['assembleRelease'], { stdio: 'inherit', cwd: androidDir });
+if (gradle.status !== 0) process.exit(gradle.status ?? 1);
+
+const releaseDir = join(androidDir, 'app', 'build', 'outputs', 'apk', 'release');
+const unsigned = join(releaseDir, 'app-release-unsigned.apk');
+const signed = join(releaseDir, 'app-release-signed.apk');
+if (!existsSync(unsigned)) fail(`Gradle no dejó ${unsigned}`);
+
+// apksigner.jar con el Java de JAVA_HOME y sin shell: las contraseñas van tal cual (cmd no interpreta & | ^ ni comillas,
+// y Node no deja lanzar un .bat sin shell)
+const apksignerJar = join(sdk, 'build-tools', buildTools, 'lib', 'apksigner.jar');
+if (!existsSync(apksignerJar)) fail(`No encuentro ${apksignerJar}: reinstala las build-tools ${buildTools} desde Android Studio.`);
+const java = join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+const sign = spawnSync(
+  java,
+  [
+    '-jar', apksignerJar,
+    'sign',
+    '--ks', PILAS_KEYSTORE_PATH,
+    '--ks-pass', `pass:${PILAS_KEYSTORE_PASS}`,
+    '--ks-key-alias', PILAS_KEYSTORE_ALIAS,
+    '--key-pass', `pass:${PILAS_KEY_PASS ?? PILAS_KEYSTORE_PASS}`,
+    '--out', signed,
+    unsigned,
+  ],
+  { stdio: 'inherit', shell: false },
+);
+if (sign.error) fail(`No se pudo ejecutar apksigner: ${sign.error.message}`);
+if (sign.status !== 0) process.exit(sign.status ?? 1);
+console.log(`\nAPK firmado: ${signed}`);
