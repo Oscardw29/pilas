@@ -5,11 +5,24 @@ import './auth.css';
 
 /**
  * Página pública de descarga (/descargar): no requiere cuenta.
- * Los instaladores se publican en GitHub Releases (ver .github/workflows/release.yml);
- * `VITE_DOWNLOADS_URL` apunta a la página de la última versión.
+ * Los instaladores se publican en GitHub Releases (ver .github/workflows/release.yml y docs/guia-instaladores.md, 7.3).
+ * `VITE_DOWNLOADS_URL` apunta a la última versión (`…/releases/latest`). Cada versión lleva los instaladores también con un
+ * nombre fijo (ASSETS), así los botones descargan el archivo directamente desde `…/releases/latest/download/<nombre>`,
+ * sin pasar por la página de GitHub.
  */
 
-const DOWNLOADS_URL = import.meta.env.VITE_DOWNLOADS_URL as string | undefined;
+const DOWNLOADS_URL = (import.meta.env.VITE_DOWNLOADS_URL as string | undefined)?.replace(/\/+$/, '');
+
+/** Nombres fijos de los instaladores en cada versión (deben coincidir con los del workflow y la guía) */
+export const ASSETS = {
+  android: 'Pilas-Android.apk',
+  windows: 'Pilas-Windows.exe',
+  appimage: 'Pilas-Linux.AppImage',
+  deb: 'Pilas-Linux.deb',
+} as const;
+
+/** Enlace de descarga directa; solo si VITE_DOWNLOADS_URL es la «última versión» de GitHub Releases */
+const directUrl = (file: string) => (DOWNLOADS_URL && /\/releases\/latest$/.test(DOWNLOADS_URL) ? `${DOWNLOADS_URL}/download/${file}` : null);
 
 type Os = 'android' | 'windows' | 'linux' | 'ios' | 'mac' | 'other';
 
@@ -25,14 +38,20 @@ function detectOs(): Os {
 
 export const DownloadPage: React.FC = () => {
   const os = useMemo(detectOs, []);
-  const link = (label: string) =>
-    DOWNLOADS_URL ? (
-      <a className="btn btn-primary block" href={DOWNLOADS_URL} target="_blank" rel="noreferrer">
+  /** Botón que descarga el archivo; si la dirección no es de GitHub Releases, abre la página de descargas */
+  const link = (label: string, file: string, primary = true) => {
+    const direct = directUrl(file);
+    if (!DOWNLOADS_URL) return <p className="small muted">Los instaladores aún no están publicados.</p>;
+    return direct ? (
+      <a className={`btn ${primary ? 'btn-primary' : 'btn-secondary'} block`} href={direct} download={file}>
         <Download aria-hidden /> {label}
       </a>
     ) : (
-      <p className="small muted">Los instaladores aún no están publicados.</p>
+      <a className={`btn ${primary ? 'btn-primary' : 'btn-secondary'} block`} href={DOWNLOADS_URL} target="_blank" rel="noreferrer">
+        <Download aria-hidden /> {label}
+      </a>
     );
+  };
 
   const sections: { id: Os[]; icon: React.ReactNode; title: string; body: React.ReactNode }[] = [
     {
@@ -41,7 +60,7 @@ export const DownloadPage: React.FC = () => {
       title: 'Android',
       body: (
         <>
-          {link('Descargar APK')}
+          {link('Descargar APK', ASSETS.android)}
           <p className="small muted">
             Al abrir el archivo, Android pedirá permitir instalar apps de «orígenes desconocidos» para tu navegador. Es normal: la
             app no está en Google Play.
@@ -55,7 +74,7 @@ export const DownloadPage: React.FC = () => {
       title: 'Windows',
       body: (
         <>
-          {link('Descargar instalador (.exe)')}
+          {link('Descargar instalador (.exe)', ASSETS.windows)}
           <p className="small muted">
             Si aparece «Windows protegió tu PC», pulsa <strong>Más información → Ejecutar de todas formas</strong>. Sale porque el
             instalador no tiene un certificado de pago.
@@ -69,7 +88,8 @@ export const DownloadPage: React.FC = () => {
       title: 'Linux',
       body: (
         <>
-          {link('Descargar .AppImage o .deb')}
+          {link('Descargar .AppImage', ASSETS.appimage)}
+          {link('Descargar .deb (Debian/Ubuntu)', ASSETS.deb, false)}
           <p className="small muted">AppImage: dale permiso de ejecución (chmod +x) y ábrelo. Debian/Ubuntu: instala el .deb.</p>
         </>
       ),
@@ -128,13 +148,17 @@ export const DownloadPage: React.FC = () => {
         <div className="callout neutral">
           <ShieldAlert aria-hidden />
           <div className="detail">
-            Necesitas una cuenta (gratis). Tus datos se cifran en tu dispositivo antes de sincronizarse y tus claves API nunca salen
-            de él.
+            Necesitas una cuenta (gratis) para sincronizar tus datos entre dispositivos. Tus claves API nunca salen de tu dispositivo.
           </div>
         </div>
         <a className="btn btn-secondary block" href="/">
           Abrir la app web
         </a>
+        {DOWNLOADS_URL && (
+          <a className="small muted" href={DOWNLOADS_URL} target="_blank" rel="noreferrer" style={{ textAlign: 'center' }}>
+            Ver todas las versiones y novedades
+          </a>
+        )}
       </div>
     </div>
   );

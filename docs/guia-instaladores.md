@@ -244,17 +244,25 @@ nada más y en 2 minutos están disponibles para descargar. La diferencia con 7.
 compila en Windows.
 
 1. Abre la terminal en la carpeta del proyecto (paso 0.2) y trae lo último: `git pull`.
-2. Pon un nombre claro al APK (así lo verán quienes lo descarguen):
+2. Copia los instaladores con **estos nombres exactos**. La página `/descargar` los busca así para descargarlos directamente,
+   sin pasar por GitHub:
    ```powershell
-   Copy-Item android\app\build\outputs\apk\release\app-release-signed.apk Pilas-v2.0.0.apk
+   Copy-Item android\app\build\outputs\apk\release\app-release-signed.apk Pilas-Android.apk
+   ```
+   ```powershell
+   Copy-Item src-tauri\target\release\bundle\nsis\Pilas_2.0.0_x64-setup.exe Pilas-Windows.exe
    ```
 3. Crea la versión `v2.0.0` y sube los dos archivos:
    ```powershell
-   gh release create v2.0.0 "src-tauri\target\release\bundle\nsis\Pilas_2.0.0_x64-setup.exe" Pilas-v2.0.0.apk --title "¡Pilas! v2.0.0" --notes "Windows: descarga el .exe. Android: descarga el .apk. iPhone, iPad y Mac: usa la app web."
+   gh release create v2.0.0 Pilas-Windows.exe Pilas-Android.apk --title "¡Pilas! v2.0.0" --notes "Windows: descarga el .exe. Android: descarga el .apk. iPhone, iPad y Mac: usa la app web."
    ```
    Termina mostrando un enlace `https://github.com/Oscardw29/pilas/releases/tag/v2.0.0`. La versión ya es pública.
-4. Borra la copia `Pilas-v2.0.0.apk` de la carpeta del proyecto: no debe subirse con el código.
-5. Comprueba que funciona: abre `https://github.com/Oscardw29/pilas/releases/latest`. Deben salir los dos archivos en **Assets**.
+4. Borra las copias `Pilas-Android.apk` y `Pilas-Windows.exe` de la carpeta del proyecto: no deben subirse con el código.
+5. Comprueba que funciona: abre `https://github.com/Oscardw29/pilas/releases/latest/download/Pilas-Android.apk`. Debe empezar a
+   descargarse el APK directamente. Si da «Not Found», revisa que el nombre del archivo subido sea exactamente ese.
+
+> **Si ya publicaste `v2.0.0` con otros nombres** (por ejemplo `Pilas-v2.0.0.apk`), no hace falta crear otra versión.
+> Súbele los archivos con el nombre fijo: `gh release upload v2.0.0 Pilas-Windows.exe Pilas-Android.apk`.
 
 > Esta versión ya usa la etiqueta `v2.0.0`. Para las siguientes, sube el número (por ejemplo `v2.0.1`; ver el recuadro de 7.5).
 
@@ -305,7 +313,9 @@ sube la versión en los dos archivos del recuadro de abajo.
 > 3. Repite el punto 1 con `v2.0.1`.
 >
 > **Sin secretos (método manual de 7.3):** sube la versión igual, recompila con `npm run desktop:build` y `npm run android:apk`,
-> y crea la versión con `gh release create v2.0.1 …` (cambia el número en los nombres de los archivos).
+> copia los archivos con los mismos nombres fijos (`Pilas-Windows.exe`, `Pilas-Android.apk`) y crea la versión con
+> `gh release create v2.0.1 Pilas-Windows.exe Pilas-Android.apk …`. Como el nombre no lleva versión, `/descargar` siempre
+> entrega la última publicada.
 
 ### 7.6 Publicar la app web en Vercel
 1. Entra en [vercel.com](https://vercel.com) → **Sign Up** → plan **Hobby** (gratis) → **Continue with GitHub** y autoriza.
@@ -331,7 +341,8 @@ sube la versión en los dos archivos del recuadro de abajo.
    Los correos de la app usan códigos de 6 dígitos y funcionan sin esto. Pero si alguna plantilla de correo lleva un enlace, sin la
    **Site URL** ese enlace apuntaría a `localhost`.
 8. Abre `https://pilas-xxxx.vercel.app` en el móvil y en el PC. Comprueba que se ve la animación de apertura y que puedes iniciar
-   sesión. Después abre `/descargar` y pulsa el botón de descarga: debe llevar a la versión de 7.3.
+   sesión. Después abre `/descargar` y pulsa el botón de descarga: el archivo debe descargarse directamente, sin abrir GitHub.
+   Si en cambio se abre la página de GitHub, revisa que `VITE_DOWNLOADS_URL` termine exactamente en `/releases/latest`.
 
 > Si más adelante cambias una variable (**Settings → Environment Variables**), hay que volver a desplegar:
 > pestaña **Deployments** → **⋯** en el último despliegue → **Redeploy**.
