@@ -20,6 +20,8 @@
       .boot-splash { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #0c0c10; overflow: hidden; transition: opacity .4s ease, visibility .4s; -webkit-tap-highlight-color: transparent; }
       html[data-theme='light'] .boot-splash { background: #f5f4fa; }
       .boot-splash.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+      /* /descargar no la muestra (public/theme-init.js marca la página antes de pintar) */
+      html[data-page='descargar'] #boot-splash { display: none; }
       .boot-splash.is-leaving .sp-stage { transform: scale(1.06); }
       .sp-stage { position: relative; width: 112px; height: 112px; transition: transform .4s cubic-bezier(.16, 1, .3, 1); }
       .sp-svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible; }

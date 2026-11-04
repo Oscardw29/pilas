@@ -10,6 +10,8 @@
   }
   var root = document.documentElement;
   root.setAttribute('data-theme', theme);
+  // La página pública de descarga no muestra la animación de apertura (index.html, #boot-splash)
+  if (location.pathname.replace(/\/+$/, '') === '/descargar') root.setAttribute('data-page', 'descargar');
   var meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme === 'dark' ? '#0c0c10' : '#f5f4fa');
   var scheme = document.querySelector('meta[name="color-scheme"]');
