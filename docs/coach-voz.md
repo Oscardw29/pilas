@@ -44,20 +44,6 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | --- | --- |
 | `bienvenida.pagina` | ¡Hola! Soy Pilo, tu entrenador de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy? |
 | `bienvenida.flotante` | ¡Hola! Soy Pilo. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página. |
-| `tutorial.intro` | ¡Hola! Soy Pilo y te voy a mostrar la app en un minuto. Te llevo por cada sección y de paso creamos tu primer hábito. |
-| `tutorial.inicio` | Esto es Inicio. Cada día verás aquí lo que te toca, tu racha y los puntos que llevas. |
-| `tutorial.objetivos` | En Objetivos defines para qué haces tus hábitos. Cada hábito suma a un objetivo y así ves cuánto avanzas. |
-| `tutorial.habitos` | En Hábitos está tu semana, día por día. Marcas cada hábito como hecho, en su versión mínima o como día libre. |
-| `tutorial.crear` | Vamos a crear tu primer hábito. Toca Nuevo hábito y elige algo pequeño, que puedas cumplir incluso en un mal día. |
-| `tutorial.creado` | ¡Muy bien, ya tienes tu primer hábito! Márcalo aquí cada día. Hacer solo la versión mínima también cuenta para tu racha. |
-| `tutorial.temporizador` | Con el Temporizador mides tus sesiones de enfoque, y ese tiempo se suma a tus hábitos. |
-| `tutorial.coach` | Y aquí me encuentras a mí, en cualquier página. Pregúntame lo que quieras: reviso tus datos, te propongo cambios y también puedes enviarme fotos o archivos. |
-| `tutorial.seguimiento` | En Seguimiento están el Calendario, con todo tu historial, y la Revisión semanal, para ajustar lo que no funcionó. |
-| `tutorial.analisis` | En Análisis te muestro patrones: Insights con decisiones sugeridas, el Mapa de cómo se conectan tus hábitos y Experimentos para probar qué te funciona mejor. |
-| `tutorial.motivacion` | En Motivación tienes Retos de 30 días y Recompensas, donde cambias tus monedas por premios que eliges tú. |
-| `tutorial.comunidad` | En Comunidad compites en ligas, ves tus logros y sigues a tus amigos. Solo se publican tus cifras, nunca tus notas. |
-| `tutorial.perfil` | Desde tu foto entras a tu perfil y a Ajustes, donde configuras mi voz, tus recordatorios y el tema de la app. |
-| `tutorial.final` | ¡Eso es todo! Ya conoces la app. Recuerda: lo importante es la constancia, no la perfección. ¡Vamos con todo! |
 | `ajustes.prueba_voz` | ¡Hola! Soy Pilo, tu entrenador. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy! |
 | `saludo.apertura.1` | ¡Hola! Qué bueno verte por aquí. |
 | `saludo.apertura.2` | ¡Hey! Aquí estoy, con ganas de ayudarte. |
@@ -253,20 +239,6 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | --- | --- |
 | `bienvenida.pagina` | ¡Hola! Soy Pila, tu entrenadora de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy? |
 | `bienvenida.flotante` | ¡Hola! Soy Pila. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página. |
-| `tutorial.intro` | ¡Hola! Soy Pila y te voy a mostrar la app en un minuto. Te llevo por cada sección y de paso creamos tu primer hábito. |
-| `tutorial.inicio` | Esto es Inicio. Cada día verás aquí lo que te toca, tu racha y los puntos que llevas. |
-| `tutorial.objetivos` | En Objetivos defines para qué haces tus hábitos. Cada hábito suma a un objetivo y así ves cuánto avanzas. |
-| `tutorial.habitos` | En Hábitos está tu semana, día por día. Marcas cada hábito como hecho, en su versión mínima o como día libre. |
-| `tutorial.crear` | Vamos a crear tu primer hábito. Toca Nuevo hábito y elige algo pequeño, que puedas cumplir incluso en un mal día. |
-| `tutorial.creado` | ¡Muy bien, ya tienes tu primer hábito! Márcalo aquí cada día. Hacer solo la versión mínima también cuenta para tu racha. |
-| `tutorial.temporizador` | Con el Temporizador mides tus sesiones de enfoque, y ese tiempo se suma a tus hábitos. |
-| `tutorial.coach` | Y aquí me encuentras a mí, en cualquier página. Pregúntame lo que quieras: reviso tus datos, te propongo cambios y también puedes enviarme fotos o archivos. |
-| `tutorial.seguimiento` | En Seguimiento están el Calendario, con todo tu historial, y la Revisión semanal, para ajustar lo que no funcionó. |
-| `tutorial.analisis` | En Análisis te muestro patrones: Insights con decisiones sugeridas, el Mapa de cómo se conectan tus hábitos y Experimentos para probar qué te funciona mejor. |
-| `tutorial.motivacion` | En Motivación tienes Retos de 30 días y Recompensas, donde cambias tus monedas por premios que eliges tú. |
-| `tutorial.comunidad` | En Comunidad compites en ligas, ves tus logros y sigues a tus amigos. Solo se publican tus cifras, nunca tus notas. |
-| `tutorial.perfil` | Desde tu foto entras a tu perfil y a Ajustes, donde configuras mi voz, tus recordatorios y el tema de la app. |
-| `tutorial.final` | ¡Eso es todo! Ya conoces la app. Recuerda: lo importante es la constancia, no la perfección. ¡Vamos con todo! |
 | `ajustes.prueba_voz` | ¡Hola! Soy Pila, tu entrenadora. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy! |
 | `saludo.apertura.1` | ¡Hola! Qué bueno verte por aquí. |
 | `saludo.apertura.2` | ¡Hey! Aquí estoy, con ganas de ayudarte. |
@@ -456,4 +428,4 @@ frases y existe su audio en `public/coach-voice/`, la app la reproduce aunque no
 | `general.cierre.2` | No se trata de hacerlo perfecto cada día, sino de no fallar dos días seguidos. |
 | `general.cierre.3` | Si me cuentas qué te preocupa, te respondo con más precisión: racha, tiempo, motivación, estudio o ejercicio. |
 
-Total: 204 frases por voz (5 cambian entre Pilo y Pila).
+Total: 190 frases por voz (4 cambian entre Pilo y Pila).

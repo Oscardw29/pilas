@@ -61,7 +61,6 @@
 .tour-card-titles { flex: 1; min-width: 0; padding-bottom: 2px; }
 .tour-step-count { display: block; font-size: 11.5px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
 .tour-title { font-size: 17px; font-weight: 800; line-height: 1.2; color: var(--text-strong, var(--text)); margin: 0; }
-.tour-mute.muted { color: var(--muted); }
 .tour-text { margin: 10px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
 .tour-note { margin: 6px 0 0; font-size: 12.5px; color: var(--accent); font-weight: 600; }
 

@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Volume2, VolumeX, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useSocial } from '@/social/useSocial';
 import { CoachAvatar } from '@/components/coach/CoachAvatar';
 import { useCoachPersona } from '@/components/coach/coachPersona';
-import { useCoachMute } from '@/components/coach/useCoachMute';
-import { phraseText } from '@/lib/coachPhrases';
-import { speakCoach, stopCoachVoice, unlockCoachVoice, useCoachSpeaking } from '@/lib/coachVoice';
+import { stopCoachVoice } from '@/lib/coachVoice';
 import { playSound } from '@/lib/sound';
 import { useTour } from './tourStore';
 import { resolveTarget, tourSteps, type TourStep } from './tourSteps';
@@ -18,7 +16,7 @@ import './tour.css';
  * TUTORIAL GUIADO (primer uso)
  * El coach lleva a la persona por cada sección: oscurece toda la app menos lo que explica, que queda resaltado con un
  * borde. En el paso del primer hábito deja tocar el botón «Nuevo hábito» y espera a que se guarde. Se puede saltar en
- * cualquier momento (no vuelve a salir) y el creador lo puede repetir desde su panel.
+ * cualquier momento (no vuelve a salir) y el creador lo puede repetir desde su panel. Sin voz: el coach solo muestra el texto.
  */
 
 interface Box {
@@ -73,8 +71,6 @@ export const AppTour: React.FC = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const persona = useCoachPersona();
-  const { muted, toggleMute } = useCoachMute();
-  const speaking = useCoachSpeaking();
   const pending = useStore((s) => Boolean(s.settings.tutorialPending));
   const habitCount = useStore((s) => s.habits.length);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -84,7 +80,7 @@ export const AppTour: React.FC = () => {
   const steps = useMemo(() => tourSteps({ social, created }), [social, created]);
   const step: TourStep | undefined = active ? steps[Math.min(index, steps.length - 1)] : undefined;
   const isLast = index >= steps.length - 1;
-  const text = step ? phraseText(step.phrase, persona.gender) : '';
+  const text = !step ? '' : typeof step.text === 'function' ? step.text(persona.name) : step.text;
 
   /* ---------- Arranque automático tras la bienvenida del primer uso ---------- */
   useEffect(() => {
@@ -119,7 +115,6 @@ export const AppTour: React.FC = () => {
   );
 
   const next = useCallback(() => {
-    unlockCoachVoice();
     playSound.click();
     if (isLast) finish(true);
     else go(index + 1);
@@ -127,14 +122,13 @@ export const AppTour: React.FC = () => {
 
   const back = useCallback(() => {
     if (index === 0) return;
-    unlockCoachVoice();
     playSound.click();
     // Volver desde «¡Primer hábito listo!» salta el paso de crearlo (ya está hecho)
     const prev = steps[index - 1]?.createHabit && created ? index - 2 : index - 1;
     go(Math.max(0, prev));
   }, [created, go, index, steps]);
 
-  /* ---------- Al entrar en cada paso: ir a su sección y hablar ---------- */
+  /* ---------- Al entrar en cada paso: ir a su sección ---------- */
   const habitBase = useRef(habitCount);
   useEffect(() => {
     if (!step) return;
@@ -142,12 +136,13 @@ export const AppTour: React.FC = () => {
     // Los pasos sin nada que resaltar se ven con la página desde arriba
     else if (!step.targets) window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
     habitBase.current = useStore.getState().habits.length;
-    if (!useStore.getState().settings.coachMuted && text) void speakCoach(text, persona.gender);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step?.id]);
 
-  // Al cerrar, el coach deja de hablar
-  useEffect(() => () => stopCoachVoice({ fade: true }), []);
+  // El tutorial va en silencio: si el coach estaba hablando en otra parte, se calla al empezar
+  useEffect(() => {
+    if (active) stopCoachVoice({ fade: true });
+  }, [active]);
 
   /* ---------- Paso del primer hábito: avanza cuando se guarda ---------- */
   const advanceWhenFree = useRef(false);
@@ -298,7 +293,6 @@ export const AppTour: React.FC = () => {
               crop="bust"
               size={76}
               expression={step.id === 'created' || step.id === 'end' ? 'excited' : 'happy'}
-              talk={speaking}
               gesture={step.id === 'intro' ? 'wave' : step.id === 'created' || step.id === 'end' ? 'cheer' : 'explain'}
               gestureKey={index + 1}
               followPointer={false}
@@ -312,17 +306,6 @@ export const AppTour: React.FC = () => {
               {step.title}
             </h2>
           </div>
-          <button
-            type="button"
-            className={`icon-btn sm tour-mute${muted ? ' muted' : ''}`}
-            onClick={toggleMute}
-            aria-pressed={muted}
-            aria-label={muted ? `Activar la voz de ${persona.name}` : `Silenciar a ${persona.name}`}
-            title={muted ? 'Activar voz' : 'Silenciar'}
-            data-no-sound="true"
-          >
-            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-          </button>
           <button type="button" className="icon-btn sm" onClick={() => finish(false)} aria-label="Saltar el tutorial" title="Saltar el tutorial" data-no-sound="true">
             <X size={16} />
           </button>
