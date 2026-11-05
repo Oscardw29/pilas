@@ -62,6 +62,62 @@ describe('sincronización', () => {
     await syncOnce(b, remote);
     expect(await b.records.count()).toBe(1234);
   }, 30_000);
+
+  it('sin cambios nuevos no vuelve a bajar nada (solo repasa el último minuto una vez)', async () => {
+    const remote = memoryRemote();
+    let downloaded = 0;
+    const counting = { ...remote, pull: async (...args: Parameters<typeof remote.pull>) => {
+      const rows = await remote.pull(...args);
+      downloaded += rows.length;
+      return rows;
+    } };
+    const a = newDb();
+    const b = newDb();
+    await a.records.bulkPut(Array.from({ length: 300 }, (_, i) => rec(`logs:${i}`, { i }, T + 1000)));
+    await syncOnce(a, remote);
+
+    await syncOnce(b, counting);
+    expect(downloaded).toBe(300);
+    // El repaso del margen de seguridad vuelve a ver esas filas una vez…
+    downloaded = 0;
+    await syncOnce(b, counting);
+    expect(downloaded).toBe(300);
+    // …y a partir de ahí, sin cambios, cada sincronización baja 0 filas
+    for (let i = 0; i < 5; i++) {
+      downloaded = 0;
+      await syncOnce(b, counting);
+      expect(downloaded).toBe(0);
+    }
+
+    // Un cambio nuevo sí llega, y se repasa una sola vez
+    await a.records.put(rec('habits:h1', { id: 'h1', name: 'Leer' }, T + 5000));
+    await syncOnce(a, remote);
+    downloaded = 0;
+    expect((await syncOnce(b, counting)).applied).toBe(1);
+    downloaded = 0;
+    await syncOnce(b, counting);
+    // El repaso abarca el minuto anterior al cambio (aquí también las 300 de antes, subidas 1 s antes)
+    expect(downloaded).toBe(301);
+    downloaded = 0;
+    await syncOnce(b, counting);
+    expect(downloaded).toBe(0);
+    expect((await b.records.get('habits:h1'))?.value).toEqual({ id: 'h1', name: 'Leer' });
+  }, 30_000);
+
+  it('un registro que llega tarde dentro del margen no se pierde', async () => {
+    const remote = memoryRemote();
+    const a = newDb();
+    const b = newDb();
+    await a.records.put(rec('habits:h1', { id: 'h1' }, T + 1000));
+    await syncOnce(a, remote);
+    await syncOnce(b, remote);
+    // Escritura que terminó después de la descarga pero con una marca anterior a lo ya visto
+    const seenTs = remote.rows.get('habits:h1')!.server_updated_at;
+    const late = new Date(Date.parse(seenTs) - 30_000).toISOString();
+    remote.rows.set('habits:h2', { rid: 'habits:h2', body: { k: 'habits:h2', v: { id: 'h2' }, t: T + 2000 }, client_updated_at: new Date(T + 2000).toISOString(), deleted: false, server_updated_at: late } as never);
+    await syncOnce(b, remote);
+    expect((await b.records.get('habits:h2'))?.value).toEqual({ id: 'h2' });
+  });
 });
 
 describe('cuentas de antes (datos cifrados)', () => {

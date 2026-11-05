@@ -18,9 +18,14 @@ const PULL_PAGE = 500;
 /**
  * El cursor se retrasa un poco: una escritura que empezó antes en el servidor pero terminó después
  * de una descarga podría tener una marca anterior al cursor. Reaplicar registros no hace daño.
+ * Ese repaso se hace UNA sola vez: si la descarga siguiente no trae nada más nuevo que lo ya visto,
+ * el cursor salta a lo último visto. Si no, cada sincronización (cada 2 min con la app abierta)
+ * volvería a bajar todo lo del último minuto para siempre (tráfico de salida de Supabase).
  */
 const CURSOR_OVERLAP_MS = 60_000;
 const CURSOR_KEY = 'sync:cursor';
+/** Última fila descargada (la más nueva): marca exacta, sin el margen */
+const SEEN_KEY = 'sync:seen';
 /** Lápidas ya subidas que se pueden olvidar en local */
 const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -65,10 +70,11 @@ export async function pullRemote(
   legacy?: AccountKeys,
 ): Promise<{ applied: number; appliedKeys: string[]; unreadable: number }> {
   let cursor: PullCursor = (await metaGet<PullCursor>(db, CURSOR_KEY)) ?? { ts: null, rid: '' };
+  const seen = await metaGet<PullCursor>(db, SEEN_KEY);
   const appliedKeys: string[] = [];
   let applied = 0;
   let unreadable = 0;
-  let newest: string | null = null;
+  let last: PullCursor | null = null;
 
   for (;;) {
     const rows = await remote.pull(cursor, PULL_PAGE);
@@ -77,15 +83,22 @@ export async function pullRemote(
     applied += result.applied.length;
     appliedKeys.push(...result.applied);
     unreadable += result.unreadable;
-    const last = rows[rows.length - 1];
-    cursor = { ts: last.server_updated_at, rid: last.rid };
-    newest = last.server_updated_at;
+    const tail = rows[rows.length - 1];
+    cursor = { ts: tail.server_updated_at, rid: tail.rid };
+    last = cursor;
     if (rows.length < PULL_PAGE) break;
   }
 
-  if (newest) {
-    const safe = new Date(Date.parse(newest) - CURSOR_OVERLAP_MS).toISOString();
+  // Las filas llegan ordenadas: la última es la más nueva. Si es justo la ya vista, no hubo nada nuevo
+  const fresh = last && !(seen && last.ts === seen.ts && last.rid === seen.rid);
+  if (last && fresh) {
+    // Algo nuevo: se repasa el último minuto en la próxima descarga, una vez
+    const safe = new Date(Date.parse(last.ts!) - CURSOR_OVERLAP_MS).toISOString();
     await metaSet(db, CURSOR_KEY, { ts: safe, rid: '' } satisfies PullCursor);
+    await metaSet(db, SEEN_KEY, last);
+  } else if (seen) {
+    // Repaso hecho (o nada que bajar): la próxima descarga empieza justo después de lo último visto
+    await metaSet(db, CURSOR_KEY, seen);
   }
   return { applied, appliedKeys, unreadable };
 }
