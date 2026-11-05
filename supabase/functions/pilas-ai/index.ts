@@ -15,12 +15,17 @@ const LLM_TIMEOUT_MS = 40_000;
 const TTS_TIMEOUT_MS = 30_000;
 const STT_TIMEOUT_MS = 30_000;
 /** Topes de lo que acepta cada petición: el chat cabe de sobra y evita usar la función como una IA de propósito general */
-const MAX_BODY_CHARS = 2_500_000;
+const MAX_BODY_CHARS = 9_000_000;
 const MAX_SYSTEM_CHARS = 30_000;
 const MAX_PROMPT_CHARS = 8_000;
 const MAX_HISTORY_TURNS = 6;
 const MAX_TTS_CHARS = 700;
 const MAX_AUDIO_BASE64_CHARS = 2_000_000;
+/** Adjuntos del chat (fotos, PDF y archivos de texto): mismos topes que la app (src/lib/coachAttachments.ts) */
+const MAX_ATTACHMENTS = 4;
+const MAX_ATTACHMENTS_BASE64_CHARS = 7_500_000;
+const MAX_TEXT_ATTACHMENT_CHARS = 30_000;
+const ATTACHMENT_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
 
 /** Misma voz que la app con clave propia (src/lib/coachVoice.ts y src/data/coachVoiceConfig.json; lo comprueba tests/appAi.function.test.ts) */
 export const VOICES = {
@@ -70,16 +75,39 @@ interface ServiceConfig {
 
 type Turn = { role: 'user' | 'model'; text: string };
 
+/** Adjunto ya validado: archivo (base64) o texto */
+export type Attachment = { name: string; mime: string; data?: string; text?: string };
+
+/** Pregunta + archivos de texto en un solo texto (igual que promptWithTextFiles en la app) */
+function promptWithTexts(prompt: string, files: Attachment[]): string {
+  const texts = files.filter((a) => a.text !== undefined).map((a) => `Archivo adjunto «${a.name}»:\n"""\n${a.text}\n"""`);
+  return texts.length ? `${prompt}\n\n${texts.join('\n\n')}` : prompt;
+}
+
 /* ---------------- Proveedores ---------------- */
 
-async function complete(cfg: ServiceConfig, model: string, system: string, history: Turn[], prompt: string, temperature: number, f: typeof fetch): Promise<string> {
+async function complete(
+  cfg: ServiceConfig,
+  model: string,
+  system: string,
+  history: Turn[],
+  prompt: string,
+  temperature: number,
+  f: typeof fetch,
+  files: Attachment[] = [],
+): Promise<string> {
+  const binary = files.filter((a) => a.data && (cfg.provider !== 'groq' || a.mime !== 'application/pdf'));
+  const userText = promptWithTexts(prompt, files);
   if (cfg.provider === 'gemini') {
     const res = await f(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.api_key },
       body: JSON.stringify({
         systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-        contents: [...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })), { role: 'user', parts: [{ text: prompt }] }],
+        contents: [
+          ...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+          { role: 'user', parts: [{ text: userText }, ...binary.map((a) => ({ inlineData: { mimeType: a.mime, data: a.data } }))] },
+        ],
         generationConfig: { temperature },
       }),
       signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
@@ -105,7 +133,19 @@ async function complete(cfg: ServiceConfig, model: string, system: string, histo
       messages: [
         ...(system ? [{ role: 'system', content: system }] : []),
         ...history.map((t) => ({ role: t.role === 'model' ? 'assistant' : 'user', content: t.text })),
-        { role: 'user', content: prompt },
+        {
+          role: 'user',
+          content: binary.length
+            ? [
+                { type: 'text', text: userText },
+                ...binary.map((a) =>
+                  a.mime === 'application/pdf'
+                    ? { type: 'file', file: { filename: a.name, file_data: `data:${a.mime};base64,${a.data}` } }
+                    : { type: 'image_url', image_url: { url: `data:${a.mime};base64,${a.data}` } },
+                ),
+              ]
+            : userText,
+        },
       ],
     }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
@@ -211,6 +251,31 @@ function readHistory(v: unknown): Turn[] {
     .map((t) => ({ role: t.role, text: str(t.text, MAX_PROMPT_CHARS) }));
 }
 
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** Adjuntos del chat. `null` si alguno no es válido o se pasan del tope (la petición se rechaza entera) */
+export function readAttachments(v: unknown): Attachment[] | null {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.length > MAX_ATTACHMENTS) return null;
+  let binaryChars = 0;
+  const out: Attachment[] = [];
+  for (const a of v) {
+    if (!a || typeof a !== 'object') return null;
+    const name = str(a.name, 120).replace(/[\r\n"]/g, ' ').trim() || 'archivo';
+    if (typeof a.text === 'string') {
+      out.push({ name, mime: 'text/plain', text: a.text.slice(0, MAX_TEXT_ATTACHMENT_CHARS) });
+      continue;
+    }
+    const mime = typeof a.mime === 'string' ? a.mime : '';
+    const data = typeof a.data === 'string' ? a.data : '';
+    if (!ATTACHMENT_MIMES.includes(mime) || !data || !BASE64.test(data)) return null;
+    binaryChars += data.length;
+    if (binaryChars > MAX_ATTACHMENTS_BASE64_CHARS) return null;
+    out.push({ name, mime, data });
+  }
+  return out;
+}
+
 export async function handle(req: Request, env: { url: string; serviceKey: string }, f: typeof fetch = fetch): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
@@ -238,6 +303,8 @@ export async function handle(req: Request, env: { url: string; serviceKey: strin
   const text = str(body.text, MAX_TTS_CHARS).trim();
   const audio = str(body.audio, MAX_AUDIO_BASE64_CHARS + 1);
   if (service === 'llm' && !prompt) return json({ error: 'bad_request' }, 400);
+  const files = service === 'llm' ? readAttachments(body.attachments) : [];
+  if (!files) return json({ error: 'bad_request' }, 400);
   if (service === 'tts' && !text) return json({ error: 'bad_request' }, 400);
   if (service === 'stt' && (!audio || audio.length > MAX_AUDIO_BASE64_CHARS)) return json({ error: 'bad_request' }, 400);
 
@@ -261,11 +328,11 @@ export async function handle(req: Request, env: { url: string; serviceKey: strin
       const temperature = Math.min(1, Math.max(0, Number(body.temperature ?? 0.7) || 0));
       const primary = grant.model || DEFAULT_MODELS[grant.provider];
       try {
-        return json({ text: await complete(grant, primary, system, history, prompt, temperature, f) });
+        return json({ text: await complete(grant, primary, system, history, prompt, temperature, f, files) });
       } catch (err) {
         const backup = grant.backup_model;
         if (!backup || backup === primary) throw err;
-        return json({ text: await complete(grant, backup, system, history, prompt, temperature, f), backup: true });
+        return json({ text: await complete(grant, backup, system, history, prompt, temperature, f, files), backup: true });
       }
     }
     if (service === 'tts') {

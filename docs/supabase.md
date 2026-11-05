@@ -186,6 +186,11 @@ Si **Probar** dice que no hay respuesta de la función, revisa el nombre (`pilas
 incluye 500 000 ejecuciones de funciones al mes; lo que cobre el proveedor de IA corre por tu cuenta, por eso el límite diario.
 El mensaje de cada persona pasa por la función hacia el proveedor y no se guarda en ningún sitio.
 
+**Adjuntos del coach** (fotos, PDF y archivos de texto): la función los acepta desde la versión que incluye
+`readAttachments`. Si la desplegaste antes, vuelve a pegar el archivo completo en la función `pilas-ai` → **Deploy**. Con un
+modelo que no ve imágenes (p. ej. Llama de Groq) la petición falla y el coach responde con el motor local; Groq tampoco lee PDF
+(se le envía el resto). Los adjuntos cuentan como un uso normal del límite diario.
+
 Pruebas: `tests/appAi.sql.test.ts` (la clave no se puede leer desde la app y el límite se cumple),
 `tests/appAi.function.test.ts` y `tests/appAi.client.test.ts`.
 

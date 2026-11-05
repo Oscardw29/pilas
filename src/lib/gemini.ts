@@ -10,6 +10,7 @@ import { appAiComplete, appAiInfo, AppAiError, hasOwnAiKey } from './appAi';
 import { voiceTagsEnabled } from './coachVoice';
 import { VOICE_TAGS_PROMPT } from './voiceTags';
 import { localCoachReply } from './coachLocal';
+import { geminiUserParts, openAiUserContent, type CoachAttachment } from './coachAttachments';
 
 /** Tiempo máximo para listar modelos */
 const MODELS_TIMEOUT_MS = 15_000;
@@ -285,7 +286,8 @@ async function requestCompletion(
   systemInstruction: string | undefined,
   history: ChatTurn[],
   userPrompt: string,
-  temperature = 0.7
+  temperature = 0.7,
+  attachments: readonly CoachAttachment[] = []
 ): Promise<string> {
   const trimmedKey = apiKey.trim();
 
@@ -293,7 +295,7 @@ async function requestCompletion(
     const ai = new GoogleGenAI({ apiKey: trimmedKey });
     const contents = [
       ...history.slice(-6).map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-      { role: 'user', parts: [{ text: userPrompt }] },
+      { role: 'user', parts: geminiUserParts(userPrompt, attachments) },
     ];
     const run = async (model: string) => {
       const response = await ai.models.generateContent({
@@ -318,7 +320,7 @@ async function requestCompletion(
   const messages = [
     ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
     ...history.slice(-6).map((m) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
-    { role: 'user', content: userPrompt },
+    { role: 'user', content: openAiUserContent(userPrompt, attachments) },
   ];
 
   const res = await fetch(OPENAI_COMPATIBLE_ENDPOINTS[platform], {
@@ -372,7 +374,8 @@ function resolveModels(data: AppData) {
 export async function generateHabitAdvice(
   data: AppData,
   userPrompt: string,
-  history: ChatTurn[] = []
+  history: ChatTurn[] = [],
+  attachments: readonly CoachAttachment[] = []
 ): Promise<string> {
   const apiKey = getSecrets().geminiApiKey.trim();
   const { platform, primaryModel, backupModel } = resolveModels(data);
@@ -383,13 +386,21 @@ export async function generateHabitAdvice(
 
   if (!hasGeminiKey(apiKey)) {
     // Sin clave propia: la IA de la app, si el creador la dejó puesta; sin ninguna de las dos, motor analítico local
-    if (appAiInfo('llm')) return adviceFromAppAi(data, systemInstruction, userPrompt, history);
-    return generateLocalHabitAdvice(data, userPrompt);
+    if (appAiInfo('llm')) return adviceFromAppAi(data, systemInstruction, userPrompt, history, attachments);
+    return withLocalAttachmentNote(generateLocalHabitAdvice(data, userPrompt), attachments);
   }
+
+  // Groq no lee PDF: se envía el resto y se avisa
+  const skipped = platform === 'groq' ? attachments.filter((a) => a.kind === 'pdf') : [];
+  const sendable = skipped.length ? attachments.filter((a) => !skipped.includes(a)) : attachments;
+  const skippedNote = skipped.length
+    ? `\n\n*(⚠️ Nota: Groq no puede leer PDF, así que no vi ${skipped.map((a) => `«${a.name}»`).join(', ')}. Con Gemini, OpenAI u OpenRouter sí puedo leerlos).*`
+    : '';
+  const ask = (model: string) => requestCompletion(platform, apiKey, model, systemInstruction, history, userPrompt, 0.7, sendable);
 
   // 1. INTENTAR CON EL MODELO PRINCIPAL
   try {
-    return await requestCompletion(platform, apiKey, primaryModel, systemInstruction, history, userPrompt);
+    return (await ask(primaryModel)) + skippedNote;
   } catch (primaryErr: unknown) {
     const primaryMsg = describeError(primaryErr);
     console.warn(`[AI Coach] Falló modelo principal "${primaryModel}": ${primaryMsg}. Probando modelo de respaldo "${backupModel}"...`);
@@ -397,33 +408,45 @@ export async function generateHabitAdvice(
     // 2. CONMUTAR AL MODELO DE RESPALDO SI EL PRIMERO FALLA
     if (backupModel && backupModel !== primaryModel) {
       try {
-        const backupResponse = await requestCompletion(platform, apiKey, backupModel, systemInstruction, history, userPrompt);
-        return `${backupResponse}\n\n*(⚡ Nota: El modelo principal «${primaryModel}» no respondió. Se utilizó automáticamente el modelo de respaldo «${backupModel}»).*`;
+        const backupResponse = await ask(backupModel);
+        return `${backupResponse}${skippedNote}\n\n*(⚡ Nota: El modelo principal «${primaryModel}» no respondió. Se utilizó automáticamente el modelo de respaldo «${backupModel}»).*`;
       } catch (backupErr: unknown) {
         const backupMsg = describeError(backupErr);
         console.warn(`[AI Coach] Modelo de respaldo "${backupModel}" también falló: ${backupMsg}`);
-        const fallback = generateLocalHabitAdvice(data, userPrompt);
+        const fallback = withLocalAttachmentNote(generateLocalHabitAdvice(data, userPrompt), attachments);
         return `${fallback}\n\n*(⚠️ Nota: Falló el modelo principal «${primaryModel}» [${primaryMsg}] y el de respaldo «${backupModel}» [${backupMsg}]. Se activó el motor analítico local).*`;
       }
     }
 
-    const fallback = generateLocalHabitAdvice(data, userPrompt);
+    const fallback = withLocalAttachmentNote(generateLocalHabitAdvice(data, userPrompt), attachments);
     return `${fallback}\n\n*(⚠️ Nota: El modelo «${primaryModel}» falló [${primaryMsg}]. Se activó el motor analítico local).*`;
   }
 }
 
 /** Respuesta con la IA de la app. Si no responde o se acabó el cupo del día, contesta el motor local y lo dice */
-async function adviceFromAppAi(data: AppData, systemInstruction: string, userPrompt: string, history: ChatTurn[]): Promise<string> {
+async function adviceFromAppAi(
+  data: AppData,
+  systemInstruction: string,
+  userPrompt: string,
+  history: ChatTurn[],
+  attachments: readonly CoachAttachment[],
+): Promise<string> {
   try {
-    return await appAiComplete(systemInstruction, history, userPrompt);
+    return await appAiComplete(systemInstruction, history, userPrompt, 0.7, attachments);
   } catch (err) {
     console.warn('[AI Coach] La IA de la app no respondió:', err);
     const note =
       err instanceof AppAiError && err.kind === 'quota'
         ? 'Llegaste al límite diario de la IA de la app: mañana se renueva. Si quieres seguir hoy, puedes añadir tu propia clave en Ajustes.'
         : 'La IA de la app no respondió ahora mismo.';
-    return `${generateLocalHabitAdvice(data, userPrompt)}\n\n*(⚠️ Nota: ${note} Te respondí con el motor local).*`;
+    return `${withLocalAttachmentNote(generateLocalHabitAdvice(data, userPrompt), attachments)}\n\n*(⚠️ Nota: ${note} Te respondí con el motor local).*`;
   }
+}
+
+/** El motor local no puede abrir archivos: lo dice para que no parezca que los ignoró */
+function withLocalAttachmentNote(reply: string, attachments: readonly CoachAttachment[]): string {
+  if (!attachments.length) return reply;
+  return `${reply}\n\n*(📎 Nota: sin IA no puedo ver lo que adjuntaste. Con una clave de IA en Ajustes, o con la IA de la app, puedo leer imágenes, PDF y archivos de texto).*`;
 }
 
 function describeError(err: unknown): string {

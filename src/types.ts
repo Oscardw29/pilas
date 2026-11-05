@@ -422,6 +422,8 @@ export interface Settings {
    * borra lo publicado en el servidor y lo recalcula con los datos nuevos (ver social/runtime.ts)
    */
   dataResetAt?: string;
+  /** Falta ver el tutorial guiado del primer uso (se marca al terminar la bienvenida y se quita al acabarlo o saltarlo) */
+  tutorialPending?: boolean;
   /** Tema de la interfaz. Sin valor = claro */
   theme?: 'light' | 'dark';
   /** Fracción del valor/puntos que vale el mínimo (0.4 = 40%) */
