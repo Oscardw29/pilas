@@ -231,6 +231,7 @@ export const WeekView: React.FC = () => {
         <div className="actions">
           <button
             className="btn btn-primary"
+            data-tour="new-habit"
             onClick={() => {
               setEditingHabit(undefined);
               setShowHabitModal(true);

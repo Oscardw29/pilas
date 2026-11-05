@@ -252,3 +252,54 @@
   /* Tira compacta sin placa violeta: las barras de voz pasan del amarillo pálido al ámbar del rayo */
   :where(:root:not([data-theme="dark"])) .coach-voice-bars i { background: #d97706; }
 }
+
+/* =====================================================================
+   ADJUNTOS DEL CHAT (CoachAttachments.tsx): clip, fila de lo que se va a enviar y adjuntos en cada mensaje
+   ===================================================================== */
+.coach-attach-btn { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; color: var(--text-2); }
+.coach-attach-btn:hover:not(:disabled) { color: var(--accent); }
+.coach-attach-btn.sm { width: 36px; height: 36px; align-self: flex-end; margin-bottom: 2px; }
+.coach-mobile .chat-input-bar:has(.coach-attach-btn) { padding-left: 5px !important; }
+.coach-mobile .coach-attach-btn { width: 44px; height: 44px; border-radius: 50%; }
+
+.coach-att-draft { list-style: none; margin: 8px 0 0; padding: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
+.coach-float-panel .coach-att-draft { margin: 0; padding: 8px 12px 0; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.coach-float-panel .coach-att-draft + .coach-float-input { border-top: 0; }
+.coach-att-chip {
+  position: relative; flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+  max-width: 220px; padding: 5px 30px 5px 5px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  animation: fadeIn .18s ease both;
+}
+.coach-att-chip.is-loading { padding-right: 12px; color: var(--text-2); }
+.coach-att-chip.is-loading svg { margin-left: 6px; }
+.coach-att-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.coach-att-name { font-size: 12.5px; font-weight: 600; color: var(--text); min-width: 0; }
+.coach-att-size { font-size: 11px; color: var(--muted); }
+.coach-att-remove {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 50%; color: var(--text-2); background: transparent;
+}
+.coach-att-remove:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.coach-att-thumb { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 8px; background: var(--well); }
+.coach-att-file {
+  width: 40px; height: 40px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border-radius: 8px; background: var(--accent-soft); color: var(--accent);
+}
+.coach-att-ext { font-size: 8.5px; font-weight: 800; letter-spacing: .04em; }
+
+/* En el mensaje enviado (sobre la burbuja violeta del usuario) */
+.coach-att-list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; justify-content: flex-end; }
+.coach-att-list:last-child { margin-bottom: 0; }
+.coach-att-item { display: flex; align-items: center; gap: 8px; max-width: 220px; padding: 4px 10px 4px 4px; border-radius: 10px; background: rgba(255, 255, 255, .16); }
+.coach-att-item .coach-att-name { color: #fff; }
+.coach-att-item .coach-att-file { background: rgba(255, 255, 255, .22); color: #fff; width: 34px; height: 34px; }
+.coach-att-item.is-image { padding: 0; background: none; }
+.coach-att-item.is-image .coach-att-thumb { width: 120px; height: 120px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .35); }
+
+/* Soltar archivos encima del chat */
+.coach-drop-hint {
+  position: absolute; inset: 6px; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 2px dashed var(--accent); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg)); color: var(--accent); font-weight: 700; pointer-events: none;
+}

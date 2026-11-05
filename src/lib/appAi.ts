@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useSecrets } from '@/store/useSecrets';
 import { isSupabaseConfigured, supabase } from '@/sync/supabase';
+import type { CoachAttachment } from './coachAttachments';
 
 /**
  * IA DE LA APP
@@ -119,8 +120,18 @@ async function call(body: Record<string, unknown>, timeoutMs: number): Promise<R
 export type AppAiTurn = { role: 'user' | 'model'; text: string };
 
 /** Respuesta del modelo de la app (con su modelo de respaldo, si lo tiene) */
-export async function appAiComplete(system: string | undefined, history: AppAiTurn[], prompt: string, temperature = 0.7): Promise<string> {
-  const res = await call({ service: 'llm', system, history: history.slice(-6), prompt, temperature }, LLM_TIMEOUT_MS);
+export async function appAiComplete(
+  system: string | undefined,
+  history: AppAiTurn[],
+  prompt: string,
+  temperature = 0.7,
+  attachments: readonly CoachAttachment[] = [],
+): Promise<string> {
+  const files = attachments.map(({ name, mime, kind, data, text }) => ({ name, mime, kind, ...(data ? { data } : {}), ...(text ? { text } : {}) }));
+  const res = await call(
+    { service: 'llm', system, history: history.slice(-6), prompt, temperature, ...(files.length ? { attachments: files } : {}) },
+    LLM_TIMEOUT_MS,
+  );
   const { text } = (await res.json()) as { text?: string };
   if (!text) throw new AppAiError('provider');
   return text;

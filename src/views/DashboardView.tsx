@@ -507,7 +507,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Banner motivacional */}
-      <div className="card highlight dash-hero" style={{ position: 'relative' }}>
+      <div className="card highlight dash-hero" style={{ position: 'relative' }} data-tour="home-hero">
         {data.habits.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

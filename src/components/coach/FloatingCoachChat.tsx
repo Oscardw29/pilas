@@ -14,6 +14,16 @@ import { CoachTeaser } from './CoachTeaser';
 import { LocalModeNotice } from './LocalModeNotice';
 import { useCoachPersona } from './coachPersona';
 import { useCoachMute } from './useCoachMute';
+import { AttachButton, AttachmentDraftRow, DropHint, MessageAttachments, useAttachmentDraft } from './CoachAttachments';
+import { useTour } from '@/components/tour/tourStore';
+import {
+  DEFAULT_ATTACHMENT_PROMPT,
+  attachmentsNote,
+  rememberAttachments,
+  titleSeed,
+  toStored,
+  type StoredAttachment,
+} from '@/lib/coachAttachments';
 
 /** Mismo formato de mensaje que la página del coach: ambas comparten la conversación activa */
 interface ChatMessage {
@@ -22,6 +32,7 @@ interface ChatMessage {
   content: string;
   timestamp: string;
   actionStatus?: 'applied' | 'dismissed';
+  attachments?: StoredAttachment[];
   [extra: string]: unknown;
 }
 
@@ -61,6 +72,9 @@ export const FloatingCoachChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState('');
+  const draft = useAttachmentDraft();
+  // Durante el tutorial el aviso del coach no aparece (el tutorial ya habla por él)
+  const tourActive = useTour((s) => s.active);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -188,9 +202,10 @@ export const FloatingCoachChat: React.FC = () => {
   const readMessages = (convId: string): ChatMessage[] =>
     ((useStore.getState().conversations?.find((c) => c.id === convId)?.messages as ChatMessage[] | undefined) ?? []);
 
-  const handleSend = async (text?: string) => {
+  const handleSend = async (text?: string, opts: { withDraft?: boolean } = {}) => {
     const content = (text ?? input).trim();
-    if (!content || loading) return;
+    const files = opts.withDraft === false ? [] : draft.items;
+    if ((!content && !files.length) || loading || draft.busy) return;
     stopCoachVoice({ fade: true });
     unlockCoachVoice();
     const convId = ensureConversation();
@@ -203,7 +218,11 @@ export const FloatingCoachChat: React.FC = () => {
       timestamp: nowTime(),
       versions: [{ text: content, subsequentMessages: [] }],
       activeVersionIndex: 0,
+      ...(files.length ? { attachments: files.map(toStored) } : {}),
     };
+    rememberAttachments(userMsg.id, files);
+    if (files.length) draft.clear();
+    const prompt = content || DEFAULT_ATTACHMENT_PROMPT;
     const next = [...prior, userMsg];
     setConversationMessages(convId, next);
     setInput('');
@@ -214,7 +233,7 @@ export const FloatingCoachChat: React.FC = () => {
     const conv = useStore.getState().conversations?.find((c) => c.id === convId);
     if (!conv || DEFAULT_TITLES.includes(conv.title)) {
       loadAi()
-        .then(({ generateTopicTitle }) => generateTopicTitle(content, currentData()))
+        .then(({ generateTopicTitle }) => generateTopicTitle(content || titleSeed(files) || prompt, currentData()))
         .then((title) => title?.trim() && renameConversation(convId, title.trim()))
         .catch(() => {
           /* el título es opcional */
@@ -224,10 +243,10 @@ export const FloatingCoachChat: React.FC = () => {
     try {
       const history = next.slice(-6).map((m) => ({
         role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
-        text: m.content,
+        text: m.content + attachmentsNote(m.attachments),
       }));
       const { generateHabitAdvice } = await loadAi();
-      const response = await generateHabitAdvice(currentData(), content, history);
+      const response = await generateHabitAdvice(currentData(), prompt, history, files);
       const botMsg: ChatMessage = { id: `bot-${Date.now()}`, sender: 'assistant', content: response, timestamp: nowTime() };
       setConversationMessages(convId, [...readMessages(convId), botMsg]);
       playSound.messageIn();
@@ -255,7 +274,7 @@ export const FloatingCoachChat: React.FC = () => {
   /** Lo elegido en la propuesta se envía como mensaje y el coach contesta (si no está ya respondiendo) */
   const reportActionChoice = (msgId: string, action: ParsedAction, actionStatus: 'applied' | 'dismissed') => {
     setActionStatus(msgId, actionStatus);
-    if (!loading) void handleSend(coachChoiceMessage(action, actionStatus));
+    if (!loading) void handleSend(coachChoiceMessage(action, actionStatus), { withDraft: false });
   };
 
   const handleExecuteAction = (msgId: string, action: ParsedAction) => {
@@ -289,7 +308,9 @@ export const FloatingCoachChat: React.FC = () => {
           className="coach-float-panel"
           role="dialog"
           aria-label={`Chat con ${persona.name}`}
+          {...draft.dropProps}
         >
+          <DropHint show={draft.dragging} />
           <header className="coach-float-head">
             <span className="coach-float-avatar has-face" aria-hidden="true">
               <CoachAvatar gender={persona.gender} crop="head" size={34} expression={loading ? 'thinking' : 'neutral'} talk followPointer={false} />
@@ -334,7 +355,8 @@ export const FloatingCoachChat: React.FC = () => {
               return (
                 <div key={m.id} className={`coach-float-msg ${m.sender}`}>
                   <div className={`chat-bubble ${m.sender}`}>
-                    <MarkdownMessage content={parsed.text} />
+                    {isUser && <MessageAttachments items={m.attachments} />}
+                    {parsed.text && <MarkdownMessage content={parsed.text} />}
                     {parsed.action && (
                       <ActionConfirmationCard
                         action={parsed.action}
@@ -373,6 +395,7 @@ export const FloatingCoachChat: React.FC = () => {
             <LocalModeNotice />
           </div>
 
+          <AttachmentDraftRow items={draft.items} busy={draft.busy} onRemove={draft.remove} />
           <form
             className="coach-float-input"
             onSubmit={(e) => {
@@ -380,13 +403,15 @@ export const FloatingCoachChat: React.FC = () => {
               void handleSend();
             }}
           >
+            <AttachButton onFiles={(f) => void draft.addFiles(f)} disabled={loading} className="sm" />
             <textarea
               ref={inputRef}
               className="input"
               rows={1}
-              placeholder={`Escríbele a ${persona.name}…`}
+              placeholder={draft.items.length ? 'Añade un comentario (opcional)…' : `Escríbele a ${persona.name}…`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={draft.onPaste}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -395,14 +420,14 @@ export const FloatingCoachChat: React.FC = () => {
               }}
               aria-label={`Mensaje para ${persona.name}`}
             />
-            <button type="submit" className="btn btn-primary coach-float-send" disabled={!input.trim() || loading} aria-label="Enviar" data-no-sound="true">
+            <button type="submit" className="btn btn-primary coach-float-send" disabled={(!input.trim() && !draft.items.length) || draft.busy || loading} aria-label="Enviar" data-no-sound="true">
               <Send size={16} />
             </button>
           </form>
         </div>
       )}
 
-      <CoachTeaser blocked={open} tucked={tucked} onUntuck={untuck} onOpen={openFromTeaser} />
+      <CoachTeaser blocked={open || tourActive}tucked={tucked} onUntuck={untuck} onOpen={openFromTeaser} />
 
       <button
         type="button"

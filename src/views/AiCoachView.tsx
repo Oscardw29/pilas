@@ -10,6 +10,17 @@ import { ActionConfirmationCard } from '../components/coach/ActionConfirmationCa
 import { extractActionAndText } from '../components/coach/extractAction';
 import { stripVoiceTags } from '../lib/voiceTags';
 import {
+  DEFAULT_ATTACHMENT_PROMPT,
+  attachmentsNote,
+  recallAttachments,
+  rememberAttachments,
+  titleSeed,
+  toStored,
+  type CoachAttachment,
+  type StoredAttachment,
+} from '../lib/coachAttachments';
+import { AttachButton, AttachmentDraftRow, DropHint, MessageAttachments, useAttachmentDraft } from '../components/coach/CoachAttachments';
+import {
   Send,
   Sparkles,
   Trash2,
@@ -58,7 +69,15 @@ interface ChatMessage {
   activeVersionIndex?: number;
   /** Estado de la acción sugerida en este mensaje (se guarda con la conversación) */
   actionStatus?: 'applied' | 'dismissed';
+  /** Imágenes y archivos que envió el usuario (solo nombre, tipo y miniatura: el contenido no se guarda) */
+  attachments?: StoredAttachment[];
 }
+
+/** Turno del historial que recibe la IA: los adjuntos de mensajes anteriores se mencionan por su nombre */
+const toTurn = (m: ChatMessage) => ({
+  role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
+  text: m.content + attachmentsNote(m.attachments),
+});
 
 const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -189,6 +208,7 @@ export const AiCoachView: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const draft = useAttachmentDraft();
   /** Respuesta que se está regenerando: espera dentro de su propia burbuja */
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
@@ -396,7 +416,9 @@ export const AiCoachView: React.FC = () => {
    */
   const handleSend = async (messageText?: string, opts: { base?: ChatMessage[]; force?: boolean } = {}) => {
     const textToSend = messageText || input;
-    if (!textToSend.trim() || (loading && !opts.force)) return;
+    // Los adjuntos van con lo que escribe el usuario (no con la respuesta automática a una propuesta)
+    const files: CoachAttachment[] = opts.base ? [] : draft.items;
+    if ((!textToSend.trim() && !files.length) || draft.busy || (loading && !opts.force)) return;
     finishStream();
     stopCoachVoice({ fade: true });
     unlockCoachVoice();
@@ -414,7 +436,11 @@ export const AiCoachView: React.FC = () => {
         },
       ],
       activeVersionIndex: 0,
+      ...(files.length ? { attachments: files.map(toStored) } : {}),
     };
+    rememberAttachments(userMsg.id, files);
+    if (files.length) draft.clear();
+    const prompt = textToSend.trim() || DEFAULT_ATTACHMENT_PROMPT;
 
     const nextMessages = [...(opts.base ?? messages), userMsg];
     setMessages(nextMessages);
@@ -430,7 +456,7 @@ export const AiCoachView: React.FC = () => {
         currentConv.title === 'Chat sin título';
 
       if (isDefaultTitle) {
-        generateTopicTitle(textToSend, currentData())
+        generateTopicTitle(textToSend.trim() || titleSeed(files) || prompt, currentData())
           .then((smartTitle) => {
             if (smartTitle && smartTitle.trim()) {
               renameConversation(activeConversationId, smartTitle.trim());
@@ -446,10 +472,7 @@ export const AiCoachView: React.FC = () => {
     playSound.click();
 
     try {
-      const chatHistory = nextMessages.slice(-6).map((m) => ({
-        role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
-        text: m.content,
-      }));
+      const chatHistory = nextMessages.slice(-6).map(toTurn);
 
       const botId = `bot-${Date.now()}`;
       const placeholderBotMsg: ChatMessage = {
@@ -461,7 +484,7 @@ export const AiCoachView: React.FC = () => {
 
       setMessages([...nextMessages, placeholderBotMsg]);
 
-      const response = await generateHabitAdvice(currentData(), textToSend.trim(), chatHistory);
+      const response = await generateHabitAdvice(currentData(), prompt, chatHistory, files);
       // `loading` sigue activo hasta que termina la animación: evita enviar otro mensaje encima
       deliverBotResponse(convId, botId, response, () => setLoading(false));
     } catch (error: any) {
@@ -555,12 +578,13 @@ export const AiCoachView: React.FC = () => {
     playSound.click();
 
     try {
-      const priorHistory = messages.slice(0, botIdx - 1).slice(-4).map((m) => ({
-        role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
-        text: m.content,
-      }));
+      const priorHistory = messages.slice(0, botIdx - 1).slice(-4).map(toTurn);
+      const files = recallAttachments(userMsg.id);
+      if (userMsg.attachments?.length && !files.length) {
+        toast('Los adjuntos de ese mensaje ya no están en memoria', 'info', 'Respondo solo con el texto. Vuelve a adjuntarlos si quieres que los revise otra vez.');
+      }
 
-      const newResponse = await generateHabitAdvice(currentData(), userMsg.content, priorHistory);
+      const newResponse = await generateHabitAdvice(currentData(), userMsg.content || DEFAULT_ATTACHMENT_PROMPT, priorHistory, files);
       // Misma burbuja (mismo id); sin estado de acción: la propuesta nueva, si la hay, está pendiente
       setMessages((prev) =>
         prev.map((m) => (m.id === botMsgId ? { id: botMsgId, sender: 'assistant', content: '', timestamp: nowTime() } : m))
@@ -649,10 +673,7 @@ export const AiCoachView: React.FC = () => {
     playSound.click();
 
     try {
-      const priorHistory = nextBase.slice(0, userIdx).slice(-4).map((m) => ({
-        role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
-        text: m.content,
-      }));
+      const priorHistory = nextBase.slice(0, userIdx).slice(-4).map(toTurn);
 
       const botId = `bot-${Date.now()}`;
       const placeholderBotMsg: ChatMessage = {
@@ -664,7 +685,7 @@ export const AiCoachView: React.FC = () => {
 
       setMessages([...nextBase, placeholderBotMsg]);
 
-      const response = await generateHabitAdvice(currentData(), newText, priorHistory);
+      const response = await generateHabitAdvice(currentData(), newText, priorHistory, recallAttachments(msgId));
       deliverBotResponse(convId, botId, response, () => setLoading(false));
       toast('Mensaje editado y nueva versión creada', 'success');
     } catch (error: any) {
@@ -909,7 +930,8 @@ export const AiCoachView: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <MarkdownMessage content={parsed.text} />
+                        {isUser && <MessageAttachments items={m.attachments} />}
+                        {parsed.text && <MarkdownMessage content={parsed.text} />}
                         {parsed.action && (
                           <div style={{ marginTop: 10 }}>
                             <ActionConfirmationCard
@@ -1052,6 +1074,9 @@ export const AiCoachView: React.FC = () => {
   );
   const inputForm = (
     <>
+          {/* Lo que se adjuntará al próximo mensaje */}
+          <AttachmentDraftRow items={draft.items} busy={draft.busy} onRemove={draft.remove} />
+
           {/* Input de chat */}
           <form
             className="chat-input-bar"
@@ -1061,12 +1086,20 @@ export const AiCoachView: React.FC = () => {
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}
           >
+            <AttachButton onFiles={(f) => void draft.addFiles(f)} disabled={loading} />
             <input
               type="text"
               className="input chat-input grow"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isPhone ? `Pregúntale a ${persona.name}…` : 'Pregunta sobre tus hábitos, tu racha o cómo organizar tu día...'}
+              onPaste={draft.onPaste}
+              placeholder={
+                draft.items.length
+                  ? 'Añade un comentario (opcional)…'
+                  : isPhone
+                    ? `Pregúntale a ${persona.name}…`
+                    : 'Pregunta sobre tus hábitos, tu racha o cómo organizar tu día...'
+              }
               disabled={loading}
             />
 
@@ -1074,7 +1107,7 @@ export const AiCoachView: React.FC = () => {
             <button
               type="submit"
               className="btn btn-primary chat-send-btn"
-              disabled={!input.trim() || loading}
+              disabled={(!input.trim() && !draft.items.length) || draft.busy || loading}
               aria-label="Enviar"
             >
               <Send size={16} /> <span className="chat-send-label">Enviar</span>
@@ -1087,9 +1120,9 @@ export const AiCoachView: React.FC = () => {
           {/* Privacidad: el coach necesita contexto, pero el usuario debe saber qué sale del dispositivo */}
           <p className="faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.45 }}>
             {ownKey
-              ? 'Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA que elegiste en Ajustes, con tu propia clave.'
+              ? 'Para responder, tus mensajes, lo que adjuntes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA que elegiste en Ajustes, con tu propia clave.'
               : appLlm
-                ? 'Para responder, tus mensajes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA de la app. El servidor no los guarda.'
+                ? 'Para responder, tus mensajes, lo que adjuntes y un resumen de tus hábitos, objetivos y métricas (sin notas personales) se envían a la IA de la app. El servidor no los guarda.'
                 : 'Con el motor local tus mensajes se responden en este dispositivo: no se envían a ninguna IA.'}
           </p>
     </>
@@ -1293,7 +1326,8 @@ export const AiCoachView: React.FC = () => {
       setShowNewConvModal(true);
     };
     return (
-      <div className={`coach-mobile${isEmptyChat ? ' is-empty' : ''}`}>
+      <div className={`coach-mobile${isEmptyChat ? ' is-empty' : ''}`} {...draft.dropProps}>
+        <DropHint show={draft.dragging} />
         {/* Cabecera: conversaciones en un desplegable arriba a la izquierda; voz y nueva conversación a la derecha */}
         <header className="coach-m-head">
           <button
@@ -1453,7 +1487,8 @@ export const AiCoachView: React.FC = () => {
         </div>
 
         {/* CONTENEDOR DE CHAT PRINCIPAL A LA DERECHA */}
-        <div className="card chat-container" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="card chat-container" style={{ display: 'flex', flexDirection: 'column', position: 'relative' }} {...draft.dropProps}>
+          <DropHint show={draft.dragging} />
           <div className="chat-messages">
             {messageNodes}
           </div>

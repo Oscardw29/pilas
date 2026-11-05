@@ -138,6 +138,8 @@ export const WelcomeModal: React.FC = () => {
       ...(choice === 'own' && photo ? { avatarDataUrl: photo } : {}),
       // El alias llega al perfil público cuando se crea (si sigue libre)
       pendingAlias: alias || undefined,
+      // Al cerrar la bienvenida empieza el tutorial guiado (components/tour/AppTour.tsx)
+      tutorialPending: true,
     });
     useSession.getState().set({ firstRun: false });
     playSound.celebration();

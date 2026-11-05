@@ -4,6 +4,20 @@
   "phrases": [
     { "id": "bienvenida.pagina", "pilo": "¡Hola! Soy Pilo, tu entrenador de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy?", "pila": "¡Hola! Soy Pila, tu entrenadora de hábitos. Veo tus objetivos, tu constancia de los últimos 30 días y los motivos por los que a veces se cae un hábito. ¿En qué te ayudo hoy?" },
     { "id": "bienvenida.flotante", "pilo": "¡Hola! Soy Pilo. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página.", "pila": "¡Hola! Soy Pila. Pregúntame lo que quieras sobre tus hábitos, rachas u objetivos. Esta conversación es la misma que ves en mi página." },
+    { "id": "tutorial.intro", "pilo": "¡Hola! Soy Pilo y te voy a mostrar la app en un minuto. Te llevo por cada sección y de paso creamos tu primer hábito.", "pila": "¡Hola! Soy Pila y te voy a mostrar la app en un minuto. Te llevo por cada sección y de paso creamos tu primer hábito." },
+    { "id": "tutorial.inicio", "text": "Esto es Inicio. Cada día verás aquí lo que te toca, tu racha y los puntos que llevas." },
+    { "id": "tutorial.objetivos", "text": "En Objetivos defines para qué haces tus hábitos. Cada hábito suma a un objetivo y así ves cuánto avanzas." },
+    { "id": "tutorial.habitos", "text": "En Hábitos está tu semana, día por día. Marcas cada hábito como hecho, en su versión mínima o como día libre." },
+    { "id": "tutorial.crear", "text": "Vamos a crear tu primer hábito. Toca Nuevo hábito y elige algo pequeño, que puedas cumplir incluso en un mal día." },
+    { "id": "tutorial.creado", "text": "¡Muy bien, ya tienes tu primer hábito! Márcalo aquí cada día. Hacer solo la versión mínima también cuenta para tu racha." },
+    { "id": "tutorial.temporizador", "text": "Con el Temporizador mides tus sesiones de enfoque, y ese tiempo se suma a tus hábitos." },
+    { "id": "tutorial.coach", "text": "Y aquí me encuentras a mí, en cualquier página. Pregúntame lo que quieras: reviso tus datos, te propongo cambios y también puedes enviarme fotos o archivos." },
+    { "id": "tutorial.seguimiento", "text": "En Seguimiento están el Calendario, con todo tu historial, y la Revisión semanal, para ajustar lo que no funcionó." },
+    { "id": "tutorial.analisis", "text": "En Análisis te muestro patrones: Insights con decisiones sugeridas, el Mapa de cómo se conectan tus hábitos y Experimentos para probar qué te funciona mejor." },
+    { "id": "tutorial.motivacion", "text": "En Motivación tienes Retos de 30 días y Recompensas, donde cambias tus monedas por premios que eliges tú." },
+    { "id": "tutorial.comunidad", "text": "En Comunidad compites en ligas, ves tus logros y sigues a tus amigos. Solo se publican tus cifras, nunca tus notas." },
+    { "id": "tutorial.perfil", "text": "Desde tu foto entras a tu perfil y a Ajustes, donde configuras mi voz, tus recordatorios y el tema de la app." },
+    { "id": "tutorial.final", "text": "¡Eso es todo! Ya conoces la app. Recuerda: lo importante es la constancia, no la perfección. ¡Vamos con todo!" },
     { "id": "ajustes.prueba_voz", "pilo": "¡Hola! Soy Pilo, tu entrenador. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!", "pila": "¡Hola! Soy Pila, tu entrenadora. Así sonaré cuando te lea mis consejos. ¡Vamos con todo hoy!" },
 
 

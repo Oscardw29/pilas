@@ -1,0 +1,97 @@
+/* =====================================================================
+   TUTORIAL GUIADO (AppTour.tsx)
+   Todo se oscurece menos lo que explica el coach, que queda con un borde de color que late.
+   Por encima de los modales y avisos, por debajo de las celebraciones.
+   ===================================================================== */
+.tour-root {
+  --tour-dim: rgba(12, 10, 22, 0.66);
+  position: fixed; inset: 0; z-index: calc(var(--z-celebrate) - 50);
+  pointer-events: none;
+}
+:root[data-theme="dark"] .tour-root { --tour-dim: rgba(0, 0, 0, 0.72); }
+
+/* Bandas que oscurecen y bloquean los toques fuera de lo resaltado */
+.tour-block { position: fixed; pointer-events: auto; background: var(--tour-dim); }
+.tour-block.clear { background: transparent; }
+.tour-dim-full { inset: 0; animation: fadeIn .25s ease both; }
+
+/* Hueco resaltado */
+.tour-spot {
+  position: fixed; border-radius: 14px; pointer-events: none;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 28px 4px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: top .35s cubic-bezier(.4, 0, .2, 1), left .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1), height .35s cubic-bezier(.4, 0, .2, 1);
+}
+.tour-spot::after {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; border: 3px solid var(--accent);
+  animation: tourPulse 1.8s ease-out infinite;
+}
+.tour-spot.is-interactive { border-color: var(--success); }
+.tour-spot.is-interactive::after { border-color: var(--success); }
+@keyframes tourPulse {
+  0% { opacity: .85; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+
+/* Tarjeta del coach */
+.tour-card {
+  position: fixed; pointer-events: auto;
+  width: min(380px, calc(100vw - 20px));
+  padding: 14px 16px 14px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  color: var(--text);
+  animation: tourIn .28s cubic-bezier(.34, 1.4, .64, 1) both;
+  transition: top .35s cubic-bezier(.4, 0, .2, 1), left .35s cubic-bezier(.4, 0, .2, 1);
+}
+.tour-card.is-center { width: min(420px, calc(100vw - 20px)); }
+@keyframes tourIn {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+.tour-card-head { display: flex; align-items: flex-end; gap: 10px; }
+.tour-face {
+  flex-shrink: 0; width: 64px; height: 64px; margin-top: -30px; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: end center;
+  background: radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--accent) 30%, var(--surface)) 0%, var(--accent-soft) 70%);
+  border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.tour-card-titles { flex: 1; min-width: 0; padding-bottom: 2px; }
+.tour-step-count { display: block; font-size: 11.5px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
+.tour-title { font-size: 17px; font-weight: 800; line-height: 1.2; color: var(--text-strong, var(--text)); margin: 0; }
+.tour-mute.muted { color: var(--muted); }
+.tour-text { margin: 10px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
+.tour-note { margin: 6px 0 0; font-size: 12.5px; color: var(--accent); font-weight: 600; }
+
+.tour-progress { display: flex; gap: 4px; margin: 12px 0 10px; }
+.tour-progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--border); transition: background .25s; }
+.tour-progress span.done { background: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.tour-progress span.on { background: var(--accent); }
+
+.tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-actions .btn { min-height: 38px; }
+
+/* Recordatorio mientras el formulario del hábito está abierto (no bloquea nada) */
+.tour-hint {
+  position: fixed; z-index: calc(var(--z-celebrate) - 50); left: 0; right: 0; margin: 0 auto; width: fit-content;
+  top: calc(10px + var(--safe-top, 0px));
+  display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 24px);
+  padding: 6px 14px 6px 6px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3); pointer-events: none;
+  animation: tourIn .25s ease both;
+}
+.tour-hint-face { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; background: #fff; flex-shrink: 0; }
+
+@media (max-width: 639.98px) {
+  .tour-card { padding: 12px 14px; }
+  .tour-text { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot, .tour-card { transition: none; }
+  .tour-spot::after { animation: none; }
+  .tour-card, .tour-hint, .tour-dim-full { animation: none; }
+}

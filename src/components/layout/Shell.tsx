@@ -41,6 +41,7 @@ import { useElapsed } from '@/lib/timer';
 import { TimerCompletionWatcher } from './TimerCompletionWatcher';
 import { WelcomeModal } from '@/components/modals/WelcomeModal';
 import { FloatingCoachChat } from '@/components/coach/FloatingCoachChat';
+import { AppTour } from '@/components/tour/AppTour';
 import { BrandMark, BrandWordmark } from '@/components/ui/BrandMark';
 import { CoachIcon } from '@/components/ui/icons';
 import { useCoachPersona } from '@/components/coach/coachPersona';
@@ -217,7 +218,7 @@ export const Shell: React.FC = () => {
 
         <nav className="side-nav">
           {navGroups.map((group) => (
-            <div key={group.label} className="nav-group">
+            <div key={group.label} className="nav-group" data-tour={`group:${group.label}`}>
               <span className="nav-group-label">{group.label}</span>
               {group.items.map((item) => (
                 <NavLink
@@ -225,6 +226,7 @@ export const Shell: React.FC = () => {
                   to={item.to}
                   end={item.to === '/'}
                   data-no-sound="true"
+                  data-tour={`nav:${item.to}`}
                   className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                   title={item.label}
                   aria-label={item.to === '/logros' && medalPending ? `${item.label}${ALERT_LABEL}` : undefined}
@@ -332,6 +334,7 @@ export const Shell: React.FC = () => {
               to={to}
               end={to === '/'}
               data-no-sound="true"
+              data-tour={`nav:${to}`}
               className={({ isActive }) => `bottom-tab ${isActive ? 'active' : ''}`}
             >
               <item.icon size={20} aria-hidden="true" />
@@ -342,6 +345,7 @@ export const Shell: React.FC = () => {
         <button
           type="button"
           className={`bottom-tab ${moreActive ? 'active' : ''}`}
+          data-tour="nav-more"
           onClick={() => setShowMore(true)}
           aria-haspopup="dialog"
           aria-expanded={showMore}
@@ -422,6 +426,9 @@ export const Shell: React.FC = () => {
 
       {/* BIENVENIDA DEL PRIMER USO */}
       <WelcomeModal />
+
+      {/* TUTORIAL GUIADO (tras la bienvenida, o desde el panel del creador) */}
+      <AppTour />
 
       {/* CHAT FLOTANTE DEL COACH (todas las páginas excepto la suya) */}
       <FloatingCoachChat />
