@@ -730,8 +730,9 @@ describe('agujeros cerrados en la revisión', () => {
     const fns = await db.sql<{ f: string }>(`
       select p.oid::regprocedure::text as f from pg_proc p
       where p.pronamespace = 'public'::regnamespace and p.prorettype <> 'trigger'::regtype
-        and has_function_privilege('anon', p.oid, 'execute')`);
-    expect(fns).toEqual([]);
+        and has_function_privilege('anon', p.oid, 'execute') order by 1`);
+    // Única excepción: calificar la app desde /descargar sin cuenta (0008_calificaciones.sql)
+    expect(fns).toEqual([{ f: 'app_rating_summary()' }, { f: 'rate_app(uuid,integer)' }]);
     const rels = await db.sql<{ r: string }>(`
       select c.relname as r from pg_class c
       where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'v', 'S')

@@ -1,15 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Apple, Download, Globe, Monitor, Smartphone } from 'lucide-react';
+import {
+  Apple, CalendarDays, Check, Download, Droplet, Flame, Gem, Gift, Globe, Medal, MessageCircle, Monitor, Smartphone,
+  Sparkles, Star, Timer, Trophy, Volume2,
+} from 'lucide-react';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { CoachAvatar } from '@/components/coach/CoachAvatar';
 import '@fontsource/inter/latin-900.css';
+import { fetchRatingSummary, ratingsAvailable, type RatingSummary } from '@/lib/appRating';
+import { RatingPanel, RatingSeal, type RatingState } from './DownloadRating';
 import './download.css';
 
 /**
  * PÁGINA PÚBLICA DE DESCARGA (/descargar), sin cuenta.
- * Un cartel de colores planos: «¡Ponte las pilas!» partido entre dos campos de color, el selector de dispositivo en
- * grande (detecta el de quien visita y el botón descarga directamente su instalador), lo que hace la app, capturas
- * reales y las dudas de instalación.
+ * Un cartel de colores planos: «¡Ponte las pilas!» partido entre dos campos de color con el sello de la calificación,
+ * el selector de dispositivo en grande (detecta el de quien visita y el botón descarga directamente su instalador),
+ * lo que hace la app, capturas reales (computador y celular), las dudas como un chat con Pilo y las estrellas para
+ * calificar (DownloadRating.tsx).
  *
  * Los instaladores se publican en GitHub Releases (ver .github/workflows/release.yml y docs/guia-instaladores.md, 7.3).
  * `VITE_DOWNLOADS_URL` apunta a la última versión (`…/releases/latest`). Cada versión lleva los instaladores con un
@@ -60,9 +66,9 @@ const PLATFORMS: Platform[] = [
     kind: 'install',
     files: [{ label: 'Descargar para Android', file: ASSETS.android }],
     steps: [
-      <>Abre el archivo <strong>Pilas-Android.apk</strong> desde las descargas.</>,
-      <>Si Android lo pide, permite instalar apps de esa fuente: la app no está en Google Play.</>,
-      <>Pulsa <strong>Instalar</strong> y abre ¡Pilas!.</>,
+      <>Abre <strong>Pilas-Android.apk</strong> desde las descargas del celular.</>,
+      <>Si Android te pide permiso, dale: la app todavía no está en Google Play.</>,
+      <>Toca <strong>Instalar</strong> y listo, abre ¡Pilas!.</>,
     ],
   },
   {
@@ -73,8 +79,8 @@ const PLATFORMS: Platform[] = [
     files: [{ label: 'Descargar para Windows', file: ASSETS.windows }],
     steps: [
       <>Abre <strong>Pilas-Windows.exe</strong>.</>,
-      <>Si sale «Windows protegió tu PC», pulsa <strong>Más información → Ejecutar de todas formas</strong>.</>,
-      <>Sigue el instalador: no pide permisos de administrador.</>,
+      <>Si sale «Windows protegió tu PC», dale a <strong>Más información → Ejecutar de todas formas</strong>.</>,
+      <>Sigue el instalador. No te pide permisos de administrador.</>,
     ],
   },
   {
@@ -99,8 +105,8 @@ const PLATFORMS: Platform[] = [
     files: [],
     steps: [
       <>Abre la app web en <strong>Safari</strong>.</>,
-      <>Pulsa el botón <strong>Compartir</strong>.</>,
-      <>Elige <strong>Añadir a pantalla de inicio</strong>: queda como una app más.</>,
+      <>Toca el botón <strong>Compartir</strong>.</>,
+      <>Elige <strong>Añadir a pantalla de inicio</strong> y te queda como una app más.</>,
     ],
   },
   {
@@ -116,14 +122,77 @@ const PLATFORMS: Platform[] = [
   },
 ];
 
-const FEATURES: [string, string][] = [
-  ['Hábitos', 'De tiempo, de cantidad o de sí o no'],
-  ['Rachas', 'Una llama que crece cada día que cumples'],
-  ['Puntos', 'Canjéalos por los premios que tú elijas'],
-  ['Pilo', 'Tu coach, con consejos y voz'],
-  ['Ligas', 'Compite con otras personas cada semana'],
-  ['Logros', 'Medallas para coleccionar'],
+interface Feature {
+  word: string;
+  fact: string;
+  detail: string;
+  chips: { icon: React.ReactNode; label: string }[];
+}
+
+const FEATURES: Feature[] = [
+  {
+    word: 'Hábitos',
+    fact: 'Mídelos como te funcione',
+    detail: 'Por tiempo, por cantidad o de sí o no: leer 20 minutos, tomarte 8 vasos de agua o tender la cama. Tú decides qué días tocan.',
+    chips: [
+      { icon: <Timer aria-hidden />, label: '20 min' },
+      { icon: <Droplet aria-hidden />, label: '8 vasos' },
+      { icon: <Check aria-hidden />, label: 'Sí o no' },
+    ],
+  },
+  {
+    word: 'Rachas',
+    fact: 'Una llama que crece contigo',
+    detail: 'Cada día que cumples, la racha suma y la llama se pone más grande. ¿Fallaste un día? Tranqui, arrancas otra vez.',
+    chips: [
+      { icon: <Flame aria-hidden />, label: 'Día a día' },
+      { icon: <CalendarDays aria-hidden />, label: 'Tu semana' },
+    ],
+  },
+  {
+    word: 'Puntos',
+    fact: 'Date tus gusticos',
+    detail: 'Cada hábito cumplido te da puntos. Cámbialos por los premios que tú mismo pones: una película, un postre, una tarde libre.',
+    chips: [
+      { icon: <Star aria-hidden />, label: 'Puntos' },
+      { icon: <Gift aria-hidden />, label: 'Tus premios' },
+    ],
+  },
+  {
+    word: 'Pilo',
+    fact: 'Un coach que sí te habla',
+    detail: 'Te da consejos, te responde con ideas rápidas y te anima con su propia voz. Si prefieres, te acompaña Pila.',
+    chips: [
+      { icon: <MessageCircle aria-hidden />, label: 'Chat' },
+      { icon: <Volume2 aria-hidden />, label: 'Con voz' },
+    ],
+  },
+  {
+    word: 'Ligas',
+    fact: 'Compite cada semana',
+    detail: 'Suma puntos con tus hábitos y mídete con otras personas. Cada semana puedes subir de Bronce hasta Diamante.',
+    chips: [
+      { icon: <Trophy aria-hidden />, label: 'Bronce' },
+      { icon: <Gem aria-hidden />, label: 'Diamante' },
+    ],
+  },
+  {
+    word: 'Logros',
+    fact: 'Medallas para coleccionar',
+    detail: 'Desbloquea medallas por tus rachas, tus semanas perfectas y todo lo que vas logrando. Cada una cuenta tu historia.',
+    chips: [
+      { icon: <Medal aria-hidden />, label: 'Medallas' },
+      { icon: <Sparkles aria-hidden />, label: 'Semana perfecta' },
+    ],
+  },
 ];
+
+const DESKTOP_SHOT = {
+  src: '/capturas/computador.webp',
+  alt: 'Pantalla de inicio de ¡Pilas! en el computador, con el menú a un lado y el progreso del día',
+  width: 1440,
+  height: 900,
+};
 
 const SHOTS: { src: string; alt: string; caption: string }[] = [
   { src: '/capturas/inicio.webp', alt: 'Pantalla de inicio de ¡Pilas! con el progreso del día y los puntos', caption: 'Tu día de un vistazo' },
@@ -132,32 +201,33 @@ const SHOTS: { src: string; alt: string; caption: string }[] = [
   { src: '/capturas/recompensas.webp', alt: 'Tienda de recompensas con los puntos disponibles y el nivel', caption: 'Tus puntos se canjean' },
 ];
 
-const FAQ: { tab: string; q: string; a: React.ReactNode }[] = [
-  { tab: 'Precio', q: '¿Cuesta algo?', a: 'No. ¡Pilas! es gratis en todos los dispositivos, sin anuncios ni suscripciones.' },
+const FAQ: { q: string; a: React.ReactNode }[] = [
+  { q: '¿Cuánto cuesta?', a: 'Nada. ¡Pilas! es gratis en todos los dispositivos: sin anuncios y sin suscripciones.' },
   {
-    tab: 'Windows',
     q: '¿Por qué Windows dice «Windows protegió tu PC»?',
     a: (
       <>
-        Porque el instalador no lleva un certificado de pago. Pulsa <strong>Más información</strong> y después{' '}
+        Porque el instalador no tiene un certificado de pago, nada más. Dale a <strong>Más información</strong> y luego a{' '}
         <strong>Ejecutar de todas formas</strong>.
       </>
     ),
   },
   {
-    tab: 'Android',
-    q: '¿Por qué Android pide permiso para instalarla?',
-    a: 'La app no está en Google Play. Permite instalar desde tu navegador o tu gestor de archivos, pulsa Instalar y listo.',
+    q: '¿Por qué Android me pide permiso para instalarla?',
+    a: 'Porque todavía no está en Google Play. Dale permiso a tu navegador o a tu gestor de archivos, toca Instalar y listo.',
   },
   {
-    tab: 'iPhone y Mac',
     q: '¿Y en iPhone, iPad o Mac?',
-    a: 'Usa la app web: en Safari, Compartir → Añadir a pantalla de inicio. En Mac, Archivo → Añadir al Dock.',
+    a: (
+      <>
+        Usas la app web. En Safari: <strong>Compartir → Añadir a pantalla de inicio</strong>. En Mac:{' '}
+        <strong>Archivo → Añadir al Dock</strong>. Queda como una app más.
+      </>
+    ),
   },
   {
-    tab: 'Cuenta',
     q: '¿Necesito una cuenta?',
-    a: 'Sí, una cuenta gratis con tu correo. Así tus hábitos, rachas y puntos se sincronizan entre tus dispositivos.',
+    a: 'Sí, una gratis con tu correo. Así tus hábitos, rachas y puntos te siguen a todos tus dispositivos.',
   },
 ];
 
@@ -184,10 +254,28 @@ function useReveal() {
   return ref;
 }
 
+/** Media y número de votos: se piden una vez y se actualizan al votar */
+function useRating() {
+  const [state, setState] = useState<RatingState>(ratingsAvailable ? { status: 'loading' } : { status: 'error' });
+  useEffect(() => {
+    if (!ratingsAvailable) return;
+    let alive = true;
+    fetchRatingSummary()
+      .then((summary) => alive && setState({ status: 'ready', summary }))
+      .catch(() => alive && setState({ status: 'error' }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const onRated = (summary: RatingSummary) => setState({ status: 'ready', summary });
+  return [state, onRated] as const;
+}
+
 export const DownloadPage: React.FC = () => {
   const detected = useMemo(detectOs, []);
   const [os, setOs] = useState<Os>(detected);
-  const [openFaq, setOpenFaq] = useState(0);
+  const [openFaq, setOpenFaq] = useState<Set<number>>(() => new Set([0]));
+  const [rating, onRated] = useRating();
   const rootRef = useReveal();
   const platform = PLATFORMS.find((p) => p.id === os)!;
   const primary = PLATFORMS.find((p) => p.id === detected)!;
@@ -196,6 +284,14 @@ export const DownloadPage: React.FC = () => {
   useEffect(() => {
     document.title = 'Descarga ¡Pilas! · Hábitos, rachas y un coach';
   }, []);
+
+  const toggleFaq = (i: number) =>
+    setOpenFaq((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
 
   const segRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const onSegKey = (e: React.KeyboardEvent, i: number) => {
@@ -209,7 +305,7 @@ export const DownloadPage: React.FC = () => {
 
   return (
     <div className="dl" ref={rootRef}>
-      {/* 1 · Cartel: dos campos de color y el grito partido por la línea de flotación */}
+      {/* 1 · Cartel: dos campos de color, el grito partido por la línea de flotación y el sello de la calificación */}
       <header className="dl-hero">
         <nav className="dl-bar" aria-label="¡Pilas!">
           <a className="dl-brand" href="/" aria-label="¡Pilas!, abrir la app web">
@@ -240,13 +336,19 @@ export const DownloadPage: React.FC = () => {
 
         <div className="dl-hero-foot">
           <p className="dl-lede">
-            ¡Pilas! es la app gratis para cumplir tus hábitos: enciende tu racha cada día, gana puntos para darte gustos y deja que
-            Pilo, tu coach, te guíe.
+            ¡Pilas! es la app gratis para cumplir tus hábitos: prende tu racha cada día, gana puntos para darte tus gusticos y deja
+            que Pilo, tu coach, te eche una mano.
           </p>
-          <a className="dl-btn dl-btn-ink" href="#descargar">
-            {primary.icon} {primary.kind === 'web' ? `Usar en ${primary.label}` : `Descargar para ${primary.label}`}
-          </a>
+          <div className="dl-hero-ctas">
+            <a className="dl-btn dl-btn-ink" href="#descargar">
+              {primary.icon} {primary.kind === 'web' ? `Usar en ${primary.label}` : `Descargar para ${primary.label}`}
+            </a>
+            <a className="dl-btn dl-btn-glass" href="#calificar">
+              <Star aria-hidden /> Calificar
+            </a>
+          </div>
         </div>
+        <RatingSeal state={rating} />
         <div className="dl-pilo" aria-hidden="true">
           <CoachAvatar gender="male" crop="bust" size={260} expression="happy" gesture="wave" gestureKey={1} followPointer={false} />
         </div>
@@ -258,8 +360,8 @@ export const DownloadPage: React.FC = () => {
           <div className="dl-get-head dl-reveal">
             <h2 id="dl-get-title">{platform.kind === 'web' ? 'Úsala en tu navegador' : 'Descárgala en tu dispositivo'}</h2>
             <p>
-              {os === detected ? 'Ya elegimos el tuyo.' : `Elegiste ${platform.label}.`} Cambia si la quieres en otro: es la misma
-              cuenta en todos.
+              {os === detected ? 'Ya te elegimos el tuyo.' : `Elegiste ${platform.label}.`} ¿La quieres en otro? Cámbialo aquí: es la
+              misma cuenta en todos.
             </p>
           </div>
 
@@ -285,104 +387,171 @@ export const DownloadPage: React.FC = () => {
           </div>
 
           <div className="dl-reveal">
-          {/* Al cambiar de dispositivo el bloque se vuelve a montar con su propia entrada (dl-swap) */}
-          <div className="dl-get-body dl-swap" key={platform.id}>
-            <div className="dl-get-actions">
-              {platform.kind === 'web' ? (
-                <a className="dl-btn dl-btn-ink dl-btn-xl" href="/">
-                  <Globe aria-hidden /> Abrir la app web
-                </a>
-              ) : published ? (
-                platform.files.map((f, i) => (
-                  <a
-                    key={f.file}
-                    className={`dl-btn dl-btn-xl ${i === 0 ? 'dl-btn-ink' : 'dl-btn-line'}`}
-                    href={fileUrl(f.file) ?? undefined}
-                    download={f.file}
-                  >
-                    <Download aria-hidden /> {f.label}
+            {/* Al cambiar de dispositivo el bloque se vuelve a montar con su propia entrada (dl-swap) */}
+            <div className="dl-get-body dl-swap" key={platform.id}>
+              <div className="dl-get-actions">
+                {platform.kind === 'web' ? (
+                  <a className="dl-btn dl-btn-ink dl-btn-xl" href="/">
+                    <Globe aria-hidden /> Abrir la app web
                   </a>
-                ))
-              ) : (
-                <p className="dl-soon">Los instaladores se publican muy pronto. Mientras tanto, usa la app web.</p>
-              )}
-              {platform.kind === 'install' && published && <span className="dl-file">{platform.files.map((f) => f.file).join(' · ')}</span>}
+                ) : published ? (
+                  platform.files.map((f, i) => (
+                    <a
+                      key={f.file}
+                      className={`dl-btn dl-btn-xl ${i === 0 ? 'dl-btn-ink' : 'dl-btn-line'}`}
+                      href={fileUrl(f.file) ?? undefined}
+                      download={f.file}
+                    >
+                      <Download aria-hidden /> {f.label}
+                    </a>
+                  ))
+                ) : (
+                  <p className="dl-soon">Los instaladores salen muy pronto. Mientras tanto, usa la app web.</p>
+                )}
+                {platform.kind === 'install' && published && <span className="dl-file">{platform.files.map((f) => f.file).join(' · ')}</span>}
+              </div>
+              <ol className="dl-steps">
+                {platform.steps.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ol>
             </div>
-            <ol className="dl-steps">
-              {platform.steps.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ol>
-          </div>
           </div>
         </div>
       </section>
 
-      {/* 3 · Lo que hace, como un cartel: palabras enormes a la izquierda, el dato a la derecha */}
+      {/* 3 · Lo que hace, como un cartel: la palabra enorme a la izquierda; qué hace y ejemplos a la derecha */}
       <section className="dl-what" aria-labelledby="dl-what-title">
         <div className="dl-wrap">
           <h2 id="dl-what-title" className="dl-reveal">
             Lo que hace por ti
           </h2>
           <ul className="dl-poster">
-            {FEATURES.map(([word, fact]) => (
-              <li key={word} className="dl-reveal">
-                <span className="dl-poster-word">{word}</span>
-                <span className="dl-poster-fact">{fact}</span>
+            {FEATURES.map((f) => (
+              <li key={f.word} className="dl-reveal">
+                <span className="dl-poster-word">{f.word}</span>
+                <div className="dl-poster-text">
+                  <p className="dl-poster-fact">{f.fact}</p>
+                  <p className="dl-poster-detail">{f.detail}</p>
+                  <ul className="dl-chips" aria-label={`Ejemplos de ${f.word}`}>
+                    {f.chips.map((c) => (
+                      <li key={c.label}>
+                        {c.icon}
+                        {c.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {/* 4 · Capturas reales de la app, recortadas e inclinadas */}
+      {/* 4 · Capturas reales: el computador en el centro y los celulares alrededor */}
       <section className="dl-look" aria-labelledby="dl-look-title">
         <div className="dl-wrap">
           <div className="dl-look-head dl-reveal">
             <h2 id="dl-look-title">Así se ve por dentro</h2>
-            <p>Cuatro pantallas de la app con datos de ejemplo. En Windows y en el navegador se ve igual, solo que más ancha.</p>
+            <p>
+              Échale un ojo con datos de ejemplo. En el computador es la misma app que en el celular, solo que con más espacio para
+              verlo todo de una.
+            </p>
           </div>
         </div>
-        <ul className="dl-shots">
-          {SHOTS.map((s) => (
-            <li key={s.src} className="dl-reveal">
-              <figure>
-                <img src={s.src} alt={s.alt} width={390} height={844} loading="lazy" decoding="async" />
-                <figcaption>{s.caption}</figcaption>
-              </figure>
-            </li>
-          ))}
-        </ul>
+        <div className="dl-stage">
+          <figure className="dl-laptop dl-reveal">
+            <div className="dl-laptop-screen">
+              <img
+                src={DESKTOP_SHOT.src}
+                alt={DESKTOP_SHOT.alt}
+                width={DESKTOP_SHOT.width}
+                height={DESKTOP_SHOT.height}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <div className="dl-laptop-base" aria-hidden="true" />
+            <figcaption>En el computador, con todo el espacio</figcaption>
+          </figure>
+          <ul className="dl-shots">
+            {SHOTS.map((s) => (
+              <li key={s.src} className="dl-reveal">
+                <figure>
+                  <img src={s.src} alt={s.alt} width={390} height={844} loading="lazy" decoding="async" />
+                  <figcaption>{s.caption}</figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
-      {/* 5 · Dudas, archivadas como fichas con pestaña */}
+      {/* 5 · Dudas: un chat con Pilo. Cada pregunta se abre y se cierra con suavidad */}
       <section className="dl-faq" aria-labelledby="dl-faq-title">
         <div className="dl-wrap">
-          <h2 id="dl-faq-title" className="dl-reveal">
-            Antes de instalar
-          </h2>
-          <div className="dl-cards">
-            {FAQ.map((f, i) => {
-              const open = openFaq === i;
-              return (
-                <div key={f.tab} className={`dl-card c${i % 3}${open ? ' is-open' : ''}`} style={{ '--i': i } as React.CSSProperties}>
-                  <h3>
-                    <button type="button" aria-expanded={open} aria-controls={`dl-faq-${i}`} onClick={() => setOpenFaq(open ? -1 : i)}>
-                      <span className="dl-card-tab">{f.tab}</span>
-                      <span className="dl-card-q">{f.q}</span>
-                    </button>
-                  </h3>
-                  <div id={`dl-faq-${i}`} className="dl-card-a" hidden={!open}>
-                    <p>{f.a}</p>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="dl-faq-intro dl-reveal">
+            <h2 id="dl-faq-title">Antes de instalar</h2>
+            <p>¿Te quedó alguna duda? Pregúntale a Pilo: toca una pregunta y él te cuenta.</p>
+            <div className="dl-faq-pilo" aria-hidden="true">
+              <CoachAvatar gender="male" crop="bust" size={220} expression="happy" followPointer />
+            </div>
+          </div>
+          <div className="dl-chat dl-reveal">
+            <div className="dl-chat-head" aria-hidden="true">
+              <span className="dl-chat-face">
+                <CoachAvatar gender="male" crop="head" size={44} expression="happy" followPointer={false} lively={false} />
+              </span>
+              <span className="dl-chat-who">
+                <strong>Pilo</strong>
+                <span className="dl-chat-status">en línea</span>
+              </span>
+            </div>
+            <ul className="dl-chat-list">
+              {FAQ.map((f, i) => {
+                const open = openFaq.has(i);
+                return (
+                  <li key={i} className={`dl-chat-item${open ? ' is-open' : ''}`}>
+                    <h3>
+                      <button type="button" className="dl-bubble-q" aria-expanded={open} aria-controls={`dl-faq-${i}`} onClick={() => toggleFaq(i)}>
+                        <span>{f.q}</span>
+                        <span className="dl-bubble-sign" aria-hidden="true" />
+                      </button>
+                    </h3>
+                    <div id={`dl-faq-${i}`} className="dl-chat-a" role="region" aria-label={f.q} inert={!open}>
+                      <div className="dl-chat-a-in">
+                        <p className="dl-bubble-a">
+                          <span className="dl-typing" aria-hidden="true">
+                            <i />
+                            <i />
+                            <i />
+                          </span>
+                          <span className="dl-bubble-text">{f.a}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* 6 · Cierre: el nombre a todo lo ancho */}
+      {/* 6 · Calificación: solo estrellas y la media */}
+      <section id="calificar" className="dl-rate" aria-labelledby="dl-rate-title">
+        <div className="dl-wrap">
+          <div className="dl-rate-box dl-reveal">
+            <div className="dl-rate-head">
+              <h2 id="dl-rate-title">¿Qué tal te parece?</h2>
+              <p>Ponle tu nota a ¡Pilas!. Es un voto por equipo y, si cambias de opinión, lo cambias cuando quieras.</p>
+            </div>
+            <RatingPanel state={rating} onRated={onRated} />
+          </div>
+        </div>
+      </section>
+
+      {/* 7 · Cierre: el nombre a todo lo ancho */}
       <footer className="dl-foot">
         <div className="dl-wrap">
           <p className="dl-foot-name" aria-hidden="true">
@@ -391,6 +560,7 @@ export const DownloadPage: React.FC = () => {
           <div className="dl-foot-row">
             <nav className="dl-foot-links" aria-label="Más de ¡Pilas!">
               <a href="#descargar">Descargar</a>
+              <a href="#calificar">Calificar</a>
               <a href="/">Abrir la app web</a>
               {DOWNLOADS_URL && (
                 <a href={DOWNLOADS_URL} target="_blank" rel="noreferrer">
@@ -398,7 +568,7 @@ export const DownloadPage: React.FC = () => {
                 </a>
               )}
             </nav>
-            <p className="dl-foot-note">Gratis, sin anuncios. Necesitas una cuenta con tu correo para sincronizar tus datos.</p>
+            <p className="dl-foot-note">Gratis y sin anuncios. Solo necesitas una cuenta con tu correo para tener tus datos en todos lados.</p>
           </div>
         </div>
       </footer>
