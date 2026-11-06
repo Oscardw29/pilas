@@ -1,7 +1,9 @@
 # Publica una versión: al subir una etiqueta v* (p. ej. `git tag v2.0.0 && git push --tags`)
 # compila Windows (.exe), Linux (.AppImage/.deb) y Android (.apk firmado) y los adjunta a un
-# borrador de GitHub Release. Cada instalador va también con un nombre fijo (Pilas-Windows.exe, Pilas-Android.apk,
-# Pilas-Linux.AppImage, Pilas-Linux.deb): la página /descargar los descarga directamente de la última versión publicada. Gratis en repos públicos (2000 min/mes en privados).
+# borrador de GitHub Release. Un solo archivo por plataforma y siempre con el mismo nombre (Pilas-Windows.exe,
+# Pilas-Android.apk, Pilas-Linux.AppImage, Pilas-Linux.deb): la página /descargar los baja directamente de la última versión
+# publicada (…/releases/latest/download/<nombre>). El número de versión va en el título de la versión, no en el archivo.
+# Gratis en repos públicos (2000 min/mes en privados).
 # La versión de los instaladores sale de la etiqueta (scripts/set-version.mjs): no hace falta cambiarla a mano.
 #
 # Secretos del repositorio (Settings → Secrets and variables → Actions):
@@ -24,7 +26,22 @@ env:
   VITE_DOWNLOADS_URL: ${{ vars.VITE_DOWNLOADS_URL }}
 
 jobs:
+  # Crea el borrador una sola vez (si ya existe, lo deja): los demás trabajos solo suben su archivo a él
+  draft:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Borrador de la versión
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "${{ github.repository }}" --draft --verify-tag \
+              --title "¡Pilas! $TAG" \
+              --notes "Descarga el instalador para tu sistema. iOS y macOS: usa la app web (Añadir a pantalla de inicio / Añadir al Dock)."
+
   desktop:
+    needs: draft
     strategy:
       fail-fast: false
       matrix:
@@ -49,15 +66,11 @@ jobs:
       - name: Versión desde la etiqueta
         run: node scripts/set-version.mjs "${{ github.ref_name }}"
       - run: npm test
+      # Solo compila: sin `tagName` no sube nada (así no aparecen copias con el número en el nombre)
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '¡Pilas! ${{ github.ref_name }}'
-          releaseBody: 'Descarga el instalador para tu sistema. iOS y macOS: usa la app web (Añadir a pantalla de inicio / Añadir al Dock).'
-          releaseDraft: true
-      # Copias con nombre fijo: /descargar las enlaza con …/releases/latest/download/<nombre> (descarga directa)
+      # Nombre fijo: /descargar los enlaza con …/releases/latest/download/<nombre> (descarga directa)
       - name: Instaladores con nombre fijo
         shell: bash
         run: |
@@ -69,13 +82,14 @@ jobs:
             cp "$(ls $b/appimage/*.AppImage | head -1)" fixed/Pilas-Linux.AppImage
             cp "$(ls $b/deb/*.deb | head -1)" fixed/Pilas-Linux.deb
           fi
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          draft: true
-          files: fixed/*
+      - name: Subir al borrador
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" fixed/* --clobber --repo "${{ github.repository }}"
 
   android:
+    needs: draft
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -101,15 +115,11 @@ jobs:
         run: npm run android:apk
       - name: Nombre del APK
         run: |
-          cp android/app/build/outputs/apk/release/*-signed.apk "Pilas-${{ github.ref_name }}.apk"
           cp android/app/build/outputs/apk/release/*-signed.apk Pilas-Android.apk
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          draft: true
-          files: |
-            Pilas-${{ github.ref_name }}.apk
-            Pilas-Android.apk
+      - name: Subir al borrador
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" Pilas-Android.apk --clobber --repo "${{ github.repository }}"
       - name: Borrar keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/pilas-release.jks"

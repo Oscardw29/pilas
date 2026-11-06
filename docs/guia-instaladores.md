@@ -303,7 +303,9 @@ sube la versión en los dos archivos del recuadro de abajo.
    **15–30 minutos**: compila Windows, Linux y Android a la vez. Al terminar, el círculo se vuelve un **✓ verde**.
    Si sale una **✗ roja**, ábrelo, copia el error y pásamelo.
 3. Pestaña **Code** → a la derecha, **Releases** → aparece **¡Pilas! v2.0.0** con la etiqueta **Draft** (borrador).
-   Dentro, en **Assets**, verás: `Pilas_2.0.0_x64-setup.exe`, `Pilas_2.0.0_amd64.AppImage`, `pilas_2.0.0_amd64.deb` y `Pilas-v2.0.0.apk`.
+   Dentro, en **Assets**, verás un archivo por plataforma, siempre con el mismo nombre: `Pilas-Windows.exe`,
+   `Pilas-Android.apk`, `Pilas-Linux.AppImage` y `Pilas-Linux.deb` (el número de versión va en el título, no en el archivo:
+   así los botones de la página de descargas nunca se rompen).
 4. Pulsa el **lápiz (Edit)**, revisa el texto y pulsa **Publish release**. Ya es pública.
 5. El enlace que siempre apunta a la última versión es: `https://github.com/Oscardw29/pilas/releases/latest`.
 
