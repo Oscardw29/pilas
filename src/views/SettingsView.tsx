@@ -24,11 +24,8 @@ import {
   ChevronDown,
   X,
   Bell,
-  Clock,
-  Flame,
   Sun,
   Moon,
-  Droplets,
   Eye,
   EyeOff,
   Play,
@@ -50,20 +47,19 @@ import { LockedKeysCard } from '../components/settings/LockedKeysCard';
 import { useAppAi } from '../lib/appAi';
 import { BackupCard } from '../components/settings/BackupCard';
 import { AccountCard } from '../components/settings/AccountCard';
-import { AnimationTestCard } from '../components/settings/AnimationTestCard';
 import { Modal } from '../components/ui/Modal';
 import { useIsCreator } from '../lib/creator';
 import { MAX_ACTIVE_HABITS } from '../lib/limits';
 import '../components/profile/profile.css';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { CustomTimePicker } from '../components/ui/CustomTimePicker';
 import { fetchAvailableModels, PRESET_MODELS, ModelOption } from '../lib/gemini';
 import { checkDeepgramKey, checkTtsKey, type VoiceCheckResult } from '../lib/voiceCheck';
 import { resolveCoachVoice, speakCoach, stopCoachVoice, unlockCoachVoice, useCoachSpeaking } from '../lib/coachVoice';
 import { playSound } from '../lib/sound';
 import { PRESET_TTS_MODELS } from '../lib/ttsPresets';
 import {
+  DEFAULT_NOTIFICATIONS,
   getNotificationPermission,
   requestNotificationPermission,
 } from '../lib/notifications';
@@ -180,7 +176,9 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   const userName = personalName.trim() || 'Usuario';
   const userGender: UserGender = personalGender || 'other';
   const isCreator = useIsCreator();
+  // Si la app ya trae las claves del creador (panel del creador › IA de la app), Ajustes no muestra esas secciones
   const appHasAi = useAppAi((s) => Boolean(s.status.llm));
+  const appHasVoice = useAppAi((s) => Boolean(s.status.tts));
   const [askFailReason, setAskFailReason] = useState(settings.askFailReason);
 
   // IA Settings
@@ -420,17 +418,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
     getNotificationPermission()
   );
   const [notifEnabled, setNotifEnabled] = useState(settings.notifications?.enabled ?? true);
-  const [habitReminders, setHabitReminders] = useState(settings.notifications?.habitReminders ?? true);
-  const [streakReminder, setStreakReminder] = useState(settings.notifications?.streakReminder ?? true);
-  const [streakReminderTime, setStreakReminderTime] = useState(settings.notifications?.streakReminderTime ?? '20:30');
-  const [coachReminder, setCoachReminder] = useState(settings.notifications?.coachReminder ?? true);
-  const [coachReminderTime, setCoachReminderTime] = useState(settings.notifications?.coachReminderTime ?? '16:30');
-  const [morningReminder, setMorningReminder] = useState(settings.notifications?.morningReminder ?? true);
-  const [morningReminderTime, setMorningReminderTime] = useState(settings.notifications?.morningReminderTime ?? '08:00');
-  const [middayReminder, setMiddayReminder] = useState(settings.notifications?.middayReminder ?? true);
-  const [middayReminderTime, setMiddayReminderTime] = useState(settings.notifications?.middayReminderTime ?? '13:30');
-  const [nightReminder, setNightReminder] = useState(settings.notifications?.nightReminder ?? true);
-  const [nightReminderTime, setNightReminderTime] = useState(settings.notifications?.nightReminderTime ?? '22:00');
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
 
   // Modales de confirmación
@@ -510,9 +497,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
   // Instantánea de todo lo editable del formulario: si difiere de la última guardada, hay cambios pendientes
   const formSnapshot = JSON.stringify([
     personalName, personalGender, alias, askFailReason, aiPlatform, geminiApiKey, geminiModel, backupModel, ttsPlatform, ttsApiKey, ttsModel, ttsVoiceId,
-    deepgramApiKey, soundEnabled, soundVolume, notifEnabled, habitReminders, streakReminder, streakReminderTime,
-    coachReminder, coachReminderTime, morningReminder, morningReminderTime, middayReminder, middayReminderTime,
-    nightReminder, nightReminderTime,
+    deepgramApiKey, soundEnabled, soundVolume, notifEnabled,
   ]);
   const savedSnapshot = useRef(formSnapshot);
   const [, setSavedTick] = useState(0);
@@ -609,20 +594,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       ttsVoiceId: ttsVoiceId.trim(),
       soundEnabled,
       soundVolume,
-      notifications: {
-        enabled: notifEnabled,
-        habitReminders,
-        streakReminder,
-        streakReminderTime,
-        coachReminder,
-        coachReminderTime,
-        morningReminder,
-        morningReminderTime,
-        middayReminder,
-        middayReminderTime,
-        nightReminder,
-        nightReminderTime,
-      },
+      // Aquí solo se enciende o apaga: horas y tipos de recordatorio se ajustan en el panel del creador
+      notifications: { ...DEFAULT_NOTIFICATIONS, ...settings.notifications, enabled: notifEnabled },
     });
 
     // Las claves se guardan aparte (almacén de secretos, cifrado si está activado)
@@ -949,7 +922,8 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
-        {/* INTELIGENCIA ARTIFICIAL MULTI-MODELO */}
+        {/* INTELIGENCIA ARTIFICIAL MULTI-MODELO (oculta si la app ya incluye IA) */}
+        {!appHasAi && (
         <div className="card highlight" style={{ border: '1px solid rgba(139, 92, 246, 0.35)' }}>
           <div className="card-head">
             <div className="row">
@@ -1103,7 +1077,7 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
               <span className="hint">
                 {secretsLocked
                   ? 'Tus claves están cifradas: recupéralas con tu contraseña en el aviso de arriba para editarlas.'
-                  : `${appHasAi ? 'La app ya incluye IA: tu clave es opcional y, si la pones, se usa la tuya. ' : ''}Al ingresar tu API key se detectan automáticamente los modelos disponibles en tu cuenta. Se guarda solo en este navegador y nunca se incluye en los respaldos.`}
+                  : `Al ingresar tu API key se detectan automáticamente los modelos disponibles en tu cuenta. Se guarda solo en este navegador y nunca se incluye en los respaldos.`}
               </span>
             </div>
 
@@ -1178,7 +1152,10 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
-        {/* VOZ Y DICTADO NEURONAL (TTS Y STT) */}
+        )}
+
+        {/* VOZ Y DICTADO NEURONAL (TTS Y STT) (oculta si la app ya incluye voz) */}
+        {!appHasVoice && (
         <div className="card">
           <div className="card-head">
             <div className="row">
@@ -1495,46 +1472,46 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
           </div>
         </div>
 
-        {/* NOTIFICACIONES (para todos): solo encender o apagar */}
-        {!isCreator && (
-          <div className="card">
-            <div className="card-head">
-              <div className="row">
-                <Bell size={18} style={{ color: 'var(--accent-2)' }} />
-                <div>
-                  <div className="card-title">Notificaciones</div>
-                  <div className="card-sub">Recordatorios de tus hábitos y de tu racha mientras la app está abierta</div>
-                </div>
+        )}
+
+        {/* NOTIFICACIONES (para todos): solo encender o apagar. El detalle y las pruebas están en el panel del creador */}
+        <div className="card">
+          <div className="card-head">
+            <div className="row">
+              <Bell size={18} style={{ color: 'var(--accent-2)' }} />
+              <div>
+                <div className="card-title">Notificaciones</div>
+                <div className="card-sub">Recordatorios de tus hábitos y de tu racha mientras la app está abierta</div>
               </div>
-              {notifPermission !== 'granted' && notifPermission !== 'denied' && notifPermission !== 'unsupported' && notifEnabled && (
-                <button type="button" className="btn btn-primary sm" onClick={handleRequestPermission} disabled={isRequestingPermission}>
-                  <Bell size={13} /> Permitir
-                </button>
-              )}
             </div>
-            <label className="custom-switch">
-              <input
-                type="checkbox"
-                checked={notifEnabled}
-                onChange={(e) => {
-                  setNotifEnabled(e.target.checked);
-                  playSound.pop();
-                }}
-              />
-              <span className="custom-switch-track">
-                <span className="custom-switch-thumb" />
-              </span>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>
-                {notifEnabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
-              </span>
-            </label>
-            {notifPermission === 'denied' && notifEnabled && (
-              <p className="hint" style={{ marginTop: 8 }}>
-                El permiso está bloqueado en el sistema: actívalo en los ajustes del navegador o del dispositivo.
-              </p>
+            {notifPermission !== 'granted' && notifPermission !== 'denied' && notifPermission !== 'unsupported' && notifEnabled && (
+              <button type="button" className="btn btn-primary sm" onClick={handleRequestPermission} disabled={isRequestingPermission}>
+                <Bell size={13} /> Permitir
+              </button>
             )}
           </div>
-        )}
+          <label className="custom-switch">
+            <input
+              type="checkbox"
+              checked={notifEnabled}
+              onChange={(e) => {
+                setNotifEnabled(e.target.checked);
+                playSound.pop();
+              }}
+            />
+            <span className="custom-switch-track">
+              <span className="custom-switch-thumb" />
+            </span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>
+              {notifEnabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
+            </span>
+          </label>
+          {notifPermission === 'denied' && notifEnabled && (
+            <p className="hint" style={{ marginTop: 8 }}>
+              El permiso está bloqueado en el sistema: actívalo en los ajustes del navegador o del dispositivo.
+            </p>
+          )}
+        </div>
 
         {/* EFECTOS DE SONIDO EN LA INTERFAZ (solo cuenta del creador) */}
         {isCreator && (
@@ -1642,310 +1619,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
 
         )}
 
-        {/* NOTIFICACIONES DEL SISTEMA (WINDOWS Y CELULARES): detalle solo para la cuenta del creador */}
-        {isCreator && (
-        <div className="card" style={{ borderTop: '3px solid var(--accent)' }}>
-          <div className="card-head">
-            <div className="row">
-              <Bell size={18} style={{ color: 'var(--accent-2)' }} />
-              <div>
-                <div className="card-title">Notificaciones del Sistema (Windows y Celulares)</div>
-                <div className="card-sub">
-                  Alertas nativas del sistema operativo: recordatorios a tu hora exacta, racha activa y mensajes de {personaFor(userGender).name} con variantes
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {notifPermission === 'granted' ? (
-                <span
-                  className="badge"
-                  style={{
-                    background: 'rgba(16, 185, 129, 0.18)',
-                    color: 'var(--success)',
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                >
-                  Concedido en el sistema
-                </span>
-              ) : notifPermission === 'denied' ? (
-                <span
-                  className="badge"
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.18)',
-                    color: 'var(--danger)',
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                >
-                  Bloqueado en el navegador / SO
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary sm"
-                  onClick={handleRequestPermission}
-                  disabled={isRequestingPermission}
-                >
-                  <Bell size={13} /> Activar permisos del sistema
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="form">
-            {/* Toggle Maestro */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-2)' }}>
-              <label className="custom-switch">
-                <input
-                  type="checkbox"
-                  checked={notifEnabled}
-                  onChange={(e) => {
-                    setNotifEnabled(e.target.checked);
-                    playSound.pop();
-                  }}
-                />
-                <span className="custom-switch-track">
-                  <span className="custom-switch-thumb" />
-                </span>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>
-                  Activar notificaciones del sistema en este dispositivo
-                </span>
-              </label>
-              <span
-                className="badge"
-                style={{
-                  background: notifEnabled ? 'rgba(139, 92, 246, 0.18)' : 'rgba(100, 100, 100, 0.18)',
-                  color: notifEnabled ? 'var(--accent-2)' : 'var(--muted)',
-                  fontWeight: 600,
-                  padding: '3px 10px',
-                  borderRadius: 12,
-                }}
-              >
-                {notifEnabled ? 'Habilitadas' : 'Desactivadas'}
-              </span>
-            </div>
-
-            {notifEnabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
-                {/* 1. RECORDATORIOS DE HÁBITOS A SU HORA EXACTA */}
-                <div style={{ padding: 14, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                    <label className="custom-switch">
-                      <input
-                        type="checkbox"
-                        checked={habitReminders}
-                        onChange={(e) => {
-                          setHabitReminders(e.target.checked);
-                          playSound.pop();
-                        }}
-                      />
-                      <span className="custom-switch-track">
-                        <span className="custom-switch-thumb" />
-                      </span>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>
-                        Recordatorios de hábitos en su hora fijada
-                      </span>
-                    </label>
-
-                  </div>
-                  <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Dispara una notificación del sistema a la hora programada en cada hábito si aún no lo has completado hoy. Cada recordatorio rota entre distintas frases para evitar la monotonía.
-                  </p>
-                </div>
-
-                {/* 2. ALERTA DE RACHA ACTIVA */}
-                <div style={{ padding: 14, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                    <label className="custom-switch">
-                      <input
-                        type="checkbox"
-                        checked={streakReminder}
-                        onChange={(e) => {
-                          setStreakReminder(e.target.checked);
-                          playSound.pop();
-                        }}
-                      />
-                      <span className="custom-switch-track">
-                        <span className="custom-switch-thumb" />
-                      </span>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Flame size={15} style={{ color: 'var(--warning)' }} />
-                        Alerta para mantener la racha activa
-                      </span>
-                    </label>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Hora:</span>
-                      <div style={{ width: 140 }}>
-                        <CustomTimePicker
-                          value={streakReminderTime}
-                          onChange={(t) => setStreakReminderTime(t)}
-                          disabled={!streakReminder}
-                          size="sm"
-                          align="right"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Te avisa si tienes hábitos pendientes antes de que termine el día, recordándote que incluso la versión mínima salva tu racha consecutiva.
-                  </p>
-                </div>
-
-                {/* 3. MENSAJE DEL COACH IA */}
-                <div style={{ padding: 14, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                    <label className="custom-switch">
-                      <input
-                        type="checkbox"
-                        checked={coachReminder}
-                        onChange={(e) => {
-                          setCoachReminder(e.target.checked);
-                          playSound.pop();
-                        }}
-                      />
-                      <span className="custom-switch-track">
-                        <span className="custom-switch-thumb" />
-                      </span>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Sparkles size={15} style={{ color: 'var(--accent-2)' }} />
-                        Mensaje de {personaFor(userGender).name} con tu nombre ({userName || 'Usuario'})
-                      </span>
-                    </label>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Hora:</span>
-                      <div style={{ width: 140 }}>
-                        <CustomTimePicker
-                          value={coachReminderTime}
-                          onChange={(t) => setCoachReminderTime(t)}
-                          disabled={!coachReminder}
-                          size="sm"
-                          align="right"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                    Envía un mensaje reflexivo y motivacional de {personaFor(userGender).name} con tu nombre real, alternando frases de disciplina, claridad mental y enfoque sin necesidad de consumo de API.
-                  </p>
-                </div>
-
-                {/* 4. RUTINAS CLAVE A LO LARGO DEL DÍA */}
-                <div>
-                  <span className="label" style={{ marginBottom: 8, display: 'block' }}>
-                    Otras notificaciones clave del día (con variantes):
-                  </span>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-                    {/* Impulso Matutino */}
-                    <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border-2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <label className="custom-switch">
-                          <input
-                            type="checkbox"
-                            checked={morningReminder}
-                            onChange={(e) => setMorningReminder(e.target.checked)}
-                          />
-                          <span className="custom-switch-track">
-                            <span className="custom-switch-thumb" />
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Sun size={14} style={{ color: 'var(--warning)' }} /> Impulso Matutino
-                          </span>
-                        </label>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <CustomTimePicker
-                            value={morningReminderTime}
-                            onChange={(t) => setMorningReminderTime(t)}
-                            disabled={!morningReminder}
-                            size="sm"
-                            align="left"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Pausa Mediodía */}
-                    <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border-2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <label className="custom-switch">
-                          <input
-                            type="checkbox"
-                            checked={middayReminder}
-                            onChange={(e) => setMiddayReminder(e.target.checked)}
-                          />
-                          <span className="custom-switch-track">
-                            <span className="custom-switch-thumb" />
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Droplets size={14} style={{ color: 'var(--info)' }} /> Pausa e Hidratación
-                          </span>
-                        </label>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <CustomTimePicker
-                            value={middayReminderTime}
-                            onChange={(t) => setMiddayReminderTime(t)}
-                            disabled={!middayReminder}
-                            size="sm"
-                            align="left"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Descanso Noche */}
-                    <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border-2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <label className="custom-switch">
-                          <input
-                            type="checkbox"
-                            checked={nightReminder}
-                            onChange={(e) => setNightReminder(e.target.checked)}
-                          />
-                          <span className="custom-switch-track">
-                            <span className="custom-switch-thumb" />
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Moon size={14} style={{ color: 'var(--accent-2)' }} /> Cierre y Descanso
-                          </span>
-                        </label>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <CustomTimePicker
-                            value={nightReminderTime}
-                            onChange={(t) => setNightReminderTime(t)}
-                            disabled={!nightReminder}
-                            size="sm"
-                            align="left"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Banner Informativo */}
-                <div style={{ fontSize: 12, color: 'var(--muted)', background: 'rgba(139, 92, 246, 0.08)', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(139, 92, 246, 0.2)', lineHeight: 1.45 }}>
-                  <strong>Notificaciones nativas del sistema:</strong> Las notificaciones se envían directamente al Centro de Actividades de Windows y a la bandeja de notificaciones en celulares (Android / iOS) mediante Web Notifications y Service Worker. No son alertas simuladas dentro de la página.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        )}
-
         {/* Botón Guardar */}
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
           <button type="submit" className="btn btn-primary lg">
@@ -1957,8 +1630,6 @@ const SettingsForm: React.FC<{ onDataReplaced: () => void }> = ({ onDataReplaced
       <AccountCard />
 
       <BackupCard onDataReplaced={onDataReplaced} />
-
-      {isCreator && <AnimationTestCard />}
 
       {/* Acciones destructivas / Restablecer datos (solo cuenta del creador) */}
       {isCreator && (
