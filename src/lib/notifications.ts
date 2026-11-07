@@ -1,4 +1,4 @@
-import type { Habit } from '@/types';
+import type { Habit, NotificationSettings } from '@/types';
 import { useStore } from '@/store/useStore';
 import { isScheduled, getLog, isDoneLog, calculateGlobalStreak } from '@/lib/metrics';
 import { todayKey } from '@/lib/dates';
@@ -13,6 +13,22 @@ export interface NotificationPayload {
   tag?: string;
   data?: Record<string, unknown>;
 }
+
+/** Valores por defecto de los recordatorios (los mismos que usa checkReminders si falta un ajuste) */
+export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  enabled: true,
+  habitReminders: true,
+  streakReminder: true,
+  streakReminderTime: '20:30',
+  coachReminder: true,
+  coachReminderTime: '16:30',
+  morningReminder: true,
+  morningReminderTime: '08:00',
+  middayReminder: true,
+  middayReminderTime: '13:30',
+  nightReminder: true,
+  nightReminderTime: '22:00',
+};
 
 // Clave en localStorage para recordar notificaciones ya enviadas hoy
 const SENT_STORAGE_KEY = 'constancia_sent_notifications_v1';
