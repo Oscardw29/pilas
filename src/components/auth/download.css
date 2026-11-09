@@ -237,6 +237,16 @@ html:has(.dl) { scroll-behavior: smooth; }
 .dl-poster > li:hover .dl-chips svg { color: var(--dl-yellow); }
 
 /* ---------- 4 · Capturas reales: computador al centro y celulares alrededor ---------- */
+/* Video de presentación: el fondo de la app y el video grande en un marco redondo */
+.dl-film { padding: clamp(80px, 10vw, 160px) 0; }
+.dl-film-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.dl-film-head p { font-size: var(--t-body); font-weight: 500; color: var(--dl-soft); max-width: 30em; justify-self: end; }
+.dl-film-frame {
+  margin: clamp(36px, 5vw, 64px) auto 0; max-width: 1280px; border-radius: var(--radius); overflow: hidden;
+  background: var(--dl-deep); box-shadow: 0 40px 90px -30px rgba(124, 58, 237, .55);
+}
+.dl-film-frame video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--dl-deep); }
+
 .dl-look { background: var(--dl-violet); color: var(--dl-paper); padding: clamp(96px, 12vw, 180px) 0 clamp(110px, 13vw, 200px); overflow: hidden; }
 .dl-look-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: end; }
 .dl-look-head p { font-size: var(--t-body); font-weight: 500; max-width: 30em; justify-self: end; }
@@ -460,8 +470,8 @@ html:has(.dl) { scroll-behavior: smooth; }
   .dl-poster-word { font-size: 15vw; }
   .dl-poster-fact { font-size: 20px; }
 
-  .dl-look-head { grid-template-columns: minmax(0, 1fr); }
-  .dl-look-head p { justify-self: start; }
+  .dl-look-head, .dl-film-head { grid-template-columns: minmax(0, 1fr); }
+  .dl-look-head p, .dl-film-head p { justify-self: start; }
   .dl-laptop figcaption { font-size: var(--t-small); margin-top: 14px; }
   /* Los cuatro celulares a la vista, en dos columnas escalonadas (nada que deslizar de lado) */
   .dl-shots { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 16px; margin-top: 36px; padding: 0; }
