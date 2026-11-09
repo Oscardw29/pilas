@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { handleFishTts } from './api/_fishRelay';
 
@@ -77,11 +79,26 @@ const fishRelayPlugin = (): Plugin => {
     };
   };
 
+/**
+ * El video de presentación (public/video) solo lo usa la página de descargas, que existe únicamente en la web.
+ * En las compilaciones de Android (Capacitor) y escritorio (Tauri) se borra de dist para no engordar la APK ni el instalador.
+ */
+const webOnlyMediaPlugin = (): Plugin => {
+  let outDir = 'dist';
+  return {
+    name: 'pilas-web-only-media',
+    apply: 'build',
+    configResolved: (config) => void (outDir = config.build.outDir),
+    closeBundle: () => rmSync(join(outDir, 'video'), { recursive: true, force: true }),
+  };
+};
+
   export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), 'VITE_');
     const csp = buildCsp(supabaseOrigin(env.VITE_SUPABASE_URL));
+    const native = mode === 'capacitor' || mode === 'tauri';
     return {
-    plugins: [react(), ...(mode === 'tauri' ? [] : [cspPlugin(csp)]), fishRelayPlugin()],
+    plugins: [react(), ...(mode === 'tauri' ? [] : [cspPlugin(csp)]), fishRelayPlugin(), ...(native ? [webOnlyMediaPlugin()] : [])],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },

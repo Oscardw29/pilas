@@ -354,7 +354,29 @@ export const DownloadPage: React.FC = () => {
         </div>
       </header>
 
-      {/* 2 · Lo vivo de la página: el selector de dispositivo en grande */}
+      {/* 2 · El video de presentación (46 s). Solo en la web: las compilaciones nativas no llevan public/video (vite.config.ts) */}
+      <section className="dl-film" aria-labelledby="dl-film-title">
+        <div className="dl-wrap">
+          <div className="dl-film-head dl-reveal">
+            <h2 id="dl-film-title">Míralo en 46 segundos</h2>
+            <p>Del «mañana empiezo» a tu racha prendida. Dale play con sonido: Pilo te habla.</p>
+          </div>
+          <div className="dl-film-frame dl-reveal">
+            <video
+              src="/video/pilas-presentacion.mp4"
+              poster="/video/pilas-presentacion.webp"
+              controls
+              playsInline
+              preload="none"
+              width={1920}
+              height={1080}
+              aria-label="Video de presentación de ¡Pilas!"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 3 · Lo vivo de la página: el selector de dispositivo en grande */}
       <section id="descargar" className={`dl-get is-${platform.kind}`} aria-labelledby="dl-get-title">
         <div className="dl-wrap">
           <div className="dl-get-head dl-reveal">
@@ -420,7 +442,7 @@ export const DownloadPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3 · Lo que hace, como un cartel: la palabra enorme a la izquierda; qué hace y ejemplos a la derecha */}
+      {/* 4 · Lo que hace, como un cartel: la palabra enorme a la izquierda; qué hace y ejemplos a la derecha */}
       <section className="dl-what" aria-labelledby="dl-what-title">
         <div className="dl-wrap">
           <h2 id="dl-what-title" className="dl-reveal">
@@ -448,7 +470,7 @@ export const DownloadPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4 · Capturas reales: el computador en el centro y los celulares alrededor */}
+      {/* 5 · Capturas reales: el computador en el centro y los celulares alrededor */}
       <section className="dl-look" aria-labelledby="dl-look-title">
         <div className="dl-wrap">
           <div className="dl-look-head dl-reveal">
@@ -487,7 +509,7 @@ export const DownloadPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 5 · Dudas: un chat con Pilo. Cada pregunta se abre y se cierra con suavidad */}
+      {/* 6 · Dudas: un chat con Pilo. Cada pregunta se abre y se cierra con suavidad */}
       <section className="dl-faq" aria-labelledby="dl-faq-title">
         <div className="dl-wrap">
           <div className="dl-faq-intro dl-reveal">
@@ -538,7 +560,7 @@ export const DownloadPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 6 · Calificación: solo estrellas y la media */}
+      {/* 7 · Calificación: solo estrellas y la media */}
       <section id="calificar" className="dl-rate" aria-labelledby="dl-rate-title">
         <div className="dl-wrap">
           <div className="dl-rate-box dl-reveal">
@@ -551,7 +573,7 @@ export const DownloadPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 7 · Cierre: el nombre a todo lo ancho */}
+      {/* 8 · Cierre: el nombre a todo lo ancho */}
       <footer className="dl-foot">
         <div className="dl-wrap">
           <p className="dl-foot-name" aria-hidden="true">
